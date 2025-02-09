@@ -2640,7 +2640,7 @@ Protected Module LLMod
 		      'MsgBox ("sudo desktop-file-install --dir=/usr/share/applications " + FileOut)
 		      RunSudo ("sudo update-desktop-database /usr/share/applications")
 		      RunSudo ("sudo xdg-mime default " + APP + ".desktop application/x-" + APP)
-		      RunSudo ("sudo update-icon-caches /usr/share/icons/*")
+		      'RunSudo ("sudo update-icon-caches /usr/share/icons/*") 'This is WAY too slow to do all the time, disabled!!!!
 		    End If
 		    
 		    Shelly.Execute ("desktop-file-install --dir=$HOME/.local/share/applications " + FileOut)
