@@ -52,6 +52,18 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub ChMod(FileIn As String, Codes As String)
+		  ShellFast.Execute("chmod "+Codes+" "+Chr(34)+FileIn+Chr(34))
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub ChModSudo(FileIn As String, Codes As String)
+		  RunSudo ("chmod "+Codes+" "+Chr(34)+FileIn+Chr(34))
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub CleanTemp()
 		  If Debugging Then Debug("--- Starting Clean Temp ---")
 		  
@@ -1918,6 +1930,22 @@ Protected Module LLMod
 		  End Select
 		  
 		  Return IsTrue
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function IsWritable(PathIn As String) As Boolean
+		  Dim F As FolderItem
+		  Dim Writable As Boolean
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    F = GetFolderItem(PathIn)
+		    Writable = F.IsWriteable
+		  Catch
+		    Writable = False
+		  End Try
+		  #Pragma BreakOnExceptions On
+		  Return Writable
 		End Function
 	#tag EndMethod
 
@@ -3980,6 +4008,7 @@ Protected Module LLMod
 		        T = TextOutputStream.Create(F)
 		        T.Write(Data)
 		        T.Close
+		        If TargetLinux Then ChMod(FileIn, "777") 'Make at least the File editable by everyone
 		      End If
 		    End If
 		  Catch
@@ -4309,6 +4338,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		BoldTitle As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		CancelDownloading As Boolean = False
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -4857,6 +4890,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		WinWget As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		WritableAppPath As Boolean = True
 	#tag EndProperty
 
 

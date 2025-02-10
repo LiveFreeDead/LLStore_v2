@@ -206,10 +206,21 @@ End
 		  End If
 		  
 		  TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
+		  CancelDownloading = False
 		  While Downloading = True
 		    App.DoEvents(3)
-		    If System.Microseconds >= TimeOut Then Exit 'Timeout after 5 seconds
+		    If System.Microseconds >= TimeOut Then
+		      CancelDownloading = True
+		      Exit 'Timeout after 5 seconds
+		    End If
+		    
+		    If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
+		      Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
+		      Exit
+		    End If
+		    
 		  Wend
+		  
 		  
 		  OnlineVersionS = LoadDataFromFile(Slash(TmpPath)+"version.ini").Trim
 		  
@@ -242,28 +253,32 @@ End
 		    
 		    While Downloading 'Wait for download to finish
 		      App.DoEvents(1)
+		      
+		      If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
+		        Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
+		        Exit
+		      End If
+		      
 		    Wend
 		    
 		    If TargetWindows Then
 		      'Do Windows .exe
 		      If Exist(Slash(TmpPath)+"llstore_latest.zip") Then
 		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"llstore.exe"+Chr(34) + " "+"llstoreold.exe") 'Rename
-		        ''ShellFast.Execute ("move /y "+Chr(34)+Slash(TmpPath).ReplaceAll("/","\")+"llstore.exe"+Chr(34) + " "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+Chr(34)) 'Move 
+		        
 		        'Extract full package here now I've renamed the main executable that is in use (Libraries may still crash things, we'll see)
 		        Success = Extract(Slash(TmpPath)+"llstore_latest.zip",AppPath, "")
 		      End If
 		      
 		    Else 'Linux
 		      If Exist(Slash(TmpPath)+"llstore_latest.zip") Then
-		        '''Rename Existing as it's running
+		        'Rename Existing as it's running
 		        ShellFast.Execute ("mv -f "+Chr(34)+Slash(AppPath)+"llstore"+Chr(34) + " "+Chr(34)+Slash(AppPath)+"llstoreold"+Chr(34)) 'Move
-		        ''''Replace Original and Make Executable
-		        '''ShellFast.Execute ("mv -f "+Chr(34)+Slash(TmpPath)+"llstore"+Chr(34) + " "+Chr(34)+Slash(AppPath)+"llstore"+Chr(34)) 'Move 
 		        
 		        'Extract full package here now I've renamed the main executable that is in use (Libraries may still crash things, we'll see)
 		        Success = Extract(Slash(TmpPath)+"llstore_latest.zip",AppPath, "")
 		        
-		        ShellFast.Execute ("chmod 775 "+Chr(34)+Slash(AppPath)+"llstore"+Chr(34)) 'Change Read/Write/Execute to defaults
+		        ShellFast.Execute ("chmod 777 "+Chr(34)+Slash(AppPath)+"llstore"+Chr(34)) 'Change Read/Write/Execute to defaults
 		      End If
 		    End If
 		    'ReRun the newer Store version
@@ -290,16 +305,22 @@ End
 		      Loading.Status.Text = "Updating Executables" +CurrentVersionS+ " to " + OnlineVersionS
 		      Loading.Refresh
 		      App.DoEvents(1)
-		      If App.MajorVersion = 1 Then
-		        GetOnlineFile ("https://github.com/LiveFreeDead/LLStore/raw/refs/heads/main/llstore",Slash(TmpPath)+"llstore")
-		        GetOnlineFile ("https://github.com/LiveFreeDead/LLStore/raw/refs/heads/main/llstore.exe",Slash(TmpPath)+"llstore.exe")
+		      If App.MajorVersion = 1 Then ' Changed below so it only updates the current running exe, no point in a Linux user constantly updating the windows exe
+		        If TargetWindows = False Then GetOnlineFile ("https://github.com/LiveFreeDead/LLStore/raw/refs/heads/main/llstore",Slash(TmpPath)+"llstore")
+		        If TargetWindows = True Then GetOnlineFile ("https://github.com/LiveFreeDead/LLStore/raw/refs/heads/main/llstore.exe",Slash(TmpPath)+"llstore.exe")
 		      Else
-		        GetOnlineFile ("https://github.com/LiveFreeDead/LLStore_v2/raw/refs/heads/main/llstore",Slash(TmpPath)+"llstore")
-		        GetOnlineFile ("https://github.com/LiveFreeDead/LLStore_v2/raw/refs/heads/main/llstore.exe",Slash(TmpPath)+"llstore.exe")
+		        If TargetWindows = False Then GetOnlineFile ("https://github.com/LiveFreeDead/LLStore_v2/raw/refs/heads/main/llstore",Slash(TmpPath)+"llstore")
+		        If TargetWindows = True Then GetOnlineFile ("https://github.com/LiveFreeDead/LLStore_v2/raw/refs/heads/main/llstore.exe",Slash(TmpPath)+"llstore.exe")
 		      End If
 		      
 		      While Downloading 'Wait for download to finish
 		        App.DoEvents(1)
+		        
+		        If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
+		          Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
+		          Exit
+		        End If
+		        
 		      Wend
 		      
 		      If TargetWindows Then
@@ -320,7 +341,7 @@ End
 		          ShellFast.Execute ("mv -f "+Chr(34)+Slash(AppPath)+"llstore"+Chr(34) + " "+Chr(34)+Slash(AppPath)+"llstoreold"+Chr(34)) 'Move
 		          'Replace Original and Make Executable
 		          ShellFast.Execute ("mv -f "+Chr(34)+Slash(TmpPath)+"llstore"+Chr(34) + " "+Chr(34)+Slash(AppPath)+"llstore"+Chr(34)) 'Move 
-		          ShellFast.Execute ("chmod 775 "+Chr(34)+Slash(AppPath)+"llstore"+Chr(34)) 'Change Read/Write/Execute to defaults
+		          ShellFast.Execute ("chmod 777 "+Chr(34)+Slash(AppPath)+"llstore"+Chr(34)) 'Change Read/Write/Execute to defaults
 		        End If
 		        
 		        'Now do Windows .exe
@@ -347,7 +368,6 @@ End
 		    Else
 		      'Continue without quitting
 		    End If 
-		    
 		    
 		  End If
 		End Sub
@@ -1137,8 +1157,17 @@ End
 		      CurrentDBURL = Sp(I).ReplaceAll(".lldb/lldb.ini", "") 'Only want the parent, not the sub path and file
 		      If Left (Sp(I).Trim,1) = "#" Then Continue 'Skip remarked Repo's
 		      GetOnlineFile (Sp(I), Slash(RepositoryPathLocal)+UniqueName)
+		      
+		      TimeOut = System.Microseconds + (15 *1000000) 'Set Timeout after 15 seconds
+		      CancelDownloading = False
+		      
 		      While Downloading
 		        App.DoEvents(1)
+		        
+		        If System.Microseconds >= TimeOut Then
+		          CancelDownloading = True
+		          Exit 'Timeout after 15 seconds, incase net is slow, I give extra seconds to skip each of them
+		        End If
 		        
 		        If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
 		          Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
@@ -2062,6 +2091,8 @@ End
 		    Deltree(DBOutPath) 'Kill Previous Database if writable media.
 		    MakeFolder(DBOutPath) 'Make sure it exist again
 		    
+		    If IsWritable(DBOutPath) = False Then Continue 'No point in Generating the new Database file as it can't be save to a path that isn't writable
+		    
 		    DBOutText=""
 		    For K = 0 To Data.Items.ColumnCount -2 'Changed this from -1 to -2 to ignore the Sorting Column
 		      DBOutText=DBOutText + Data.Items.HeaderAt(K)+"|"
@@ -2140,6 +2171,8 @@ End
 		    Next
 		    'Save File
 		    SaveDataToFile (DBOutText, DBOutPath+"lldb.ini")
+		    'Change Permissions
+		    If TargetLinux Then ChMod(DBOutPath,"-R 777") ' DB files should be full accessible to everyone, else how can they update them?
 		  Next
 		  
 		End Sub
@@ -2197,7 +2230,6 @@ End
 		          DataOut = DataOut + "MetaFont=" + Main.MetaData.FontSize.ToString+Chr(10)
 		          
 		          SaveDataToFile (DataOut, FileOut)
-		          
 		        End If
 		      End If
 		    End If
@@ -2350,12 +2382,16 @@ End
 		    
 		    'Check For Updates
 		    'Msgbox RunningInIDE.ToString
-		    If Settings.SetCheckForUpdates.Value = True And RunningInIDE = False Then
+		    
+		    WritableAppPath = IsWritable(AppPath) 'This checks to see if the current user can write to the path, if not it skips updating it
+		    
+		    If Settings.SetCheckForUpdates.Value = True And RunningInIDE = False And WritableAppPath = True Then
 		      Loading.Status.Text = "Check For Store Updates..."
 		      Loading.Refresh
 		      App.DoEvents(1)
 		      CheckForLLStoreUpdates
 		    End IF
+		    If Debugging Then Debug ("Writable AppPath: " + WritableAppPath.ToString)
 		    
 		    'Get Scan Paths Here
 		    Loading.Status.Text = "Scanning Drives..."
@@ -2719,6 +2755,11 @@ End
 		          App.DoEvents(1)
 		          If ForceQuit Then Exit 'Exit loop if quitting 'As the Loading screen allows force quitting, this is a problem, so I disable quitting while it's in use. Needs to be allowed so it quits when switching to Admin mode in Windows.
 		          
+		          If CancelDownloading = True Then
+		            CancelDownloading = False ' Reset Flag when it's used, why not?
+		            Exit 'Allows Some Downloads To TimeOut
+		          End If
+		          
 		          If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Exit 'If Shell says done, then exit loop
 		          If DownloadShell.IsRunning = False Then Exit 'Disabled for testing purposes
 		          
@@ -3044,6 +3085,12 @@ End
 		      MakeFolder(F.NativePath)
 		    Catch
 		    End Try
+		  End If
+		  
+		  'Make sure temp paths and debug log is accessiable to all
+		  if TargetLinux then
+		    ChMod(Slash(RepositoryPathLocal), "-R 777")
+		    ChMod(TmpPath, "-R 777")
 		  End If
 		  
 		  'Enable Debugger
