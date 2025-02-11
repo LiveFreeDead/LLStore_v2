@@ -5162,7 +5162,8 @@ End
 		              If Not Exist(InFile) Then 'If doesn't have the compressed file make it still
 		                If ItemLLItem.NoInstall = False Then 
 		                  Status.Text =  "Compressing Files..."
-		                  Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"--exclude=*.jpg "+ "--exclude=*.png "+"--exclude=*.mp4 "+"--exclude=*.svg "+"--exclude=*.ico "+"-czf "+Chr(34)+OutFile+Chr(34)+" *"
+		                  'Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"--exclude=*.jpg "+ "--exclude=*.png "+"--exclude=*.mp4 "+"--exclude=*.svg "+"--exclude=*.ico "+"-czf "+Chr(34)+OutFile+Chr(34)+" *"
+		                  Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"-czf "+Chr(34)+OutFile+Chr(34)+" *" 'Can NOT exclude all png's etc, it leaves them missing from the sub folders too, they may be needed
 		                  Sh.Execute (Commands)
 		                  While Sh.IsRunning
 		                    App.DoEvents(1)
@@ -5181,7 +5182,8 @@ End
 		            If Not Exist(InFile) Then 'If doesn't have the compressed file make it still
 		              If  ItemLLItem.NoInstall = False Then 
 		                Status.Text =  "Compressing Files..."
-		                Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"--exclude=*.jpg "+ "--exclude=*.png "+"--exclude=*.mp4 "+"--exclude=*.svg "+"--exclude=*.ico "+"-czf "+Chr(34)+OutFile+Chr(34)+" *"
+		                'Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"--exclude=*.jpg "+ "--exclude=*.png "+"--exclude=*.mp4 "+"--exclude=*.svg "+"--exclude=*.ico "+"-czf "+Chr(34)+OutFile+Chr(34)+" *"
+		                Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"-czf "+Chr(34)+OutFile+Chr(34)+" *"
 		                Sh.Execute (Commands)
 		                While Sh.IsRunning
 		                  App.DoEvents(1)
@@ -5325,7 +5327,8 @@ End
 		            If Not Exist(InFile) Then 'If doesn't have the compressed file make it still
 		              If ItemLLItem.NoInstall = False Then 
 		                Status.Text =  "Compressing Files..."
-		                Commands = Win7z +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+InFolder+"* "+"-x!"+BT+".* "+"-x!"+"*.jpg "+"-x!"+"*.png "+"-x!"+"*.mp4 "+"-x!"+"*.svg "+"-x!"+"*.ico" ' -m0=lzma2 -mx=2  Faster but less compressed
+		                'Commands = Win7z +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+InFolder+"* "+"-x!"+BT+".* "+"-x!"+"*.jpg "+"-x!"+"*.png "+"-x!"+"*.mp4 "+"-x!"+"*.svg "+"-x!"+"*.ico" ' -m0=lzma2 -mx=2  Faster but less compressed
+		                Commands = Win7z +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+InFolder+"* "+"-x!"+BT+".* " ' -m0=lzma2 -mx=2  Faster but less compressed
 		                If Debugging Then Debug (Commands)
 		                Res = RunCommandResults(Commands)
 		                If Debugging Then Debug (Res)
