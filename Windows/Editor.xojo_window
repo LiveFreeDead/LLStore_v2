@@ -5070,12 +5070,14 @@ End
 		  If EditorOnly = True Then
 		    ForceQuit = True
 		    'EditorOnly = False 'No
+		    EditingItem = False
 		    Editor.Hide
 		    'QuitApp
 		    Return False ' Just let it quit
 		  End If
 		  
 		  If ForceQuit = False Then
+		    EditingItem = False
 		    Me.Hide
 		    Return True
 		  End If
@@ -5562,7 +5564,12 @@ End
 		  
 		  
 		  'Main Window 3 - Assembly
-		  TextInstallToFolder.Text = CompPath(ItemLLItem.PathApp, True)
+		  
+		  'MsgBox ItemLLItem.PathApp 'It's already expanded by here ,So I'll need to set the LLFileLoad to not expand the app path when in Edit Mode.
+		  
+		  TextInstallToFolder.Text = CompPath(ItemLLItem.PathApp, True) 'This is breaking it in Linux as editing ssApps it'll change %ProgramFiles% To $HOME/.wine/drive_c/Program Files
+		  
+		  
 		  TextAssembly.Text = ItemLLItem.Assembly.ReplaceAll(Chr(30), Chr(13)) ' Try 13 first as 10 was off before
 		  
 		  TextInstaller.Text = ""

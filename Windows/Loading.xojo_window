@@ -25,7 +25,6 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,7 +65,6 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -75,7 +73,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -84,7 +81,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -3149,6 +3145,7 @@ End
 		  
 		  If Args.IndexOf("lledit") >= 0 Then
 		    StoreMode = 3
+		    EditorOnly = True
 		  End If
 		  
 		  If Args.IndexOf("llfile") >=0 Then Args = Right(Args,Len(Args)-InStrRev(Args,"llfile",-1)-6) 'Will be 0 if it can't find it, meaning it'll keep tthe whole Argments and File name
@@ -3197,10 +3194,14 @@ End
 		      KeepSudo = True
 		    Case "-quit" , "-q"
 		      ForcePostQuit = True
+		    Case "-debug"
+		      Debugging = True 'This forces it to Debug
 		    Case Else
 		      CommandLineFile = CommandLineFile + ArgsSP(I) + " "
 		    End Select
 		  Next
+		  
+		  If EditorOnly = True Then EditingItem = True
 		  
 		  CommandLineFile = CommandLineFile.Trim '(Remove end space)
 		  'Remove Flags from name (I also make sure to have a space after each removal as it causes a issue when removes -Build from a folder with the word LastOS-Builder in it for example.
@@ -3217,6 +3218,7 @@ End
 		  CommandLineFile = CommandLineFile.ReplaceAll("-setup ","")
 		  CommandLineFile = CommandLineFile.ReplaceAll("-s ","")
 		  CommandLineFile = CommandLineFile.ReplaceAll("-quit ","")
+		  CommandLineFile = CommandLineFile.ReplaceAll("-debug ","")
 		  CommandLineFile = CommandLineFile.ReplaceAll("-q ","")
 		  
 		  CommandLineFile = CommandLineFile.ReplaceAll(Chr(34)+"C:\Program Files\LLStore\llstore.exe"+Chr(34),"") 'Remove dodgy path

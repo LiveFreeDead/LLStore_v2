@@ -2206,7 +2206,11 @@ Protected Module LLMod
 		          ItemLLItem.Descriptions = LineData '.ReplaceAll(Chr(30),Chr(13)) 'Disabled converting the Data to CRLF to speed up loading and to make writing the DB files easier
 		          Continue 'Once used Data no need to process the rest
 		        Case "apppath"
-		          ItemLLItem.PathApp = ExpPath(LineData)
+		          If EditingItem Then
+		            ItemLLItem.PathApp = LineData
+		          Else
+		            ItemLLItem.PathApp = ExpPath(LineData)
+		          End If
 		          If TargetWindows Then
 		            ItemLLItem.PathApp = ItemLLItem.PathApp.ReplaceAll("/","\")
 		            If StoreMode = 1 And Not Exist(ItemLLItem.PathApp) Then ItemLLItem.PathApp = ItemLLItem.PathINI ' make sure it's valid
@@ -3813,52 +3817,69 @@ Protected Module LLMod
 		  End If
 		  
 		  If TargetLinux Then
-		    F = GetFolderItem(InstallToPath + "LLScript.sh")
-		    If F.Exists Then  ' Run Linux Script
-		      
-		      ScriptFile = ExpScript (InstallToPath + "LLScript.sh")
-		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
-		      Shelly.Execute("cd " + Chr(34) + InstallToPath + Chr(34) + " ; bash " + Chr(34) + FixPath(F.NativePath) + Chr(34)) 'Use bash over sh. I think it is better
-		      While Shelly.IsRunning
-		        App.DoEvents(7)
-		      Wend
-		      If Debugging Then Debug("Script Return (.sh): "+ Shelly.Result)
-		    End If
-		    
+		    #Pragma BreakOnExceptions Off
+		    Try
+		      F = GetFolderItem(InstallToPath + "LLScript.sh")
+		      If F.Exists Then  ' Run Linux Script
+		        
+		        ScriptFile = ExpScript (InstallToPath + "LLScript.sh")
+		        F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
+		        Shelly.Execute("cd " + Chr(34) + InstallToPath + Chr(34) + " ; bash " + Chr(34) + FixPath(F.NativePath) + Chr(34)) 'Use bash over sh. I think it is better
+		        While Shelly.IsRunning
+		          App.DoEvents(7)
+		        Wend
+		        If Debugging Then Debug("Script Return (.sh): "+ Shelly.Result)
+		      End If
+		    Catch
+		      If Debugging Then Debug("* Error: "+ InstallToPath + "LLScript.sh - Isn't found or invalid path")
+		    End Try
+		    #Pragma BreakOnExceptions On
 		  End If
 		  If  ItemLLItem.BuildType = "ssApp" Then 'Run the Scripts from the InstallFromPath
-		    F = GetFolderItem(InstallFromPath + ItemLLItem.BuildType+".cmd")
-		    If Exist(InstallFromPath + ItemLLItem.BuildType+".cmd") Then 
-		      ScriptFile = ExpScript (InstallFromPath + ItemLLItem.BuildType+".cmd")
-		      
-		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
-		      If TargetWindows Then
-		        Shelly.Execute ("cmd.exe /c",Chr(34)+FixPath(F.NativePath)+Chr(34))
-		      Else
-		        Shelly.Execute("cd " + Chr(34) + InstallFromPath + Chr(34) + " ; wine " + Chr(34) + ScriptFile + Chr(34)) ' Use && Here because if path fails, then script will anyway
+		    #Pragma BreakOnExceptions Off
+		    Try
+		      F = GetFolderItem(InstallFromPath + ItemLLItem.BuildType+".cmd")
+		      If Exist(InstallFromPath + ItemLLItem.BuildType+".cmd") Then 
+		        ScriptFile = ExpScript (InstallFromPath + ItemLLItem.BuildType+".cmd")
+		        
+		        F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
+		        If TargetWindows Then
+		          Shelly.Execute ("cmd.exe /c",Chr(34)+FixPath(F.NativePath)+Chr(34))
+		        Else
+		          Shelly.Execute("cd " + Chr(34) + InstallFromPath + Chr(34) + " ; wine " + Chr(34) + ScriptFile + Chr(34)) ' Use && Here because if path fails, then script will anyway
+		        End If
+		        While Shelly.IsRunning
+		          App.DoEvents(7)
+		        Wend
+		        If Debugging Then Debug("Script Return (ssApp.cmd): "+ Shelly.Result)
 		      End If
-		      While Shelly.IsRunning
-		        App.DoEvents(7)
-		      Wend
-		      If Debugging Then Debug("Script Return (ssApp.cmd): "+ Shelly.Result)
-		    End If
+		    Catch
+		      If Debugging Then Debug("* Error: "+ InstallToPath + "ssApp.cmd - Isn't found or invalid path")
+		    End Try
+		    #Pragma BreakOnExceptions On
 		  Else ' ppApp or ppGame, runs script from the InstallTo Folder
 		    If Debugging Then Debug("Checking for ppApp/Game Script to Run: " + InstallToPath + ItemLLItem.BuildType+".cmd")
-		    F = GetFolderItem(InstallToPath + ItemLLItem.BuildType+".cmd")
-		    If Exist(InstallToPath + ItemLLItem.BuildType+".cmd") Then 
-		      ScriptFile = ExpScript (InstallToPath + ItemLLItem.BuildType+".cmd")
-		      If Debugging Then Debug("Running: "+ ScriptFile)
-		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
-		      If TargetWindows Then
-		        Shelly.Execute ("cmd.exe /c",Chr(34)+FixPath(F.NativePath)+Chr(34))
-		      Else
-		        Shelly.Execute("cd " + Chr(34) + InstallToPath + Chr(34) + " ; wine " + Chr(34) + ScriptFile + Chr(34))
+		    #Pragma BreakOnExceptions Off
+		    Try
+		      F = GetFolderItem(InstallToPath + ItemLLItem.BuildType+".cmd")
+		      If Exist(InstallToPath + ItemLLItem.BuildType+".cmd") Then 
+		        ScriptFile = ExpScript (InstallToPath + ItemLLItem.BuildType+".cmd")
+		        If Debugging Then Debug("Running: "+ ScriptFile)
+		        F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
+		        If TargetWindows Then
+		          Shelly.Execute ("cmd.exe /c",Chr(34)+FixPath(F.NativePath)+Chr(34))
+		        Else
+		          Shelly.Execute("cd " + Chr(34) + InstallToPath + Chr(34) + " ; wine " + Chr(34) + ScriptFile + Chr(34))
+		        End If
+		        While Shelly.IsRunning
+		          App.DoEvents(7)
+		        Wend
+		        If Debugging Then Debug("Script Return ("+ItemLLItem.BuildType+".cmd): "+ Shelly.Result)
 		      End If
-		      While Shelly.IsRunning
-		        App.DoEvents(7)
-		      Wend
-		      If Debugging Then Debug("Script Return ("+ItemLLItem.BuildType+".cmd): "+ Shelly.Result)
-		    End If
+		    Catch
+		      If Debugging Then Debug("* Error: "+ InstallToPath + ItemLLItem.BuildType+".cmd - Isn't found or invalid path")
+		    End Try
+		    #Pragma BreakOnExceptions On
 		  End If
 		End Sub
 	#tag EndMethod
@@ -4470,6 +4491,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		DefaultStartButtonHover As Picture
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		EditingItem As Boolean = False
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -5967,6 +5992,22 @@ Protected Module LLMod
 			Visible=false
 			Group="Behavior"
 			InitialValue=""
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CancelDownloading"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="WritableAppPath"
+			Visible=false
+			Group="Behavior"
+			InitialValue="True"
 			Type="Boolean"
 			EditorType=""
 		#tag EndViewProperty

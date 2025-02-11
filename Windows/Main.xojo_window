@@ -372,6 +372,7 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -428,6 +429,7 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -436,6 +438,7 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -559,6 +562,7 @@ End
 		    Dim Success As Boolean
 		    #Pragma BreakOnExceptions Off
 		    Try
+		      EditingItem = True
 		      Success = LoadLLFile(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("FileINI"))) ', "", True) 'The true means it extracts all the file contents, we'll just update existing ones if open then saving instead of Extracting the big ones
 		      If Success Then
 		        Editor.Left = (Screen(0).AvailableWidth/2) - (Editor.Width /2) 'Centered
@@ -567,6 +571,7 @@ End
 		        Editor.Show
 		      End If
 		    Catch
+		      EditingItem = False
 		    End Try
 		    #Pragma BreakOnExceptions On
 		  End If
@@ -1246,6 +1251,7 @@ End
 		    'Load in Item fully
 		    #Pragma BreakOnExceptions Off
 		    Try
+		      EditingItem = True
 		      Success = LoadLLFile(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("FileINI"))) ', "", True) 'The true means it extracts all the file contents, we'll just update existing ones if open then saving instead of Extracting the big ones
 		      If Success Then
 		        Editor.Left = (Screen(0).AvailableWidth/2) - (Editor.Width /2) 'Centered
@@ -1254,6 +1260,7 @@ End
 		        Editor.Show
 		      End If
 		    Catch
+		      EditingItem = False
 		    End Try
 		    #Pragma BreakOnExceptions On
 		  End Select
