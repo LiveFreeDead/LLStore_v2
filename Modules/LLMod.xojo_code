@@ -2760,6 +2760,7 @@ Protected Module LLMod
 		  
 		  'Sort Catalog to Shortcuts - Windows ItemsOnly
 		  'Get the StartMenu Stuff for ssApps and then for ppApps/Games
+		  'If TargetWindows Then
 		  If ItemLLItem.Catalog <> "" Then
 		    Catalog = ItemLLItem.Catalog.Split("|")
 		    CatalogCount = Catalog.Count - 1
@@ -2779,6 +2780,7 @@ Protected Module LLMod
 		      End If
 		    Next I
 		  End If
+		  'End If
 		  
 		  'Do Link Catalog
 		  If LnkCount > 0 Then
@@ -4560,6 +4562,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		ForceRefreshDBs As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		ForceRefreshDBsShift As Boolean = False
 	#tag EndProperty
 
 	#tag Property, Flags = &h0

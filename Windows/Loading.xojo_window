@@ -25,7 +25,6 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,7 +65,6 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -75,7 +73,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -84,7 +81,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -2856,6 +2852,8 @@ End
 		  
 		  If ForceQuit = True Then Return 'Don't bother even opening if set to quit
 		  
+		  If Keyboard.AsyncShiftKey Then ForceRefreshDBsShift = True
+		  
 		  VeryFirstRunTimer.RunMode = Timer.RunModes.Off ' Disable this timer again
 		  
 		  'Get Consts
@@ -3439,6 +3437,12 @@ End
 		    End If
 		    #Pragma BreakOnExceptions On
 		    Return ' Just get out of here once set to show editor
+		  End If
+		  
+		  'Set Flag if held shift on Startup o it will rescan for items
+		  If ForceRefreshDBsShift = True Then
+		    ForceRefreshDBs = True
+		    ForceRefreshDBsShift = False ' Only do it the once
 		  End If
 		  
 		  'Using a timer at the end of Form open allows it to display, many events hold off other processes until the complete
