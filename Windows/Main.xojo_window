@@ -372,7 +372,6 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -429,7 +428,6 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -438,7 +436,6 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -1573,9 +1570,17 @@ End
 		  CategoriesLabel.Width = Main.Width / 5 - PaddingCat
 		  CategoriesLabel.Height = 16 + PaddingCatTop
 		  
-		  CategoriesLabel.FontName = "Ubuntu"
-		  ItemsLabel.FontName = "Ubuntu"
-		  TitleLabel.FontName = "Ubuntu"
+		  'Handled by Theme
+		  'CategoriesLabel.FontName = "Ubuntu"
+		  'ItemsLabel.FontName = "Ubuntu"
+		  'TitleLabel.FontName = "Ubuntu"
+		  '
+		  'Items.FontName = "Ubuntu"
+		  'Categories.FontName = "Ubuntu"
+		  'MetaData.FontName = "Ubuntu"
+		  'Description.FontName = "Ubuntu"
+		  'Stats.FontName = "Ubuntu"
+		  
 		  
 		  CategoriesLabel.FontSize = (CategoriesLabel.Height/4.5)+8
 		  ItemsLabel.FontSize = CategoriesLabel.FontSize
@@ -2703,16 +2708,21 @@ End
 		  'Open URL if click anywhere on MetaData
 		  Dim I As Integer
 		  Dim Urls() As String
-		  If Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("URL")) <> "" Then
-		    Urls() = Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("URL")).Split("|")
-		    If Urls.Count >= 0 Then
-		      For I = 0 To Urls.Count - 1
-		        System.GotoURL(Urls(I).Trim)
-		      Next
-		    Else
-		      System.GotoURL(Urls(0).Trim)
+		  #Pragma BreakOnExceptions Off
+		  Try 'If you click the Meta to open URL will crash when first ran as the URL is empty
+		    If Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("URL")) <> "" Then
+		      Urls() = Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("URL")).Split("|")
+		      If Urls.Count >= 0 Then
+		        For I = 0 To Urls.Count - 1
+		          System.GotoURL(Urls(I).Trim)
+		        Next
+		      Else
+		        System.GotoURL(Urls(0).Trim)
+		      End If
 		    End If
-		  End If
+		  Catch
+		  End Try
+		  #Pragma BreakOnExceptions On
 		End Sub
 	#tag EndEvent
 	#tag Event
