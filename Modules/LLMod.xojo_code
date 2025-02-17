@@ -331,10 +331,11 @@ Protected Module LLMod
 		        'Don't do below line, if the Sudo Script needs a file, it'll have to use the full path, else it's changes out of the Installers Path to run Sudo script.
 		        'Test = ChDirSet(ToolPath) 'Make sure in the right folder to run script etc
 		        
+		        'Added -E to the following to pass Env Variables to the Sudo scripts.
 		        If SysTerminal.Trim = "gnome-terminal" Then
-		          SudoShellLoop.Execute(SysTerminal.Trim+" --wait -e "+"'sudo "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)+"'") 'A fix for the Folder Item not working as expected is to make it trimmed, it's having problems with Extra Spaces etc?
+		          SudoShellLoop.Execute(SysTerminal.Trim+" --wait -e "+"'sudo -E "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)+"'") 'A fix for the Folder Item not working as expected is to make it trimmed, it's having problems with Extra Spaces etc?
 		        Else
-		          SudoShellLoop.Execute(SysTerminal.Trim+" -e "+"sudo "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)) 
+		          SudoShellLoop.Execute(SysTerminal.Trim+" -e "+"sudo -E "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)) 
 		        End If
 		        
 		        While  Exist("/tmp/LLSudo") 'First thing Sudo script does is delete this file, so we know it's ran ok
@@ -6008,6 +6009,14 @@ Protected Module LLMod
 			Visible=false
 			Group="Behavior"
 			InitialValue="True"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="EditingItem"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
 			Type="Boolean"
 			EditorType=""
 		#tag EndViewProperty
