@@ -25,6 +25,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -65,6 +66,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -73,6 +75,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -81,6 +84,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -1790,6 +1794,11 @@ End
 		        Settings.SetHideInstalled.Value = IsTrue(LineData)
 		        Main.HideInstalled = IsTrue(LineData) 'Apply it to current settings
 		      End If
+		    Case "hideunsetflagsonstartup"
+		      If LineData <> "" Then
+		        Settings.SetHideUnsetFlags.Value = IsTrue(LineData)
+		        Main.HideUnsetFlags= IsTrue(LineData) 'Apply it to current settings
+		      End If
 		    Case "usemanuallocations"
 		      If LineData <> "" Then Settings.SetUseManualLocations.Value = IsTrue(LineData)
 		    Case "flatpaklocation"
@@ -2265,6 +2274,7 @@ End
 		  End If
 		  
 		  RL = RL + "HideInstalledOnStartup=" + Str(Settings.SetHideInstalled.Value) + Chr(10)
+		  RL = RL + "HideUnsetFlagsOnStartup=" + Str(Settings.SetHideUnsetFlags.Value) + Chr(10)
 		  
 		  RL = RL + "UseManualLocations=" + Str(Settings.SetUseManualLocations.Value) + Chr(10)
 		  RL = RL + "UseOnlineRepositiories=" + Str(Settings.SetUseOnlineRepos.Value) + Chr(10)

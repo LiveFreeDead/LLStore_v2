@@ -764,6 +764,36 @@ Begin DesktopWindow Settings
       VisualState     =   0
       Width           =   152
    End
+   Begin DesktopCheckBox SetHideUnsetFlags
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Caption         =   "Hide Undefined"
+      Enabled         =   True
+      FontName        =   "System"
+      FontSize        =   0.0
+      FontUnit        =   0
+      Height          =   27
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   158
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      Scope           =   0
+      TabIndex        =   23
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "Hides items in the list that do not have the Working Desktop Environment Set"
+      Top             =   50
+      Transparent     =   False
+      Underline       =   False
+      Value           =   False
+      Visible         =   True
+      VisualState     =   0
+      Width           =   152
+   End
 End
 #tag EndDesktopWindow
 
@@ -845,6 +875,14 @@ End
 	#tag Event
 		Sub ValueChanged()
 		  SudoAsNeeded = Settings.SetSudoAsNeeded.Value
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events SetHideUnsetFlags
+	#tag Event
+		Sub ValueChanged()
+		  Main.HideUnsetFlags = SetHideUnsetFlags.Value
+		  Main.GenerateItems()
 		End Sub
 	#tag EndEvent
 #tag EndEvents
