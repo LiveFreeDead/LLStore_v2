@@ -671,7 +671,7 @@ Begin DesktopWindow Editor
          Text            =   "Build To Folder:"
          TextAlignment   =   3
          TextColor       =   &c000000
-         Tooltip         =   ""
+         Tooltip         =   "Careful this folder gets compressed and deleted"
          Top             =   395
          Transparent     =   False
          Underline       =   False
@@ -4979,7 +4979,7 @@ Begin DesktopWindow Editor
          TabIndex        =   104
          TabPanelIndex   =   6
          TabStop         =   False
-         Text            =   "Build Folders: -"
+         Text            =   "Build Folders: - (* The Build To Folder gets compressed and then deleted)"
          TextAlignment   =   1
          TextColor       =   &c000000
          Tooltip         =   ""
@@ -4987,7 +4987,7 @@ Begin DesktopWindow Editor
          Transparent     =   False
          Underline       =   False
          Visible         =   True
-         Width           =   89
+         Width           =   595
       End
    End
    Begin DesktopLabel Status
