@@ -4569,6 +4569,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		GlobalCompressedFileOut As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		HasLinuxSudo As Boolean
 	#tag EndProperty
 
@@ -6020,6 +6024,14 @@ Protected Module LLMod
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="EditingItem"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="ForceRefreshDBsShift"
 			Visible=false
 			Group="Behavior"
 			InitialValue="False"

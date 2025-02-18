@@ -51,7 +51,7 @@ Begin DesktopWindow Editor
       Top             =   0
       Transparent     =   False
       Underline       =   False
-      Value           =   2
+      Value           =   5
       Visible         =   True
       Width           =   630
       Begin DesktopLabel LabelTitle
@@ -712,7 +712,7 @@ Begin DesktopWindow Editor
          Text            =   "TextBuildToFolder"
          TextAlignment   =   0
          TextColor       =   &c000000
-         Tooltip         =   ""
+         Tooltip         =   "This folder gets fully deleted, be cure to make a subfolder to build in"
          Top             =   395
          Transparent     =   False
          Underline       =   False
@@ -745,7 +745,7 @@ Begin DesktopWindow Editor
          TabIndex        =   77
          TabPanelIndex   =   6
          TabStop         =   True
-         Tooltip         =   ""
+         Tooltip         =   "This folder gets fully deleted, be cure to make a subfolder to build in"
          Top             =   395
          Transparent     =   False
          Underline       =   False
@@ -5123,6 +5123,28 @@ End
 		  Sh.TimeOut = -1
 		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
 		  
+		  GlobalCompressedFileOut = "" 'Clear last build name
+		  
+		  'DISABLE setting Dekstop or HOME as BuildTo folders as it does a clean up of the files, which deletes everything off the desktop etc, BAD!
+		  Dim BuildTo As String
+		  Dim FailBuild As Boolean = False
+		  BuildTo =  NoSlash(Editor.TextBuildToFolder.Text)
+		  If BuildTo = "/" Then FailBuild = True
+		  If Len(BuildTo) <= 3 Then FailBuild = True
+		  If BuildTo = NoSlash(HomePath) Then FailBuild = True
+		  If BuildTo = Slash(HomePath)+"Desktop" Then FailBuild = True
+		  If Right(BuildTo, 14) = "LLAppsInstalls" Then FailBuild = True
+		  If Right(BuildTo, 15) = "LLGamesInstalls" Then FailBuild = True
+		  If Right(BuildTo, 14) = "ssAppsInstalls" Then FailBuild = True
+		  If Right(BuildTo, 15) = "ppGamesInstalls" Then FailBuild = True
+		  
+		  If FailBuild = True Then
+		    Status.Text = "Failed to Build LLFile"
+		    If Debugging Then Debug ("Built Failed! Output path: " + BuildTo)
+		    If Not AutoBuild Then MsgBox "Failed to Build LLFile: BuildPath is important folder (change it)"+ Chr(13)+BuildTo
+		    Return
+		  End If
+		  
 		  Success = SaveLLFileComplete 'This also updates Compressed Item resources
 		  
 		  If Success = True Then 'Check if saved correctly and build only if required (May need for 7z if can't just update them like the tar files
@@ -5263,6 +5285,7 @@ End
 		          
 		          If Exist(CompressedFileOut) Then 'If Successful, delete the uncompressed version
 		            Deltree (OutFolder) 'If the compressed file is made from the OutFolder, just delete it
+		            GlobalCompressedFileOut = CompressedFileOut
 		          End If
 		        End If
 		        
@@ -5422,6 +5445,7 @@ End
 		          
 		          If Exist(CompressedFileOut) Then 'If Successful, delete the uncompressed version
 		            Deltree (OutFolder) 'If the compressed file is made from the OutFolder, just delete it
+		            GlobalCompressedFileOut = CompressedFileOut
 		          End If
 		        End If
 		      End Select

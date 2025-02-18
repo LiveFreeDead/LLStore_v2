@@ -372,6 +372,7 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -428,6 +429,7 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -436,6 +438,7 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -742,6 +745,48 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub BuildToDesktop()
+		  If StoreMode = 1 Then
+		    Dim Success As Boolean
+		    Dim INI As String
+		    #Pragma BreakOnExceptions Off
+		    INI = "Fail"
+		    Success = False
+		    Try
+		      INI = Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("FileINI"))
+		      Success = LoadLLFile(INI) ', "", True) 'The true means it extracts all the file contents, we'll just update existing ones if open then saving instead of Extracting the big ones
+		    Catch
+		    End Try
+		    #Pragma BreakOnExceptions On
+		    If Success Then 
+		      'MsgBox ("Yes")
+		      Dim OutputPath, OutputPathTemp As String
+		      OutputPath = Slash(Slash(TmpPath)+"BuildGame")
+		      OutputPathTemp = OutputPath + "temp"
+		      AutoBuild = True 'Set it to Auto Build and not show a message when complete
+		      Editor.PopulateData
+		      Editor.CheckCompress.Value = True 'Set to Compress if it's in the Arguments
+		      
+		      Editor.TextBuildToFolder.Text = OutputPathTemp
+		      
+		      'Make Temp path , all going well
+		      MkDir(OutputPathTemp)
+		      
+		      Editor.ButtonBuild.Press() 'Press the Build Button with No Compress, if it's not already compressed
+		      
+		      'Copy To Desktop Here
+		      If GlobalCompressedFileOut <> "" Then
+		        Move (GlobalCompressedFileOut,Slash(Slash(HomePath)+"Desktop"))
+		      End If
+		      
+		    Else
+		      MsgBox ("Failed to Build Path: "+INI)
+		    End If
+		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub ChangeCat(CatPicked As String)
 		  CurrentCat = CatPicked
 		  If LoadedMain = True Then LastUsedCategory = CurrentCat 'Only set it once loaded
@@ -950,6 +995,10 @@ End
 		    
 		    base.Append New MenuItem("Make Desktop Shortcut") '0
 		    MC = MC + 1
+		    base.Item(MC).Shortcut  = "S"
+		    base.Append New MenuItem("Build Installer To Desktop") '0
+		    MC = MC + 1
+		    base.Item(MC).Shortcut  = "B"
 		  End If
 		  
 		  
@@ -1139,18 +1188,9 @@ End
 		  Case "Toggle "
 		    Main.FullScreen = Not Main.FullScreen
 		  Case "Make De" 'Desktop Shortcut
-		    Dim IconFile As String
-		    IconFile = ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkIcon")))
-		    If Not Exist(IconFile) Then IconFile = Slash(ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("PathApp"))))+"ppGame.png"
-		    If Not Exist(IconFile) Then IconFile = Slash(ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("PathApp"))))+"LLGame.png"
-		    'Need to add more icon file checks here, Like the Ones from Multi Link releases. Or make it generate them for the DB
-		    
-		    If TargetWindows Then
-		      'I use the exe name as windows can't use png's, I don't want to include a converter... yet
-		      CreateShortcut(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("TitleName")), Slash(ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkRunPath"))))+Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkExec")), ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkRunPath"))), Slash(FixPath(SpecialFolder.Desktop.NativePath)),"", Slash(ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkRunPath"))))+Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkExec")))
-		    Else 'Linux
-		      MakeLinuxLink(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("TitleName")), ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkExec"))), ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkRunPath"))), Slash(SpecialFolder.Desktop.NativePath), "", IconFile)
-		    End If
+		    MakeDesktopShortcut()
+		  Case "Build I"
+		    BuildToDesktop()
 		  Case "Save Cu" 'Save Current List
 		    SaveCurrentList()
 		  Case "Open It"
@@ -1507,6 +1547,29 @@ End
 		  
 		  Return False
 		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub MakeDesktopShortcut()
+		  If CurrentItemID <= -1 Then Return 'Nothing picked
+		  
+		  Dim IconFile As String
+		  Try
+		    IconFile = ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkIcon")))
+		  Catch
+		    Return 'Failed
+		  End Try
+		  If Not Exist(IconFile) Then IconFile = Slash(ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("PathApp"))))+"ppGame.png"
+		  If Not Exist(IconFile) Then IconFile = Slash(ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("PathApp"))))+"LLGame.png"
+		  'Need to add more icon file checks here, Like the Ones from Multi Link releases. Or make it generate them for the DB
+		  
+		  If TargetWindows Then
+		    'I use the exe name as windows can't use png's, I don't want to include a converter... yet
+		    CreateShortcut(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("TitleName")), Slash(ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkRunPath"))))+Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkExec")), ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkRunPath"))), Slash(FixPath(SpecialFolder.Desktop.NativePath)),"", Slash(ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkRunPath"))))+Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkExec")))
+		  Else 'Linux
+		    MakeLinuxLink(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("TitleName")), ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkExec"))), ExpPath(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("LnkRunPath"))), Slash(SpecialFolder.Desktop.NativePath), "", IconFile)
+		  End If
+		End Sub
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
@@ -2346,8 +2409,19 @@ End
 		      If Items.FontSize >= 32 Then Items.FontSize = 32
 		      Categories.FontSize = Items.FontSize
 		      Description.FontSize = Items.FontSize
+		      'Case 70
 		    Case 97
 		      SelectItems("Select All")
+		      
+		    Case 98 'Ctrl + B - Build to Desktop
+		      If StoreMode = 1 Then BuildToDesktop()
+		      
+		    Case 100  'Ctrl + D 'Add Desktop Shortcut
+		      MakeDesktopShortcut()
+		    Case 102
+		      If StoreMode = 1 Then AddFavorite() 'Ctrl + F or f
+		    Case 114 
+		      If StoreMode = 1 Then RemoveFavorite() 'Ctrl + R or r
 		    Case 110
 		      SelectItems("Select None")
 		    Case 105
@@ -2355,7 +2429,7 @@ End
 		    Case 111
 		      Successed = LoadFromPreset()
 		    Case 115
-		      SaveToPreset()
+		      If StoreMode = 0 Then SaveToPreset()
 		    Case 108
 		      SaveCurrentList()
 		    Case 116
