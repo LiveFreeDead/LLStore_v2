@@ -1694,13 +1694,15 @@ Protected Module LLMod
 		    CreateShortcut("LL Edit (AutoBuild Folder)", Target, TargetPath, OutPath, "-b", TargetPath +"\Themes\LLEdit.ico")
 		    
 		    'Start Menu
-		    OutPath = Slash(SpecialFolder.ApplicationData.NativePath).ReplaceAll("/","\") + "Microsoft\Windows\Start Menu\Programs\"
+		    'OutPath = Slash(SpecialFolder.ApplicationData.NativePath).ReplaceAll("/","\") + "Microsoft\Windows\Start Menu\Programs\" 'Current User
+		    OutPath = Slash(SpecialFolder.SharedApplicationData.NativePath).ReplaceAll("/","\") + "Microsoft\Windows\Start Menu\Programs\"
 		    CreateShortcut("LL Edit", Target, TargetPath, OutPath, "-e", TargetPath +"\Themes\LLEdit.ico")
 		    CreateShortcut("LL Store", Target, TargetPath, OutPath, "")
 		    CreateShortcut("LL Launcher", Target, TargetPath, OutPath, "-l", TargetPath +"\Themes\LLLauncher.ico") 'Specifying the Icon is required for making the Launcher Blue
 		    
 		    'Desktop
-		    OutPath = Slash(SpecialFolder.Desktop.NativePath).ReplaceAll("/","\")
+		    'OutPath = Slash(SpecialFolder.Desktop.NativePath).ReplaceAll("/","\") 'Current User
+		    OutPath = Slash(SpecialFolder.SharedDesktop.NativePath).ReplaceAll("/","\")
 		    CreateShortcut("LL Store", Target, TargetPath, OutPath, "")
 		    CreateShortcut("LL Launcher", Target, TargetPath, OutPath, "-l", TargetPath +"\Themes\LLLauncher.ico") 'Specifying the Icon is required for making the Launcher Blue
 		    
@@ -6036,6 +6038,14 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue="False"
 			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="GlobalCompressedFileOut"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior

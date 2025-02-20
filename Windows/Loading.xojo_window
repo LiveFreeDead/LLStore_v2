@@ -613,7 +613,7 @@ End
 		    If FirstRun = False Then 'Only check it the first run, else you already quit or decided to run without admin
 		      Quitting = False
 		      If TargetWindows Then
-		        If StoreMode = 0 Or StoreMode = 2 Then 'If Install Mode or Installer then check has Admin
+		        If StoreMode = 0 Or StoreMode = 2 Or StoreMode = 4 Then 'If Install Mode or Installer then check has Admin, Or Install LLStore
 		          If Debugging Then Debug("--- Checking Admin Mode in Windows")
 		          If IsAdmin = False Then
 		            Dim LLStoreAppExe As FolderItem
