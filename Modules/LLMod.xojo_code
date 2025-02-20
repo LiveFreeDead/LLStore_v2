@@ -410,6 +410,8 @@ Protected Module LLMod
 		    PathIn = PathIn.ReplaceAll("%ppGames%", NoSlash(ppGames))
 		    PathIn = PathIn.ReplaceAll("%ppApps%", NoSlash(ppApps))
 		    
+		    PathIn = PathIn.ReplaceAll("%SourcePath%", ItemLLItem.PathINI)
+		    
 		    PathIn = PathIn.ReplaceAll("%INIPath%", ItemLLItem.PathINI)
 		    PathIn = PathIn.ReplaceAll("%ProgramFiles%", NoSlash(SysProgramFiles))
 		    PathIn = PathIn.ReplaceAll("%ProgramFiles(x86)%", NoSlash(SysProgramFiles)+" (x86)")
@@ -527,6 +529,12 @@ Protected Module LLMod
 		    Dat = Dat.ReplaceAll("/","\")
 		    Dat = Dat.ReplaceAll("\","\\")
 		    PathIn = PathIn.ReplaceAll("%INIPath%", Dat)
+		    
+		    Dat = ItemLLItem.PathINI
+		    Dat = Dat.ReplaceAll("/","\")
+		    Dat = Dat.ReplaceAll("\","\\")
+		    PathIn = PathIn.ReplaceAll("%SourcePath%", Dat)
+		    
 		    Dat = NoSlash(SysProgramFiles)
 		    Dat = Dat.ReplaceAll("/","\")
 		    Dat = Dat.ReplaceAll("\","\\")
@@ -680,6 +688,8 @@ Protected Module LLMod
 		    PathIn = PathIn.ReplaceAll("%AppPath%", ItemLLItem.PathApp)
 		    PathIn = PathIn.ReplaceAll("%ppGames%", NoSlash(ppGames))
 		    PathIn = PathIn.ReplaceAll("%ppApps%", NoSlash(ppApps))
+		    
+		    PathIn = PathIn.ReplaceAll("%SourcePath%", ItemLLItem.PathINI)
 		    
 		    PathIn = PathIn.ReplaceAll("%INIPath%", ItemLLItem.PathINI)
 		    PathIn = PathIn.ReplaceAll("%ProgramFiles%", NoSlash(SysProgramFiles))
