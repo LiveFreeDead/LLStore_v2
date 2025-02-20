@@ -1420,8 +1420,17 @@ Protected Module LLMod
 		    If ChDirSet(InstallFromPath) = True Then ' Was successful
 		    End If
 		    
+		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      Return False
+		    End If
+		    
 		    'Run Assemblies from ssApps, ppApps and ppGames etc
 		    RunAssembly
+		    
+		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      Return False
+		    End If
+		    
 		    
 		    'Check InstallToPath Is correct or change if available
 		    Dim Inst2 As String
@@ -1449,6 +1458,13 @@ Protected Module LLMod
 		      End If
 		    End If
 		    
+		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      
+		      Return False
+		    End If
+		    
+		    
+		    
 		    'Extract Patch Files
 		    FileToExtract = Slash(InstallFromPath) + "Patch.7z"
 		    If FileToExtract <> "" Then
@@ -1459,6 +1475,12 @@ Protected Module LLMod
 		        End If
 		      End If
 		    End If
+		    
+		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      
+		      Return False
+		    End If
+		    
 		    
 		    'Glenn 2027 - Copy all .jpg .png .svg .ico .mp4 from InstallFrom to InstallTo so screenshots for multi shortcut items work
 		    'Copy LLFiles to the Install folder (So Games Launcher has the Link Info and Screenshots/Fader etc 'This will copy all but archives, Need to manually copy the ssApp and ppApp files after this
@@ -1540,6 +1562,12 @@ Protected Module LLMod
 		      End If
 		    End If
 		    
+		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      
+		      Return False
+		    End If
+		    
+		    
 		    'Change to App/Games Path to run scripts from
 		    If ItemLLItem.BuildType = "ssApp" Then 
 		      If ChDirSet(InstallFromPath) = True Then ' Was successful - ssApp path set
@@ -1552,11 +1580,29 @@ Protected Module LLMod
 		    'Run Sudo Scripts
 		    RunSudoScripts
 		    
+		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      
+		      Return False
+		    End If
+		    
+		    
 		    'Run Scripts
 		    RunScripts
 		    
+		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      
+		      Return False
+		    End If
+		    
+		    
 		    'Run Registry Enteries
 		    RunRegistry
+		    
+		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      
+		      Return False
+		    End If
+		    
 		    
 		    '------------------------------- Do ssApp Links ----------------------------------
 		    'Move ssApp Shortcuts to their sorted locations (Need to try in Linux to see if they get moved in there or I'll have to edit the .desktop files as well) Do this first so MakeLinks can use LLShorts to source the links
@@ -1589,21 +1635,61 @@ Protected Module LLMod
 		      'MsgBox "InstallTo Path: " + InstallToPath + " InstallFrom Path: " + InstallFromPath
 		    End If
 		    
+		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      
+		      Return False
+		    End If
+		    
+		    
 		    'Run Assemblys
 		    RunAssembly
+		    
+		    
+		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      
+		      Return False
+		    End If
+		    
 		    
 		    'Run Sudo Scripts
 		    '*** Make sure to add CD to the top of the script so it does it from the correct folder
 		    RunSudoScripts
 		    
+		    
+		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      
+		      Return False
+		    End If
+		    
+		    
 		    'No need to do Registry Stuff for linux items, but will see if any is in there anyway
 		    RunRegistry
+		    
+		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      
+		      Return False
+		    End If
+		    
 		    
 		    'Run Scripts
 		    RunScripts
 		    
+		    
+		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      
+		      Return False
+		    End If
+		    
+		    
 		    'Make Links
 		    MakeLinks
+		    
+		    
+		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      
+		      Return False
+		    End If
+		    
 		    
 		    'Update Linux .desktop Links Database
 		    If TargetLinux Then ShellFast.Execute ("update-desktop-database ~/.local/share/applications")
@@ -4827,6 +4913,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		SkippedInstalling As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		StartPathAll As String
 	#tag EndProperty
 
@@ -6046,6 +6136,14 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue=""
 			Type="String"
+			EditorType="MultiLineEditor"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="SkippedInstalling"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Boolean"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior

@@ -150,7 +150,7 @@ Begin DesktopWindow MiniInstaller
       Height          =   26
       Index           =   -2147483648
       Italic          =   False
-      Left            =   292
+      Left            =   293
       LockBottom      =   True
       LockedInPosition=   False
       LockLeft        =   False
@@ -162,7 +162,7 @@ Begin DesktopWindow MiniInstaller
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "Skip Highlighted Item"
-      Top             =   404
+      Top             =   406
       Transparent     =   False
       Underline       =   False
       Visible         =   True
@@ -427,6 +427,13 @@ End
 		  
 		  AddInstallingItems
 		  
+		  If TargetWindows Then ' Remove the Sudo tick box
+		    MiniInstaller.SudoRunning.Visible = False
+		    MiniInstaller.Pause.Left = 10
+		    MiniInstaller.Stats.Left = MiniInstaller.Pause.Left+MiniInstaller.Pause.Width + 1
+		    MiniInstaller.Stats.Width = MiniInstaller.Skip.Left - (MiniInstaller.Pause.Left+MiniInstaller.Pause.Width) -2
+		  End If
+		  
 		  MiniInstaller.Show
 		  
 		  'Call thread and lets hope I got it right
@@ -646,12 +653,19 @@ End
 	#tag Event
 		Sub Pressed()
 		  If MiniSelected >=0 Then
-		    If Items.CellTextAt(MiniSelected, 1) = "" Then
+		    If Debugging Then Debug(">>> Skip Pressed: "+Items.CellTextAt(MiniSelected, 0))
+		    If Items.CellTextAt(MiniSelected, 1) = "Installing" Then
 		      Items.CellTextAt(MiniSelected, 1) = "Skip"
-		      SkipItem(MiniSelected) = True
-		    ElseIf Items.CellTextAt(MiniSelected, 1) = "Skip" Then
-		      Items.CellTextAt(MiniSelected, 1) = "" 'Set to install again
-		      SkipItem(MiniSelected) = False
+		      If Downloading Then CancelDownloading = True
+		      SkippedInstalling = True
+		    Else
+		      If Items.CellTextAt(MiniSelected, 1) = "" Then
+		        Items.CellTextAt(MiniSelected, 1) = "Skip"
+		        SkipItem(MiniSelected) = True
+		      ElseIf Items.CellTextAt(MiniSelected, 1) = "Skip" Then
+		        Items.CellTextAt(MiniSelected, 1) = "" 'Set to install again
+		        SkipItem(MiniSelected) = False
+		      End If
 		    End If
 		  End If
 		  Items.Refresh
@@ -674,6 +688,7 @@ End
 		          If Debugging Then Debug("* Error: Failed - Aborting Install")
 		        End If
 		      End If '--------------------
+		      SkippedInstalling = False
 		      MiniUpTo = MiniUpTo + 1 'Move to the Next Item, current item was empty or completed
 		      Installing = False
 		    End If
@@ -818,7 +833,7 @@ End
 		      If Not Exist(FileToInstallFrom) Or DownloadAnyway = True Then 'Only if it doesn't exist or the existing file is tiny download it
 		        'Download if possible
 		        If Left(Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("PathINI")), 4) = "http" Then
-		          GetOnlineFile(Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("PathINI")), FileToInstallFrom)
+		          If SkippedInstalling = False Then GetOnlineFile(Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("PathINI")), FileToInstallFrom)
 		        Else
 		          Items.CellTextAt(MiniUpTo, 1) = "Failed" 'Usually due to unreadable USB or DVD
 		          If Debugging Then Debug("* Error Accessing: "+Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("PathINI")))
@@ -827,6 +842,10 @@ End
 		        End If
 		        
 		        'Do counter here, so will abort if stuck in download loop etc- Glenn
+		        If SkippedInstalling = True Then
+		          'GlennGlenn
+		          Return
+		        End If
 		        
 		        Return 'Once you start the download we don't continue the job processing below, just update the stats until it's done or aborted
 		      End If

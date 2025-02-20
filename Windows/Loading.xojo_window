@@ -2572,6 +2572,8 @@ End
 		    Main.Description.StyledText.TextColor(0, Len(Main.Description.Text)) = ColDescription 'Make sure it's the right colour in Linux
 		    
 		    If StoreMode = 1 Then
+		      Main.Title = "LL Laucher"
+		      
 		      Main.Description.Text = "Select a Game and press Start to Play it, if no games are shown the Launcher only shows items installed with LLStore." +chr(13) +chr(13) _
 		      +"If you hold in Shift you can set the Screen Resolution of the game." + chr(13) _
 		      + "You can also double click or press Enter to start the selected Game." _
@@ -2580,6 +2582,8 @@ End
 		      'Add extras so it shows Scrllbar always
 		      If TargetLinux Then Main.Description.Text = Main.Description.Text + Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)
 		    Else
+		      
+		      Main.Title = "LL Store"
 		      
 		      Dim TriggerWords() As String
 		      Dim EndCount As Integer
@@ -2685,6 +2689,8 @@ End
 		  
 		  Dim theResults As String
 		  
+		  Dim shot As New Shell 'Used to kill wget
+		  
 		  Dim DownloadShell As New Shell
 		  DownloadShell.TimeOut = -1
 		  DownloadShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
@@ -2755,10 +2761,26 @@ End
 		        
 		        While Not Exist(Slash(RepositoryPathLocal) + "DownloadDone")
 		          App.DoEvents(1)
-		          If ForceQuit Then Exit 'Exit loop if quitting 'As the Loading screen allows force quitting, this is a problem, so I disable quitting while it's in use. Needs to be allowed so it quits when switching to Admin mode in Windows.
+		          If ForceQuit Then
+		            DownloadShell.Close
+		            If TargetWindows Then
+		              shot.mode = 0 ' One-shot 
+		              shot.Execute("TaskKill /IM wget.exe /F")
+		              If Debugging Then Debug(">>> Killing wget.exe")
+		              If Exist(QueueLocal(QueueUpTo) + ".partial") Then Deltree QueueLocal(QueueUpTo) + ".partial"
+		            End If
+		            Exit 'Exit loop if quitting 'As the Loading screen allows force quitting, this is a problem, so I disable quitting while it's in use. Needs to be allowed so it quits when switching to Admin mode in Windows.
+		          End If
 		          
 		          If CancelDownloading = True Then
 		            CancelDownloading = False ' Reset Flag when it's used, why not?
+		            DownloadShell.Close
+		            If TargetWindows Then
+		              shot.mode = 0 ' One-shot 
+		              shot.Execute("TaskKill /IM wget.exe /F")
+		              If Debugging Then Debug(">>> Killing wget.exe")
+		              If Exist(QueueLocal(QueueUpTo) + ".partial") Then Deltree QueueLocal(QueueUpTo) + ".partial"
+		            End If
 		            Exit 'Allows Some Downloads To TimeOut
 		          End If
 		          
