@@ -4654,6 +4654,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		CleanTempFolders As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		CleanUpIsle2 As String
 	#tag EndProperty
 

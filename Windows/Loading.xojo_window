@@ -25,6 +25,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -65,6 +66,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -73,6 +75,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -81,6 +84,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -3027,6 +3031,12 @@ End
 		    TmpPath =  Slash(HomePath) + ".lltemp/"
 		    ppGames = Slash(HomePath)+".wine/drive_c/ppGames/"
 		    ppApps = Slash(HomePath)+".wine/drive_c/ppApps/"
+		    
+		    'Clean Temp Path if Flagged to
+		    If CleanTempFolders = True Then
+		      Deltree(TmpPath)
+		      CleanTempFolders = False
+		    End If
 		    
 		    'Get Default Paths
 		    LLStoreDrive = "" 'Drive not used by linux
