@@ -1038,13 +1038,17 @@ Protected Module LLMod
 		  Dim ScriptFile As String
 		  Dim SP() As String
 		  
+		  Dim ScriptPath As String
+		  ScriptPath = Slash(FixPath(TmpPath+"scripts" + Randomiser.InRange(10000, 20000).ToString))
+		  MkDir(ScriptPath)
+		  
 		  F = GetFolderItem(OrigScript, FolderItem.PathTypeShell)
 		  
 		  If Right(OrigScript,3) = ".sh" Then
-		    ScriptFile = Slash(FixPath(TmpPath))+"Expanded_Script.sh"
+		    ScriptFile = ScriptPath+"Expanded_Script.sh"
 		  Else
 		    'ScriptFile = Slash(FixPath(F.Parent.NativePath)+"Expanded_Script.cmd") 'Use InstallFrom folder, not Temp
-		    ScriptFile = Slash(FixPath(TmpPath))+"Expanded_Script.cmd"
+		    ScriptFile = ScriptPath+"Expanded_Script.cmd"
 		  End If
 		  
 		  If MakeSudo Then 'Make it ready to run from Sudo directly
@@ -1899,6 +1903,9 @@ Protected Module LLMod
 		  Deltree(Slash(TmpPath)+"Expanded_Script.sh")
 		  Deltree(Slash(TmpPath)+"Expanded_Reg.reg")
 		  
+		  If CleanUpIsle2 <> "" Then Deltree(CleanUpIsle2) 'If used temp
+		  CleanUpIsle2 = ""
+		  
 		  Return True ' Successfully Installed
 		End Function
 	#tag EndMethod
@@ -2294,6 +2301,7 @@ Protected Module LLMod
 		    TmpItem = Slash(TmpPathItems+"tmp" + TmpItemCount.ToString) 'I think 30k Items will do, just in case
 		  Else
 		    TmpItem = Slash(TmpPath+"install" + Randomiser.InRange(10000, 20000).ToString) 'I think 10k Items will do, just in case
+		    CleanUpIsle2 = TmpItem
 		  End If
 		  
 		  'Don't make folder,7z makes it MUCH faster than a Shell call
@@ -3852,8 +3860,12 @@ Protected Module LLMod
 		  End If
 		  
 		  If AssemblyContent <> "" Then 'Generate Script and Run it all from a .cmd
+		    Dim ScriptPath As String
+		    ScriptPath = Slash(FixPath(TmpPath+"scripts" + Randomiser.InRange(10000, 20000).ToString))
+		    MkDir(ScriptPath)
+		    
 		    'MkDir(InstallToPath) ' 'Let the Setup install the folder so I can detect where it goes.
-		    AssemblyFile = Slash(TmpPath)+"Assembly.cmd"
+		    AssemblyFile = ScriptPath+"Assembly.cmd"
 		    SaveDataToFile(AssemblyContent, AssemblyFile)
 		    
 		    F = GetFolderItem(AssemblyFile, FolderItem.PathTypeShell)
@@ -3871,6 +3883,7 @@ Protected Module LLMod
 		    #Pragma BreakOnExceptions Off
 		    Try
 		      F.Remove
+		      Deltree(ScriptPath)
 		    Catch
 		    End Try
 		    #Pragma BreakOnExceptions On
@@ -4638,6 +4651,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		CancelDownloading As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		CleanUpIsle2 As String
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
