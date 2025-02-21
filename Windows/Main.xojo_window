@@ -372,6 +372,7 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -428,6 +429,7 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -436,6 +438,7 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -1358,7 +1361,8 @@ End
 		  'Add Items From Data Table
 		  For I = 0 To Data.Items.RowCount - 1
 		    Hidden = False 'Show all items to start with
-		    If Data.Items.CellTextAt(I, Data.GetDBHeader("Hidden")) = "T" Then Continue 'Skip Hidden items
+		    If IsTrue(Data.Items.CellTextAt(I, Data.GetDBHeader("Hidden"))) Then Continue 'Skip Hidden items
+		    If IsTrue(Data.Items.CellTextAt(I, Data.GetDBHeader("HiddenAlways"))) Then Continue 'Skip Hidden items
 		    
 		    ItemToAdd = Data.Items.CellTextAt(I, Data.GetDBHeader("TitleName"))
 		    

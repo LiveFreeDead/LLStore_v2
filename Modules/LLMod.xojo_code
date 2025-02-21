@@ -2435,6 +2435,14 @@ Protected Module LLMod
 		    ItemLLItem.Priority = 5 'Default Priority
 		    LnkEditing = 0
 		    ReadMode = 0
+		    ItemLLItem.Hidden = False
+		    ItemLLItem.HiddenAlways = False
+		    ItemLLItem.ShowSetupOnly = False
+		    ItemLLItem.NoInstall = False
+		    ItemLLItem.KeepAll = False
+		    ItemLLItem.KeepInFolder = False
+		    ItemLLItem.SendTo = False
+		    ItemLLItem.InternetRequired = False
 		    For I = 1 To Sp().Count -1
 		      Lin = Sp(I).Trim
 		      OrigLine = Lin
@@ -2513,55 +2521,39 @@ Protected Module LLMod
 		          Continue 'Only need to process this line and then move to the next
 		        Case "flags"
 		          ItemLLItem.Flags = LineData.Lowercase
-		          
 		          If ItemLLItem.Flags.IndexOf("alwayshide") >=0 Then
+		            'MessageBox(ItemLLItem.Flags)
 		            ItemLLItem.Hidden = True
 		            ItemLLItem.HiddenAlways = True
-		          Else
-		            ItemLLItem.Hidden = False
-		            ItemLLItem.HiddenAlways = False
 		          End If
 		          If ItemLLItem.Flags.IndexOf("hidden") >=0 Then
 		            ItemLLItem.Hidden = True
-		            ItemLLItem.HiddenAlways = True
-		          Else
-		            ItemLLItem.Hidden = False
-		            ItemLLItem.HiddenAlways = False
+		            'ItemLLItem.HiddenAlways = True
 		          End If
 		          
 		          If ItemLLItem.Flags.IndexOf("showsetuponly") >=0 Then
 		            ItemLLItem.ShowSetupOnly = True
 		            If StoreMode <> 0 Then 'Only hide if not Setup/install mode
 		              ItemLLItem.Hidden = True
-		            Else
-		              ItemLLItem.Hidden = False
 		            End If
-		          Else
-		            ItemLLItem.ShowSetupOnly = False
 		          End If
-		          If ItemLLItem.Flags.IndexOf("internetrequired") >=0 Then ItemLLItem.InternetRequired = True Else ItemLLItem.InternetRequired = False
+		          If ItemLLItem.Flags.IndexOf("internetrequired") >=0 Then 
+		            ItemLLItem.InternetRequired = True
+		          End If
 		          If ItemLLItem.Flags.IndexOf("noinstall") >=0 Then
 		            ItemLLItem.NoInstall = True
-		          Else
-		            ItemLLItem.NoInstall = False
 		          End If
 		          
 		          If ItemLLItem.Flags.IndexOf("keepall") >=0 Then
 		            ItemLLItem.KeepAll = True
-		          Else
-		            ItemLLItem.KeepAll = False
 		          End If
 		          
 		          If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		            ItemLLItem.KeepInFolder = True
-		          Else
-		            ItemLLItem.KeepInFolder = False
 		          End If
 		          
 		          If ItemLLItem.Flags.IndexOf("sendto") >=0 Then
 		            ItemLLItem.SendTo = True
-		          Else
-		            ItemLLItem.SendTo = False
 		          End If
 		          Continue 'Once used Data no need to process the rest, The other lines will cause the lower things to be tested per line
 		        Case "priority"

@@ -774,7 +774,7 @@ End
 		  
 		  'Checks
 		  If ItemLLItem.TitleName = "" Then Return -1 'No Title given, don't add
-		  If ItemLLItem.Hidden = True Then Return -1 'Set as Hidden, hide it entirly.
+		  'If ItemLLItem.Hidden = True Then Return -1 'Set as Hidden, hide it entirly. ' Don't Hide here, BAD idea as the DB loses access to its changes and it doesn't update the flags etc
 		  
 		  If Success = True Then ' Loaded Item fine, Add to Data
 		    If Debugging Then Debug("Success Loading: "+ ItemInn)
@@ -842,6 +842,7 @@ End
 		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.Flags
 		      Case "HiddenAlways"
 		        Data.Items.CellTextAt(ItemCount,I) = Str(ItemLLItem.HiddenAlways)
+		        'If ItemLLItem.HiddenAlways = True Then MessageBox (Str(ItemLLItem.HiddenAlways)) 
 		      Case "ShowAlways"
 		        Data.Items.CellTextAt(ItemCount,I) = Str(ItemLLItem.ShowAlways)
 		      Case "ShowSetupOnly"
@@ -1567,6 +1568,7 @@ End
 		  Dim ItemSp() As String
 		  Dim DataHeadID As Integer
 		  
+		  Dim FlagsIn As String
 		  Dim FadeFile As String
 		  
 		  While Not inputStream.EndOfFile 'If Empty file this skips it
@@ -1620,6 +1622,42 @@ End
 		              Else 'Icon not found - Use Defaults
 		                Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("IconRef")) = Str(0)
 		              End If
+		              
+		              'Case "Flags"
+		              'FlagsIn = Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Flags"))
+		              ''MessageBox(ItemLLItem.Flags)
+		              'If FlagsIn.IndexOf("alwayshide") >=0 Then
+		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Hidden")) = "True"
+		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("HiddenAlways")) = "True"
+		              'Else
+		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Hidden")) = "False"
+		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("HiddenAlways")) = "False"
+		              'End If
+		              'If FlagsIn.IndexOf("hidden") >=0 Then
+		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Hidden")) = "True"
+		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("HiddenAlways")) = "True"
+		              'Else
+		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Hidden")) = "False"
+		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("HiddenAlways")) = "False"
+		              'End If
+		              '
+		              'If FlagsIn.IndexOf("showsetuponly") >=0 Then
+		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("ShowSetupOnly")) = "True"
+		              'If StoreMode <> 0 Then 'Only hide if not Setup/install mode
+		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Hidden")) = "True"
+		              'Else
+		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Hidden")) = "False"
+		              'End If
+		              'Else
+		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("ShowSetupOnly")) = "False"
+		              'End If
+		              'If FlagsIn.IndexOf("internetrequired") >=0 Then ItemLLItem.InternetRequired = True Else ItemLLItem.InternetRequired = False
+		              'If FlagsIn.IndexOf("noinstall") >=0 Then
+		              'ItemLLItem.NoInstall = True
+		              'Else
+		              'ItemLLItem.NoInstall = False
+		              'End If
+		              
 		            Case Else
 		              If DataHeadID >= 1 Then
 		                Data.Items.CellTextAt(ItemCount,DataHeadID) = ItemSP(J)
