@@ -1361,8 +1361,14 @@ End
 		  'Add Items From Data Table
 		  For I = 0 To Data.Items.RowCount - 1
 		    Hidden = False 'Show all items to start with
-		    If IsTrue(Data.Items.CellTextAt(I, Data.GetDBHeader("Hidden"))) Then Continue 'Skip Hidden items
-		    If IsTrue(Data.Items.CellTextAt(I, Data.GetDBHeader("HiddenAlways"))) Then Continue 'Skip Hidden items
+		    If IsTrue(Data.Items.CellTextAt(I, Data.GetDBHeader("Hidden"))) Then
+		      Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F" 'Unselect now hidden items
+		      Continue 'Skip Hidden items
+		    End If
+		    If IsTrue(Data.Items.CellTextAt(I, Data.GetDBHeader("HiddenAlways"))) Then
+		      Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F" 'Unselect now hidden items
+		      Continue 'Skip Hidden items
+		    End If
 		    
 		    ItemToAdd = Data.Items.CellTextAt(I, Data.GetDBHeader("TitleName"))
 		    
@@ -1407,29 +1413,71 @@ End
 		    
 		    'Hide Conditions
 		    If StoreMode = 0 Then ' Only do it for Installer
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("Installed")) = "T" And HideInstalled = True Then Hidden = True ' Hide Installed
+		      If Data.Items.CellTextAt(I, Data.GetDBHeader("Installed")) = "T" And HideInstalled = True Then
+		        Hidden = True ' Hide Installed
+		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F" 'Unselect now hidden items
+		      End If
 		      
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("Installed")) = "F" And HideNotInstalled = True Then Hidden = True ' Hide Installed
+		      If Data.Items.CellTextAt(I, Data.GetDBHeader("Installed")) = "F" And HideNotInstalled = True Then 
+		        Hidden = True ' Hide Not Installed
+		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		      End If
 		      
-		      If Left(Data.Items.CellTextAt(I, Data.GetDBHeader("PathIni")), 2) = "ht" And HideOnline = True Then Hidden = True 'Hide Online
+		      If Left(Data.Items.CellTextAt(I, Data.GetDBHeader("PathIni")), 2) = "ht" And HideOnline = True Then
+		        Hidden = True 'Hide Online
+		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		      End If
 		      
-		      If Left(Data.Items.CellTextAt(I, Data.GetDBHeader("PathIni")), 2) <> "ht" And HideLocal = True Then Hidden = True 'Hide Local items
+		      If Left(Data.Items.CellTextAt(I, Data.GetDBHeader("PathIni")), 2) <> "ht" And HideLocal = True Then
+		        Hidden = True 'Hide Local items
+		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		      End If
 		      
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("Flags")).IndexOf("internetrequired") >=0 And HideInternetInstaller = True Then Hidden = True 'Hide Internet Installer items
+		      If Data.Items.CellTextAt(I, Data.GetDBHeader("Flags")).IndexOf("internetrequired") >=0 And HideInternetInstaller = True Then
+		        Hidden = True 'Hide Internet Installer items
+		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		      End If
 		      
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "LLApp" And HideLLApps = True Then Hidden = True ' Hide types
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "LLGame" And HideLLGames = True Then Hidden = True ' Hide
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "ssApp" And HidessApps = True Then Hidden = True ' Hide
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "ppApp" And HideppApps = True Then Hidden = True ' Hide
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "ppGame" And HideppGames = True Then Hidden = True ' Hide
+		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "LLApp" And HideLLApps = True Then
+		        Hidden = True ' Hide types
+		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		      End If
+		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "LLGame" And HideLLGames = True Then
+		        Hidden = True ' Hide
+		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		      End If
+		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "ssApp" And HidessApps = True Then
+		        Hidden = True ' Hide
+		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		      End If
+		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "ppApp" And HideppApps = True Then
+		        Hidden = True ' Hide
+		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		      End If
+		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "ppGame" And HideppGames = True Then
+		        Hidden = True ' Hide
+		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		      End If
 		      
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("DECompatible")) = "" And HideUnsetFlags = True Then Hidden = True ' Hide if Not set which Desktop Env's work with it
+		      If Data.Items.CellTextAt(I, Data.GetDBHeader("DECompatible")) = "" And HideUnsetFlags = True Then
+		        Hidden = True ' Hide if Not set which Desktop Env's work with it
+		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		      End If
 		      
 		    End If
 		    
-		    If Data.Items.CellTextAt(I, Data.GetDBHeader("License")) = "1" And HidePaid = True Then Hidden = True 'Hide Paid
-		    If Data.Items.CellTextAt(I, Data.GetDBHeader("License")) = "2" And HideFree = True Then Hidden = True 'Hide Free
-		    If Data.Items.CellTextAt(I, Data.GetDBHeader("License")) = "3" And HideOpen = True Then Hidden = True 'Hide Open
+		    If Data.Items.CellTextAt(I, Data.GetDBHeader("License")) = "1" And HidePaid = True Then
+		      Hidden = True 'Hide Paid
+		      Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		    End If
+		    If Data.Items.CellTextAt(I, Data.GetDBHeader("License")) = "2" And HideFree = True Then
+		      Hidden = True 'Hide Free
+		      Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		    End If
+		    If Data.Items.CellTextAt(I, Data.GetDBHeader("License")) = "3" And HideOpen = True Then
+		      Hidden = True 'Hide Open
+		      Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		    End If
 		    
 		    'Check Compatibility on Loading now, so no need to check each time it generates the Items List
 		    If Data.Items.CellTextAt(I, Data.GetDBHeader("OSCompatible")) = "F" Then Hidden = True 'Hide if not Compatible DE or PM used
