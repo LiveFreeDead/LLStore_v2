@@ -3019,6 +3019,8 @@ Protected Module LLMod
 		  Dim ExecName As String
 		  Dim BT As String
 		  
+		  Dim StartDestTemp As String
+		  
 		  BT = ItemLLItem.BuildType
 		  
 		  If TargetWindows Then 'Do ssApps/SentTo here
@@ -3292,10 +3294,13 @@ Protected Module LLMod
 		        'Do main Folder Creation here to put Link file into
 		        'Do Link Catalog
 		        
-		        If Debugging Then Debug ("Item Link Categories: " + ItemLnk(I).Categories)
+		        StartDestTemp = ItemLnk(I).Categories
+		        If StartDestTemp = "" Then StartDestTemp = "Other"
 		        
-		        If  ItemLnk(I).Categories <> "" Then
-		          Catalog = ItemLnk(I).Categories.Split(";")
+		        If Debugging Then Debug ("Item Link Categories: " + StartDestTemp)
+		        
+		        If  StartDestTemp <> "" Then
+		          Catalog = StartDestTemp.Split(";")
 		          CatalogCount = Catalog.Count - 1
 		          If Debugging Then Debug ("Catalog Count: " + Str(Catalog.Count))
 		          If Debugging Then Debug ("Menu Windows Count: " + MenuWindowsCount.ToString)
@@ -3498,6 +3503,9 @@ Protected Module LLMod
 		  Dim Debugger As String
 		  
 		  Dim DestStartPath As String
+		  Dim DestStartPathTemp As String
+		  
+		  Dim UsedShortcut As Boolean
 		  
 		  Dim Catalog() As String
 		  Dim CatalogCount As Integer
@@ -3589,12 +3597,16 @@ Protected Module LLMod
 		        If Exist(Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk") Then Move (Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
 		        If Exist(Slash(FixPath(StartPathUser)) + Sp(M).Trim +".lnk") Then Move (Slash(FixPath(StartPathUser)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
 		        
+		        DestStartPathTemp = DestStartPath
+		        
+		        If DestStartPathTemp = "" Then DestStartPathTemp = "Other"
+		        
 		        If AdminEnabled Then
 		          'Copy From LLShorts folder if exist (All Users)
-		          If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathAll+DestStartPath)) 'Place Kept Shortcut in the destination folder
+		          If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathAll+DestStartPathTemp)) 'Place Kept Shortcut in the destination folder
 		        Else
 		          'Copy From LLShorts folder if exist (User)
-		          If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathUser+DestStartPath)) 'Place Kept Shortcut in the destination folder
+		          If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathUser+DestStartPathTemp)) 'Place Kept Shortcut in the destination folder
 		        End If
 		        
 		      Next M
@@ -3607,6 +3619,10 @@ Protected Module LLMod
 		        'Check root of start menu too:
 		        If Exist(Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
 		        If Exist(Slash(FixPath(StartPathUser)) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(FixPath(StartPathUser)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
+		        
+		        DestStartPathTemp = DestStartPath
+		        
+		        If DestStartPathTemp = "" Then DestStartPathTemp = "Other"
 		        
 		        If AdminEnabled Then
 		          'Copy From LLShorts folder if exist (All Users)
@@ -3624,31 +3640,38 @@ Protected Module LLMod
 		    'Now Do Start Menu
 		    If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		      
+		      DestStartPathTemp = DestStartPath
+		      If DestStartPathTemp = "" Then DestStartPathTemp = "Other"
+		      
 		      '
 		      If AdminEnabled Then
-		        Move (StartPathAll+ItemLLItem.StartMenuSourcePath, StartPathAll+DestStartPath) 'Remove it, clean up
-		        Move (StartPathUser+ItemLLItem.StartMenuSourcePath, StartPathAll+DestStartPath) 'Remove it, clean up
+		        Move (StartPathAll+ItemLLItem.StartMenuSourcePath, StartPathAll+DestStartPathTemp) 'Remove it, clean up
+		        Move (StartPathUser+ItemLLItem.StartMenuSourcePath, StartPathAll+DestStartPathTemp) 'Remove it, clean up
 		      Else
-		        Move (StartPathAll+ItemLLItem.StartMenuSourcePath, StartPathUser+DestStartPath) 'Remove it, clean up
-		        Move (StartPathUser+ItemLLItem.StartMenuSourcePath, StartPathUser+DestStartPath) 'Remove it, clean up
+		        Move (StartPathAll+ItemLLItem.StartMenuSourcePath, StartPathUser+DestStartPathTemp) 'Remove it, clean up
+		        Move (StartPathUser+ItemLLItem.StartMenuSourcePath, StartPathUser+DestStartPathTemp) 'Remove it, clean up
 		      End If
 		      
 		    Else 'Just keep some and delete folder
 		      Sp() = ItemLLItem.ShortCutNamesKeep.Split("|")
+		      
+		      DestStartPathTemp = DestStartPath
+		      If DestStartPathTemp = "" Then DestStartPathTemp = "Other"
+		      
 		      For M = 0 To Sp.Count-1
 		        If AdminEnabled Then
-		          If Exist(StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPath) 'Place item
-		          If Exist(StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPath) 'Place item
+		          If Exist(StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPathTemp) 'Place item
+		          If Exist(StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPathTemp) 'Place item
 		          
-		          If Exist(StartPathAll+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathAll+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPath) 'Place from root
-		          If Exist(StartPathUser+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPath) 'Place from root
+		          If Exist(StartPathAll+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathAll+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPathTemp) 'Place from root
+		          If Exist(StartPathUser+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPathTemp) 'Place from root
 		          
 		        Else
-		          If Exist(StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim+".lnk") Then Move (StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim+".lnk", StartPathUser+DestStartPath) 'Place item
-		          If Exist(StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathUser+DestStartPath) 'Place item
+		          If Exist(StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim+".lnk") Then Move (StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim+".lnk", StartPathUser+DestStartPathTemp) 'Place item
+		          If Exist(StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathUser+DestStartPathTemp) 'Place item
 		          
-		          If Exist(StartPathAll+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathAll+"/"+ Sp(M).Trim +".lnk", StartPathUser+DestStartPath) 'Place from root
-		          If Exist(StartPathUser+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+"/"+ Sp(M).Trim +".lnk", StartPathUser+DestStartPath) 'Place from root
+		          If Exist(StartPathAll+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathAll+"/"+ Sp(M).Trim +".lnk", StartPathUser+DestStartPathTemp) 'Place from root
+		          If Exist(StartPathUser+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+"/"+ Sp(M).Trim +".lnk", StartPathUser+DestStartPathTemp) 'Place from root
 		          
 		        End If
 		      Next M
