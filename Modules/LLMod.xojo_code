@@ -168,7 +168,7 @@ Protected Module LLMod
 		Sub CreateShortcut(TitleName As String, Target As String, WorkingDir As String, LinkFolder As String, Args As String = "", IconFile As String = "")
 		  If Debugging Then Debug("--- Starting Create Shortcuts ---")
 		  
-		  If Debugging Then Debug("TitleName: "+TitleName+" , Target: "+Target+" , Working: "+WorkingDir+" , LinkFolder: "+LinkFolder)
+		  If Debugging Then Debug("TitleName: "+TitleName+Chr(10)+"Target:- "+Chr(10)+Target+Chr(10)+"Working:- "+Chr(10)+WorkingDir+Chr(10)+"LinkFolder:- "+Chr(10)+LinkFolder)
 		  
 		  Dim scWorkingDir As FolderItem
 		  
@@ -3224,6 +3224,8 @@ Protected Module LLMod
 		      Next I
 		    End If
 		    
+		    '------------------------------------------------------------------- Windows Links ------------------------------------------------------------------
+		    
 		    If TargetWindows Then 'Windows Only Shortcut Making section
 		      
 		      If AdminEnabled Then 'If Admin apply to All users, else only has access to current user
@@ -3239,7 +3241,8 @@ Protected Module LLMod
 		        ItemLnk(I).Title = ItemLnk(I).Title.ReplaceAll("{#2}", "") 'Remove Dual Arch leftovers
 		        ItemLnk(I).Title = ItemLnk(I).Title.ReplaceAll("{#1}", "") 'Remove Dual Arch leftovers
 		        
-		        DesktopFile = ItemLnk(I).Title.ReplaceAll(" ", ".") + ".desktop" 'Remove Spaces and add .desktop back to file name
+		        'Desktop File not used in Windows
+		        'DesktopFile = ItemLnk(I).Title.ReplaceAll(" ", ".") + ".desktop" 'Remove Spaces and add .desktop back to file name
 		        
 		        ItemLnk(I).Icon = ExpPath(ItemLnk(I).Icon)
 		        If Not Exist(ItemLnk(I).Icon) Then ItemLnk(I).Icon = "" 'Remove Dodgy Icon and use something
@@ -3282,7 +3285,8 @@ Protected Module LLMod
 		                          CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
 		                          'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
 		                          
-		                          Exit 'Found and made, exit
+		                          'Exit 'Found and made, exit
+		                          Continue 'Use Continue not exit so it jumps out of a loop, it was quitting the whole routine
 		                        End If
 		                      Else 'All but the first Item
 		                        LinkOutPath = StartPath+MenuWindows (K,1) 'StartPath is where Writable
@@ -3291,7 +3295,8 @@ Protected Module LLMod
 		                        CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
 		                        'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
 		                        
-		                        Exit 'Found and made, Exit
+		                        'Exit 'Found and made, exit
+		                        Continue 'Use Continue not exit so it jumps out of a loop, it was quitting the whole routine
 		                      End If
 		                    Else 'All others that are single item but not Games
 		                      
@@ -3301,10 +3306,12 @@ Protected Module LLMod
 		                      CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
 		                      'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
 		                      
-		                      Exit 'Found and made, Exit
+		                      'Exit 'Found and made, exit
+		                      Continue 'Use Continue not exit so it jumps out of a loop, it was quitting the whole routine
 		                      
 		                    End If
-		                    Exit 'Found the Item, jump out of the Loop, no need to keep going if it's found
+		                    'Exit 'Found the Item, jump out of the Loop, no need to keep going if it's found
+		                    Continue 'Use Continue not exit so it jumps out of a loop, it was quitting the whole routine
 		                  End If
 		                Next K
 		              End If
@@ -3328,8 +3335,12 @@ Protected Module LLMod
 		          CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(SpecialFolder.Desktop.NativePath)))
 		        End If
 		        
-		        'Make SendTo Shortcut for first item also if picked in Main flags and is a ssApp
-		        If I = 1 And BT = "ssApp" And ItemLLItem.Flags.IndexOf ("sendto") >=0 Then
+		        ''Make SendTo Shortcut for first item also if picked in Main flags and is a ssApp
+		        'If I = 1 And BT = "ssApp" And ItemLLItem.Flags.IndexOf ("sendto") >=0 Then
+		        'CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Windows/SendTo/")
+		        'End If
+		        
+		        If ItemLLItem.Flags.IndexOf ("sendto") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
 		          CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Windows/SendTo/")
 		        End If
 		        
@@ -6349,6 +6360,22 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue=""
 			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CleanTempFolders"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CleanUpIsle2"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
