@@ -3021,21 +3021,29 @@ Protected Module LLMod
 		  
 		  Dim StartDestTemp As String
 		  
+		  Dim SendTo As Boolean
+		  Dim Startup As Boolean
+		  Dim Root As Boolean
+		  
+		  
 		  BT = ItemLLItem.BuildType
 		  
 		  If TargetWindows Then 'Do ssApps/SentTo here
 		    'Make SentTo for first item if Main flag set
-		    If BT ="ssApp" Then 'Do Send To if Set in
-		      If ItemLLItem.Flags.IndexOf("sendto") >=0 Then 'Do SendTo (Not done yet)
-		        'Glenn - not done ssApp Links Processing yet, only the cleanup
-		      End If
-		      
-		      'Clean up links, only leave on Desktop if enabled
-		      'Done in MoveLinks
-		      
-		    End If
+		    'If BT ="ssApp" Then 'Do Send To if Set in
+		    If ItemLLItem.Flags.IndexOf("sendto") >=0 Then SendTo = True'Do SendTo (Not done yet)
+		    If ItemLLItem.Flags.IndexOf("root") >=0 Then Root = True
+		    If ItemLLItem.Flags.IndexOf("programs") >=0 Then Root = True
+		    If ItemLLItem.Flags.IndexOf("startup") >=0 Then Startup = True
+		    'Glenn - not done ssApp Links Processing yet, only the cleanup
+		    'End If
+		    
+		    'Clean up links, only leave on Desktop if enabled
+		    'Done in MoveLinks
 		    
 		  End If
+		  
+		  'End If
 		  
 		  '******* Removed cases from below as some ppApps and ssApps are game related and they get lost, I'll need to make it at least create it in the Default folder if it can't sort it GlennGlenn
 		  'Sort Catalog to Shortcuts - Windows ItemsOnly
@@ -3262,6 +3270,8 @@ Protected Module LLMod
 		      If Debugging Then Debug ("Start Output Path: " + StartPath)
 		      If Debugging Then Debug ("Link Count: " + LnkCount.ToString)
 		      
+		      Dim FirstLinkDone As Boolean = False
+		      
 		      For I = 1 To LnkCount
 		        If ItemLnk(I).Flags.IndexOf(0, "Is_x64") < 0 And ItemLnk(I).Title.IndexOf(1, "{#1}") >= 1 Then Continue ' Only skip replacing items if the items isn't the x64 one
 		        If ItemLnk(I).Flags.IndexOf(0, "Is_x64") < 0 And ItemLnk(I).Title.IndexOf(1, "{#2}") >= 1 Then Continue ' Only skip replacing items if the 2nd items isn't the x64 one
@@ -3371,23 +3381,56 @@ Protected Module LLMod
 		        End If
 		        
 		        'Make Desktop Shortcut also if picked
-		        If ItemLnk(I).Desktop = True Then
-		          CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(SpecialFolder.Desktop.NativePath)))
+		        If FirstLinkDone = False And ItemLnk(I).Desktop = True Then
+		          If AdminEnabled Then
+		            CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)))
+		          Else 'User only
+		            CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(SpecialFolder.Desktop.NativePath)))
+		          End If
 		        End If
 		        
-		        ''Make SendTo Shortcut for first item also if picked in Main flags and is a ssApp
-		        'If I = 1 And BT = "ssApp" And ItemLLItem.Flags.IndexOf ("sendto") >=0 Then
-		        'CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Windows/SendTo/")
-		        'End If
-		        
-		        If ItemLLItem.Flags.IndexOf ("sendto") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
+		        'SendTo
+		        If FirstLinkDone = False And ItemLLItem.Flags.IndexOf ("sendto") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
 		          CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Windows/SendTo/")
 		        End If
-		        
 		        'Make SendTo Shortcut also if picked in LNK
-		        If ItemLnk(I).Flags.IndexOf ("sendto") >=0 Then
+		        If ItemLnk(I).Flags.IndexOf ("sendto") >=0 Then 'Per Item
 		          CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Windows/SendTo/")
 		        End If
+		        
+		        'Programs
+		        If FirstLinkDone = False And ItemLLItem.Flags.IndexOf ("programs") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
+		          CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(StartPath)))
+		        End If
+		        If ItemLnk(I).Flags.IndexOf ("programs") >=0 Then 'Per Item
+		          CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(StartPath)))
+		        End If
+		        
+		        'Root
+		        If FirstLinkDone = False And ItemLLItem.Flags.IndexOf ("root") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
+		          CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(StartPath)))
+		        End If
+		        If ItemLnk(I).Flags.IndexOf ("root") >=0 Then 'per Item
+		          CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(StartPath)))
+		        End If
+		        
+		        'Startup
+		        If FirstLinkDone = False And ItemLLItem.Flags.IndexOf ("startup") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
+		          CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(Slash(FixPath(StartPath))+"Startup"))
+		        End If
+		        If ItemLnk(I).Flags.IndexOf ("startup") >=0 Then 'Per Item
+		          CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(Slash(FixPath(StartPath))+"Startup"))
+		        End If
+		        
+		        'QuickLaunch
+		        If FirstLinkDone = False And ItemLLItem.Flags.IndexOf ("quicklaunch") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
+		          CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Internet Explorer/Quick Launch/")
+		        End If
+		        If ItemLnk(I).Flags.IndexOf ("quicklaunch") >=0 Then 'Per Item
+		          CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Internet Explorer/Quick Launch/")
+		        End If
+		        
+		        FirstLinkDone = True
 		        
 		      Next
 		    End If
@@ -3473,16 +3516,18 @@ Protected Module LLMod
 		      ShellFast.Execute ("xcopy /e /c /q /h /r /y " + Chr(34)+Source+Chr(34)+" "+ Chr(34)+Dest+"\"+Chr(34)) 'Drop Parent Folder Name
 		    End If
 		    
+		    If Debugging Then Debug("Result: "+ ShellFast.ReadAll) 'Just output link jobs for now, it's messy in here
+		    
 		    'Need to test Parent isn't the same as the dest
 		    Parent = NoSlash(Source).Trim
 		    Parent = Left(Source,InStrRev(Source,"\"))
 		    
-		    If Debugging Then Debug("* Parent: "+ NoSlash(Parent).Lowercase+ " Dest: " + NoSlash(Dest).Lowercase)
+		    If Debugging Then Debug("Parent Test: "+ NoSlash(Parent).Lowercase+ " Dest: " + NoSlash(Dest).Lowercase)
 		    
 		    If NoSlash(Parent).Lowercase <> NoSlash(Dest).Lowercase And NoSlash(Source).Trim.Lowercase <> NoSlash(Dest).Lowercase Then 'Only Delete if not the same folder - else we'll have NO folder left at all.
 		      Deltree (Source) 'Remove once xcopied
 		    Else
-		      If Debugging Then Debug("Parent is Destination, no delete")
+		      If Debugging Then Debug("Parent is Destination, not Deleted")
 		    End If
 		    
 		  Else 'linux, no problems with running shell
@@ -3590,10 +3635,15 @@ Protected Module LLMod
 		    If ItemLLItem.Flags.IndexOf("desktop") < 0 Then 'Not found as flag so Move it to the destination folder or delete it if exist
 		      Sp() = ItemLLItem.ShortCutNamesKeep.Split("|")
 		      For M = 0 To Sp.Count-1
+		        'Check Desktop
 		        If Exist(Slash(FixPath(SpecialFolder.Desktop.NativePath)) + Sp(M).Trim +".lnk") Then Move (Slash(FixPath(SpecialFolder.Desktop.NativePath)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
 		        If Exist(Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + Sp(M).Trim +".lnk") Then Move (Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
 		        
-		        'Check root of start menu too:
+		        'Check items default start menu too:
+		        If Exist(Slash(Slash(FixPath(StartPathAll))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(FixPath(StartPathAll))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
+		        If Exist(Slash(Slash(FixPath(StartPathUser))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(FixPath(StartPathUser))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
+		        
+		        'Check root of start menu too: 'This deletes it off the desktop too using Move
 		        If Exist(Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk") Then Move (Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
 		        If Exist(Slash(FixPath(StartPathUser)) + Sp(M).Trim +".lnk") Then Move (Slash(FixPath(StartPathUser)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
 		        
@@ -3613,8 +3663,13 @@ Protected Module LLMod
 		    Else 'Keep on Desktop, but do a copy to LLShorts for Start Menu Sorting of it
 		      Sp() = ItemLLItem.ShortCutNamesKeep.Split("|")
 		      For M = 0 To Sp.Count-1
+		        'Check Desktop
 		        If Exist(Slash(FixPath(SpecialFolder.Desktop.NativePath)) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(FixPath(SpecialFolder.Desktop.NativePath)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
 		        If Exist(Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
+		        
+		        'Check items default start menu too:
+		        If Exist(Slash(Slash(FixPath(StartPathAll))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(FixPath(StartPathAll))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
+		        If Exist(Slash(Slash(FixPath(StartPathUser))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(FixPath(StartPathUser))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
 		        
 		        'Check root of start menu too:
 		        If Exist(Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
@@ -3624,7 +3679,7 @@ Protected Module LLMod
 		        
 		        If DestStartPathTemp = "" Then DestStartPathTemp = "Other"
 		        
-		        If AdminEnabled Then
+		        If AdminEnabled Then 'This does the start menu from ShortcutsKeep - LLShorts folder, just incase it never makes the start Links
 		          'Copy From LLShorts folder if exist (All Users)
 		          If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathAll+DestStartPath)) 'Place Kept Shortcut in the destination folder
 		          
@@ -3674,6 +3729,81 @@ Protected Module LLMod
 		          If Exist(StartPathUser+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+"/"+ Sp(M).Trim +".lnk", StartPathUser+DestStartPathTemp) 'Place from root
 		          
 		        End If
+		        
+		        'M = 0 Below means only the Very first link is used
+		        'Make sure Desktop Link is in the right place
+		        
+		        'Desktop
+		        If M = 0 And ItemLLItem.Flags.IndexOf ("desktop") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
+		          'CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(StartPath)))
+		          If AdminEnabled Then
+		            'Copy From LLShorts folder if exist (All Users)
+		            If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then
+		              XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(FixPath(SpecialFolder.SharedDesktop.NativePath))) 'Place Kept Shortcut in the destination folder
+		              Deltree(Slash(FixPath(SpecialFolder.Desktop.NativePath))+Sp(M).Trim +".lnk") 'Delete off the User desktop if it's created on the All Users one (else you'll have 2 icons for the one app)
+		            End If
+		            
+		          Else
+		            'Copy From LLShorts folder if exist (User)
+		            If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then 
+		              'Only make a link if it doesn't already exist on the All Users desktop
+		              If Not Exist(Slash(FixPath(SpecialFolder.SharedDesktop.NativePath))+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(FixPath(SpecialFolder.Desktop.NativePath))) 'Place Kept Shortcut in the destination folder
+		            End If
+		          End If
+		        End If
+		        
+		        
+		        'Make SendTo Shortcut if flagged
+		        If M = 0 And ItemLLItem.Flags.IndexOf ("sendto") >=0 Then 'M = 0 is the first item only, we only want the one Send To item made for multi link windows (Like SetupS)
+		          'Copy From LLShorts folder if exist (User)
+		          If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Windows/SendTo/") 'Place Kept Shortcut in the destination folder
+		        End If
+		        
+		        'Programs
+		        If M = 0 And ItemLLItem.Flags.IndexOf ("programs") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
+		          'CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(StartPath)))
+		          If AdminEnabled Then
+		            'Copy From LLShorts folder if exist (All Users)
+		            If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", StartPathAll) 'Place Kept Shortcut in the destination folder
+		            
+		          Else
+		            'Copy From LLShorts folder if exist (User)
+		            If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", StartPathUser) 'Place Kept Shortcut in the destination folder
+		          End If
+		        End If
+		        
+		        'Root
+		        If M = 0 And ItemLLItem.Flags.IndexOf ("root") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
+		          'CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(StartPath)))
+		          If AdminEnabled Then
+		            'Copy From LLShorts folder if exist (All Users)
+		            If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", StartPathAll) 'Place Kept Shortcut in the destination folder
+		            
+		          Else
+		            'Copy From LLShorts folder if exist (User)
+		            If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", StartPathUser) 'Place Kept Shortcut in the destination folder
+		          End If
+		        End If
+		        
+		        'Startup
+		        If M = 0 And ItemLLItem.Flags.IndexOf ("startup") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
+		          'CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(Slash(FixPath(StartPath))+"Startup"))
+		          'CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).RunPath), Slash(FixPath(StartPath)))
+		          If AdminEnabled Then
+		            'Copy From LLShorts folder if exist (All Users)
+		            If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathAll)+"Startup") 'Place Kept Shortcut in the destination folder
+		            
+		          Else
+		            'Copy From LLShorts folder if exist (User)
+		            If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathUser)+"Startup") 'Place Kept Shortcut in the destination folder
+		          End If
+		        End If
+		        
+		        'QuickLaunch
+		        If M = 0 And ItemLLItem.Flags.IndexOf ("quicklaunch") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
+		          If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Internet Explorer/Quick Launch/") 'Place Kept Shortcut in the destination folder
+		        End If
+		        
 		      Next M
 		      
 		      'Below is needed to clear the empty or dregs
@@ -4098,9 +4228,10 @@ Protected Module LLMod
 		          App.DoEvents(1)
 		        Wend
 		        If Debugging Then
-		          Res = Sh.Result.Trim
+		          'Res = Sh.Result.Trim
+		          Res = Sh.ReadAll
 		          If Left (CmdIn,4) = "curl" Then Res = Left(Res,12) 'Shrink curl output
-		          Debug("Results: -"+Chr(10)+Res+Chr(10))
+		          Debug("RunCommandResults: -"+Chr(10)+Res+Chr(10))
 		        End If
 		        
 		        'Delete Temp Script
@@ -4117,15 +4248,17 @@ Protected Module LLMod
 		        App.DoEvents(1)
 		      Wend
 		      If Debugging Then
-		        Res = Sh.Result.Trim
+		        'Res = Sh.Result.Trim
+		        Res = Sh.ReadAll
 		        If Left (CmdIn,4) = "curl" Then Res = Left(Res,12) 'Shrink curl output
-		        Debug("Results: -"+Chr(10)+Res+Chr(10))
+		        Debug("RunCommandResults: -"+Chr(10)+Res+Chr(10))
 		      End If
 		      
 		    End If
 		    
 		    'For Both
-		    Return Sh.Result
+		    'Return Sh.Result
+		    Return Sh.ReadAll
 		  End If
 		  
 		  Return ""
