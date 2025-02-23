@@ -935,14 +935,14 @@ Protected Module LLMod
 		  If Left(PathIn.Lowercase,3) = "rem" Then 'skip rem lines, incase it's not suposed to run.
 		  Else
 		    'If Left(PathIn.Trim,4) = "wine" And PathIn.IndexOf(".msi") >=1 Then ' make sure it's only changing lines that install msi's 'This method doesn't work on windows ones
-		    'If Left(PathIn.Trim,4) <> "wget" And Left(PathIn.Trim,2) <> "mv" And Left(PathIn.Trim,2) <> "cp" And Left(PathIn.Trim,4) <> "curl" And PathIn.IndexOf(".msi") >=1 Then ' make sure it's only changing lines that install msi's
 		    If TargetWindows Then
-		      If PathIn.IndexOf(".msi") >=1 Then ' make sure it's only changing lines that install msi's 'This method doesn't work on windows ones
+		      If Left(PathIn.Trim,3) <> "del" And Left(PathIn.Trim,3) <> "ren" And Left(PathIn.Trim,4) <> "copy" And Left(PathIn.Trim,4) <> "move" And Left(PathIn.Trim,5) <> "xcopy" And PathIn.IndexOf(".msi") >=1 Then ' make sure it's only changing lines that install msi's, that don't have del at start (eg incase NitroPDF tries to delete a msi file)
 		        If Left(PathIn,7) <> "msiexec" Then
 		          'If Left(PathIn,1)<>Chr(34) Then 'Need to check for end of .msi and remove /qb if it's an issue
 		          PathIn = "msiexec /quiet /norestart /i "+PathIn
 		        Else
 		        End If
+		        
 		      End If
 		    Else 'Linux, only change ones that specifically set as WINE as I use wget and move them about too and it changes all the lines with .msi in them
 		      If Left(PathIn.Trim,4) = "wine" And PathIn.IndexOf(".msi") >=1 Then ' make sure it's only changing lines that install msi's 'This method doesn't work on windows ones
@@ -6627,6 +6627,14 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue=""
 			Type="String"
+			EditorType="MultiLineEditor"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="OldMiniUpTo"
+			Visible=false
+			Group="Behavior"
+			InitialValue="-1"
+			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
