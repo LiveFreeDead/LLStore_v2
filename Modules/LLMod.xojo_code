@@ -111,9 +111,9 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub Copy(FileIn As String, FileOut As String)
+		Function Copy(FileIn As String, FileOut As String) As Boolean
 		  If Debugging Then Debug("Copy "+ FileIn +" To " + FileOut)
-		  If FileIn = FileOut Then Return 'Do not run if it's the same as it will delete it below and we don't want that
+		  If FileIn = FileOut Then Return True 'Do not run if it's the same as it will delete it below and we don't want that
 		  'I may update this routune to new methods, but works for now using Xojo method - Glenn
 		  
 		  Dim F, G As FolderItem
@@ -122,17 +122,27 @@ Protected Module LLMod
 		    #Pragma BreakOnExceptions Off
 		    Try
 		      F=GetFolderItem(FileIn, FolderItem.PathTypeShell)
-		      If Not F.Parent.Exists Then MakeFolder(F.Parent.ShellPath) ' Make sure folder exists before copying to it
+		      'If Not F.Parent.Exists Then MakeFolder(F.Parent.ShellPath) ' Make sure folder exists before copying to it??? To it or from it GlennGlenn Remarked out - weird
 		      
 		      G=GetFolderItem(FileOut, FolderItem.PathTypeShell)
 		      'MakeFolder(G.Parent.ShellPath) 'Makes sure the output path parent exists before trying to copy to it. 'leaving this out for now, causes issues with Try Catch, if access denied
 		      If G.Exists And G.IsWriteable Then G.Remove
+		      
+		      'If Debugging Then Debug("Attempting Copy "+ F.ShellPath +" To " + G.ShellPath)
+		      
 		      F.CopyTo(G)
+		      
+		      'If Debugging Then Debug("Copied? No Error Catch")
+		      
 		    Catch
+		      If Debugging Then Debug(" Failed Copy!!!")
+		      Return False
 		    End Try
 		    #Pragma BreakOnExceptions On
 		  End If
-		End Sub
+		  
+		  Return True
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
@@ -1522,6 +1532,7 @@ Protected Module LLMod
 		  
 		  'App.DoEvents(1) 'Redraw Forms
 		  
+		  Dim Suc As Boolean
 		  Dim Success As Boolean
 		  Dim Shelly As New Shell
 		  
@@ -1663,10 +1674,10 @@ Protected Module LLMod
 		        'Find another way to copy in Windows? (RoboCopy)
 		        'https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/robocopy
 		        
-		        Copy(Slash(InstallFromPath) +ItemLLItem.BuildType+".app", Slash(InstallToPath) +ItemLLItem.BuildType+ ".app")
-		        Copy(Slash(InstallFromPath) +ItemLLItem.BuildType+".ppg", Slash(InstallToPath) +ItemLLItem.BuildType+ ".ppg")
-		        Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".reg", Slash(InstallToPath) +ItemLLItem.BuildType+ ".reg")
-		        Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".cmd", Slash(InstallToPath) + ItemLLItem.BuildType+".cmd")
+		        Suc = Copy(Slash(InstallFromPath) +ItemLLItem.BuildType+".app", Slash(InstallToPath) +ItemLLItem.BuildType+ ".app")
+		        Suc = Copy(Slash(InstallFromPath) +ItemLLItem.BuildType+".ppg", Slash(InstallToPath) +ItemLLItem.BuildType+ ".ppg")
+		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".reg", Slash(InstallToPath) +ItemLLItem.BuildType+ ".reg")
+		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".cmd", Slash(InstallToPath) + ItemLLItem.BuildType+".cmd")
 		        'Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".jpg", Slash(InstallToPath) +ItemLLItem.BuildType+ ".jpg")
 		        'Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".png", Slash(InstallToPath) +ItemLLItem.BuildType+ ".png")
 		        'Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".ico", Slash(InstallToPath) +ItemLLItem.BuildType+ ".ico")
@@ -1688,13 +1699,13 @@ Protected Module LLMod
 		          App.DoEvents(7)
 		        Loop Until Shelly.IsRunning = False
 		      Else
-		        Copy(Slash(InstallFromPath) + "LLScript.sh", Slash(InstallToPath) + "LLScript.sh")
-		        Copy(Slash(InstallFromPath) +ItemLLItem.BuildType+".app", Slash(InstallToPath) +ItemLLItem.BuildType+ ".app")
-		        Copy(Slash(InstallFromPath) +ItemLLItem.BuildType+".ppg", Slash(InstallToPath) +ItemLLItem.BuildType+ ".ppg")
-		        Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".reg", Slash(InstallToPath) +ItemLLItem.BuildType+ ".reg")
-		        Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".cmd", Slash(InstallToPath) + ItemLLItem.BuildType+".cmd")
-		        Copy(Slash(InstallFromPath) +ItemLLItem.BuildType+".lla", Slash(InstallToPath) +ItemLLItem.BuildType+ ".lla")
-		        Copy(Slash(InstallFromPath) +ItemLLItem.BuildType+".llg", Slash(InstallToPath) +ItemLLItem.BuildType+ ".llg")
+		        Suc = Copy(Slash(InstallFromPath) + "LLScript.sh", Slash(InstallToPath) + "LLScript.sh")
+		        Suc = Copy(Slash(InstallFromPath) +ItemLLItem.BuildType+".app", Slash(InstallToPath) +ItemLLItem.BuildType+ ".app")
+		        Suc = Copy(Slash(InstallFromPath) +ItemLLItem.BuildType+".ppg", Slash(InstallToPath) +ItemLLItem.BuildType+ ".ppg")
+		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".reg", Slash(InstallToPath) +ItemLLItem.BuildType+ ".reg")
+		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".cmd", Slash(InstallToPath) + ItemLLItem.BuildType+".cmd")
+		        Suc = Copy(Slash(InstallFromPath) +ItemLLItem.BuildType+".lla", Slash(InstallToPath) +ItemLLItem.BuildType+ ".lla")
+		        Suc = Copy(Slash(InstallFromPath) +ItemLLItem.BuildType+".llg", Slash(InstallToPath) +ItemLLItem.BuildType+ ".llg")
 		        'Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".jpg", Slash(InstallToPath) +ItemLLItem.BuildType+ ".jpg")
 		        'Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".png", Slash(InstallToPath) +ItemLLItem.BuildType+ ".png")
 		        'Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".ico", Slash(InstallToPath) +ItemLLItem.BuildType+ ".ico")
@@ -3024,7 +3035,7 @@ Protected Module LLMod
 		    
 		  End If
 		  
-		  
+		  '******* Removed cases from below as some ppApps and ssApps are game related and they get lost, I'll need to make it at least create it in the Default folder if it can't sort it GlennGlenn
 		  'Sort Catalog to Shortcuts - Windows ItemsOnly
 		  'Get the StartMenu Stuff for ssApps and then for ppApps/Games
 		  'If TargetWindows Then
@@ -3034,16 +3045,22 @@ Protected Module LLMod
 		    For I = 0 To CatalogCount
 		      Catalog(I) = Catalog(I).Trim
 		      IF RedirectAppCount >= 1 Then
-		        Select Case ItemLLItem.BuildType
-		        Case "ssApp","ppApp"
-		          For J = 0 To RedirectAppCount -1
-		            If Catalog(I)  = RedirectsApp (J,0) Then ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(RedirectsApp (J,0),RedirectsApp (J,1))'Replace with new App Catalog
-		          Next J
-		        Case Else 'Game
-		          For J = 0 To RedirectGameCount -1
-		            If Catalog(I)  = RedirectsGame (J,0) Then ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(RedirectsGame (J,0),RedirectsGame (J,1))'Replace with new Game Catalog
-		          Next J
-		        End Select
+		        'Select Case ItemLLItem.BuildType
+		        'Case "ssApp","ppApp"
+		        For J = 0 To RedirectAppCount -1
+		          If Catalog(I)  = RedirectsApp (J,0) Then
+		            ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(RedirectsApp (J,0),RedirectsApp (J,1))'Replace with new App Catalog
+		            'Exit 'Found item to replace, get out of here
+		          End If
+		        Next J
+		        'Case Else 'Game
+		        For J = 0 To RedirectGameCount -1
+		          If Catalog(I)  = RedirectsGame (J,0) Then
+		            ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(RedirectsGame (J,0),RedirectsGame (J,1))'Replace with new Game Catalog
+		            'Exit 'Found item to replace, get out of here
+		          End If
+		        Next J
+		        'End Select
 		      End If
 		    Next I
 		  End If
@@ -3058,16 +3075,22 @@ Protected Module LLMod
 		        IF RedirectGameCount >= 1 Then
 		          For I = 0 To CatalogCount
 		            Catalog(I) = Catalog(I).Trim
-		            Select Case ItemLLItem.BuildType
-		            Case "ssApp","ppApp"
-		              For J = 0 To RedirectAppCount -1
-		                If Catalog(I)  = RedirectsApp (J,0) Then ItemLnk(L).Categories = ItemLnk(L).Categories.ReplaceAll(RedirectsApp (J,0),RedirectsApp (J,1)) 'Replace with new App Catalog
-		              Next J
-		            Case Else 'Game
-		              For J = 0 To RedirectGameCount -1
-		                If Catalog(I)  = RedirectsGame (J,0) Then ItemLnk(L).Categories = ItemLnk(L).Categories.ReplaceAll(RedirectsGame (J,0),RedirectsGame (J,1)) 'Replace with new Game Catalog
-		              Next J
-		            End Select
+		            'Select Case ItemLLItem.BuildType
+		            'Case "ssApp","ppApp"
+		            For J = 0 To RedirectAppCount -1
+		              If Catalog(I)  = RedirectsApp (J,0) Then
+		                ItemLnk(L).Categories = ItemLnk(L).Categories.ReplaceAll(RedirectsApp (J,0),RedirectsApp (J,1)) 'Replace with new App Catalog
+		                'Exit 'Found item to replace, get out of here
+		              End If
+		            Next J
+		            'Case Else 'Game
+		            For J = 0 To RedirectGameCount -1
+		              If Catalog(I)  = RedirectsGame (J,0) Then
+		                ItemLnk(L).Categories = ItemLnk(L).Categories.ReplaceAll(RedirectsGame (J,0),RedirectsGame (J,1)) 'Replace with new Game Catalog
+		                Exit 'Found item to replace, get out of here
+		              End If
+		            Next J
+		            'End Select
 		          Next I
 		          'Replace Game to start of Catalog
 		          If Len( ItemLnk(L).Categories) > Len( ItemLnk(L).Categories.ReplaceAll("; Game;",";")) Then ' Drop the Game back to start
@@ -3234,6 +3257,9 @@ Protected Module LLMod
 		        StartPath = StartPathUser 'Current User
 		      End If
 		      
+		      If Debugging Then Debug ("Start Output Path: " + StartPath)
+		      If Debugging Then Debug ("Link Count: " + LnkCount.ToString)
+		      
 		      For I = 1 To LnkCount
 		        If ItemLnk(I).Flags.IndexOf(0, "Is_x64") < 0 And ItemLnk(I).Title.IndexOf(1, "{#1}") >= 1 Then Continue ' Only skip replacing items if the items isn't the x64 one
 		        If ItemLnk(I).Flags.IndexOf(0, "Is_x64") < 0 And ItemLnk(I).Title.IndexOf(1, "{#2}") >= 1 Then Continue ' Only skip replacing items if the 2nd items isn't the x64 one
@@ -3265,19 +3291,28 @@ Protected Module LLMod
 		        
 		        'Do main Folder Creation here to put Link file into
 		        'Do Link Catalog
+		        
+		        If Debugging Then Debug ("Item Link Categories: " + ItemLnk(I).Categories)
+		        
 		        If  ItemLnk(I).Categories <> "" Then
 		          Catalog = ItemLnk(I).Categories.Split(";")
 		          CatalogCount = Catalog.Count - 1
+		          If Debugging Then Debug ("Catalog Count: " + Str(Catalog.Count))
+		          If Debugging Then Debug ("Menu Windows Count: " + MenuWindowsCount.ToString)
 		          For J = 0 To CatalogCount
 		            Catalog(J) = Catalog(J).Trim
+		            If Catalog(J) = "ppGame" Then Catalog(J) = "Game" 'Some of my older items have ppGame instead of Game, this fixes that
+		            'GlennGlennGlenn - If not Catalogs then use StartMenuSourcePath - So Something is made
 		            If Catalog(J) <> "" Then ' Only do Valid Link Catalogs
 		              If MenuWindowsCount >= 1 Then
 		                For K = 0 To MenuWindowsCount -1
-		                  If Catalog(J)  = MenuWindows (K,0) Then
+		                  'If Debugging Then Debug (Catalog(J)+"=>"+ MenuWindows (K,0))
+		                  If Catalog(J) = MenuWindows (K,0) Then
+		                    If Debugging Then Debug ("* FOUND: "+ Catalog(J)+"=>"+ MenuWindows (K,0))
 		                    'DaBugs = DaBugs+ Catalog(J)+"=>"+ MenuWindows (K,0)+Chr(10)
 		                    If CatalogCount > 1 Then 'If more than one Category then Remove Games standalone
 		                      If J = 0 Then 
-		                        If Catalog(J) <> "Game" Then ' Only the first one as that is only Game (set to first above)
+		                        If Catalog(J) <> "Game" Or ItemLnk(I).Categories = "Game; ppGame;" Or  ItemLnk(I).Categories = "Game;" Or  ItemLnk(I).Categories = "ppGame;" Then ' Only the first one as that is only Game (set to first above), Unless has no other, then it goes to the root of /Games - WORKS
 		                          
 		                          LinkOutPath = StartPath+MenuWindows (K,1) 'StartPath is where Writable
 		                          If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
@@ -3406,6 +3441,10 @@ Protected Module LLMod
 		  If TargetWindows Then Source = Source.ReplaceAll("/","\") 'move needs backslash in Windows
 		  If TargetWindows Then Dest = Dest.ReplaceAll("/","\") 'move needs backslash in Windows
 		  
+		  If TargetWindows Then Source = Source.ReplaceAll("\\","\") 'Remove double slashes caused by empty paths
+		  If TargetWindows Then Dest = Dest.ReplaceAll("\\","\") 'Remove double slashes caused by empty paths
+		  
+		  
 		  Source = Source.Trim
 		  Dest = Dest.Trim
 		  
@@ -3413,6 +3452,8 @@ Protected Module LLMod
 		    Parent = NoSlash(Source).Trim
 		    Parent = Right(Source,Len(Source)-InStrRev(Source,"\"))
 		    MakeFolder (Slash(Dest)+Parent) 'Make Dest exist before copy/move to it
+		  Else 'It IS a link
+		    MakeFolder (Slash(Dest)) 'Make Dest exist before copy/move to it
 		  End If
 		  
 		  'Move Files and Folders
@@ -3424,9 +3465,20 @@ Protected Module LLMod
 		    If Parent <> "" Then
 		      ShellFast.Execute ("xcopy /e /c /q /h /r /y " + Chr(34)+Source+Chr(34)+" "+ Chr(34)+Dest+"\"+Parent+"\"+Chr(34)) 'Keep Parent Folder Name
 		    Else
-		      ShellFast.Execute ("xcopy /e /c /q /h /r /y " + Chr(34)+Source+Chr(34)+" "+ Chr(34)+Dest+"\"+Chr(34)) 'Keep Parent Folder Name
+		      ShellFast.Execute ("xcopy /e /c /q /h /r /y " + Chr(34)+Source+Chr(34)+" "+ Chr(34)+Dest+"\"+Chr(34)) 'Drop Parent Folder Name
 		    End If
-		    Deltree (Source) 'Remove once xcopied
+		    
+		    'Need to test Parent isn't the same as the dest
+		    Parent = NoSlash(Source).Trim
+		    Parent = Left(Source,InStrRev(Source,"\"))
+		    
+		    If Debugging Then Debug("* Parent: "+ NoSlash(Parent).Lowercase+ " Dest: " + NoSlash(Dest).Lowercase)
+		    
+		    If NoSlash(Parent).Lowercase <> NoSlash(Dest).Lowercase And NoSlash(Source).Trim.Lowercase <> NoSlash(Dest).Lowercase Then 'Only Delete if not the same folder - else we'll have NO folder left at all.
+		      Deltree (Source) 'Remove once xcopied
+		    Else
+		      If Debugging Then Debug("Parent is Destination, no delete")
+		    End If
 		    
 		  Else 'linux, no problems with running shell
 		    ShellFast.Execute ("mv -f " + Chr(34)+Source+Chr(34)+" "+ Chr(34)+Dest+Chr(34))
@@ -3440,6 +3492,8 @@ Protected Module LLMod
 		  
 		  If Debugging Then Debug("--- Starting Move Links ---")
 		  Dim DaBugs As String
+		  
+		  Dim Suc As Boolean
 		  
 		  Dim Debugger As String
 		  
@@ -3472,6 +3526,8 @@ Protected Module LLMod
 		    Deltree (Slash(TmpPath)+"LLShorts")
 		    MakeFolder (Slash(TmpPath)+"LLShorts")
 		    
+		    
+		    'Removed Select Case as some ppApps and ssApps use Games paths (they are game tools)
 		    'Get the StartMenu Stuff for ssApps and then for ppApps/Games
 		    If ItemLLItem.Catalog <> "" Then
 		      Catalog = ItemLLItem.Catalog.Split(";")
@@ -3479,21 +3535,24 @@ Protected Module LLMod
 		      For I = 0 To CatalogCount
 		        Catalog(I) = Catalog(I).Trim
 		        IF RedirectAppCount >= 1 Then
-		          Select Case ItemLLItem.BuildType
-		          Case "ssApp","ppApp"
-		            For J = 0 To RedirectAppCount -1
-		              
-		              If Catalog(I) = RedirectsApp (J,0) Then
-		                'Debugger=Debugger + Catalog(I)+" >"+ RedirectsApp (J,0)+" >>"+RedirectsApp (J,1)+ Chr(10)
-		                ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(RedirectsApp (J,0),RedirectsApp (J,1))'Replace with new App Catalog
-		                Exit 'Found, no need to continue
-		              End If
-		            Next J
-		          Case Else 'Game
-		            For J = 0 To RedirectGameCount -1
-		              If Catalog(I) = RedirectsGame (J,0) Then ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(RedirectsGame (J,0),RedirectsGame (J,1))'Replace with new Game Catalog
-		            Next J
-		          End Select
+		          'Select Case ItemLLItem.BuildType
+		          'Case "ssApp","ppApp"
+		          For J = 0 To RedirectAppCount -1
+		            
+		            If Catalog(I) = RedirectsApp (J,0) Then
+		              If Debugging Then Debug("Redir App: "+Catalog(I)+" >"+ RedirectsApp (J,0)+" >>"+RedirectsApp (J,1))
+		              ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(RedirectsApp (J,0),RedirectsApp (J,1))'Replace with new App Catalog
+		              Exit 'Found, no need to continue
+		            End If
+		          Next J
+		          'Case Else 'Game
+		          For J = 0 To RedirectGameCount -1
+		            If Catalog(I) = RedirectsGame (J,0) Then
+		              If Debugging Then Debug("Redir Game: "+Catalog(I)+" >"+ RedirectsGame (J,0)+" >>"+RedirectsGame (J,1))
+		              ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(RedirectsGame (J,0),RedirectsGame (J,1))'Replace with new Game Catalog
+		            End If
+		          Next J
+		          'End Select
 		        End If
 		      Next I
 		    End If
@@ -3507,10 +3566,11 @@ Protected Module LLMod
 		        If Catalog(J) <> "" Then ' Only do Valid Link Catalogs
 		          If MenuWindowsCount >= 1 Then
 		            For K = 0 To MenuWindowsCount -1
-		              'Debugger=Debugger + Catalog(J)+" >"+ MenuWindows (K,0)+" >>"+MenuWindows (K,1)+ Chr(10)
+		              'If Debugging Then Debug("Comparing as: "+ Catalog(J)+" >"+ MenuWindows (K,0)+" >>"+MenuWindows (K,1))
 		              If Catalog(J) = MenuWindows (K,0) Then
 		                DestStartPath = MenuWindows (K,1)
-		                'Debugger=Debugger + DestStartPath+Chr(10)
+		                If Debugging Then Debug("Dest Start Path: "+ MenuWindows (K,1))
+		                Exit 'Found it, get out of here
 		              End If
 		            Next
 		          End If
@@ -3519,16 +3579,45 @@ Protected Module LLMod
 		    End If
 		    
 		    'Do Desktop First
-		    If ItemLLItem.Flags.IndexOf("desktop") < 0 Then 'Not found, so Move it to the destination folder or delete it if exist
-		      'Delete for now, will use Move once I make a function
+		    If ItemLLItem.Flags.IndexOf("desktop") < 0 Then 'Not found as flag so Move it to the destination folder or delete it if exist
 		      Sp() = ItemLLItem.ShortCutNamesKeep.Split("|")
 		      For M = 0 To Sp.Count-1
-		        Move (Slash(FixPath(SpecialFolder.Desktop.NativePath)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
-		        Move (Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
+		        If Exist(Slash(FixPath(SpecialFolder.Desktop.NativePath)) + Sp(M).Trim +".lnk") Then Move (Slash(FixPath(SpecialFolder.Desktop.NativePath)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
+		        If Exist(Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + Sp(M).Trim +".lnk") Then Move (Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
+		        
+		        'Check root of start menu too:
+		        If Exist(Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk") Then Move (Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
+		        If Exist(Slash(FixPath(StartPathUser)) + Sp(M).Trim +".lnk") Then Move (Slash(FixPath(StartPathUser)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
+		        
+		        If AdminEnabled Then
+		          'Copy From LLShorts folder if exist (All Users)
+		          If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathAll+DestStartPath)) 'Place Kept Shortcut in the destination folder
+		        Else
+		          'Copy From LLShorts folder if exist (User)
+		          If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathUser+DestStartPath)) 'Place Kept Shortcut in the destination folder
+		        End If
+		        
 		      Next M
-		      
-		      'Deltree (Slash(FixPath(SpecialFolder.Desktop.NativePath)) + ItemLLItem.ShortCutNamesKeep +".lnk") 'Remove it, clean up Current User
-		      'Deltree (Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + ItemLLItem.ShortCutNamesKeep +".lnk") 'Remove it, clean up All Users
+		    Else 'Keep on Desktop, but do a copy to LLShorts for Start Menu Sorting of it
+		      Sp() = ItemLLItem.ShortCutNamesKeep.Split("|")
+		      For M = 0 To Sp.Count-1
+		        If Exist(Slash(FixPath(SpecialFolder.Desktop.NativePath)) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(FixPath(SpecialFolder.Desktop.NativePath)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
+		        If Exist(Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
+		        
+		        'Check root of start menu too:
+		        If Exist(Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
+		        If Exist(Slash(FixPath(StartPathUser)) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(FixPath(StartPathUser)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
+		        
+		        If AdminEnabled Then
+		          'Copy From LLShorts folder if exist (All Users)
+		          If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathAll+DestStartPath)) 'Place Kept Shortcut in the destination folder
+		          
+		        Else
+		          'Copy From LLShorts folder if exist (User)
+		          If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathUser+DestStartPath)) 'Place Kept Shortcut in the destination folder
+		        End If
+		        
+		      Next M
 		    End If
 		    
 		    
@@ -3544,38 +3633,32 @@ Protected Module LLMod
 		        Move (StartPathUser+ItemLLItem.StartMenuSourcePath, StartPathUser+DestStartPath) 'Remove it, clean up
 		      End If
 		      
-		      'Below is the original, to temp, need to dest
-		      'Move (StartPathAll+ItemLLItem.StartMenuSourcePath, Slash(TmpPath)+"LLShorts/") 'Remove it, clean up
-		      'Move (StartPathUser+ItemLLItem.StartMenuSourcePath, Slash(TmpPath)+"LLShorts/") 'Remove it, clean up
-		      
 		    Else 'Just keep some and delete folder
 		      Sp() = ItemLLItem.ShortCutNamesKeep.Split("|")
 		      For M = 0 To Sp.Count-1
 		        If AdminEnabled Then
-		          Move (StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPath) 'Remove it, clean up
-		          Move (StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPath) 'Remove it, clean up
+		          If Exist(StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPath) 'Place item
+		          If Exist(StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPath) 'Place item
+		          
+		          If Exist(StartPathAll+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathAll+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPath) 'Place from root
+		          If Exist(StartPathUser+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPath) 'Place from root
+		          
 		        Else
-		          Move (StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim+".lnk", StartPathUser+DestStartPath) 'Remove it, clean up
-		          Move (StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathUser+DestStartPath) 'Remove it, clean up
+		          If Exist(StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim+".lnk") Then Move (StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim+".lnk", StartPathUser+DestStartPath) 'Place item
+		          If Exist(StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathUser+DestStartPath) 'Place item
+		          
+		          If Exist(StartPathAll+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathAll+"/"+ Sp(M).Trim +".lnk", StartPathUser+DestStartPath) 'Place from root
+		          If Exist(StartPathUser+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+"/"+ Sp(M).Trim +".lnk", StartPathUser+DestStartPath) 'Place from root
+		          
 		        End If
 		      Next M
 		      
-		      'Below is Orig works, but went to temp
-		      'Move (StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ ItemLLItem.ShortCutNamesKeep +".lnk", Slash(TmpPath)+"LLShorts/") 'Remove it, clean up
-		      'Move (StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ ItemLLItem.ShortCutNamesKeep +".lnk", Slash(TmpPath)+"LLShorts/") 'Remove it, clean up
-		      
 		      'Below is needed to clear the empty or dregs
-		      If ItemLLItem.StartMenuSourcePath <> "" Then ' Careful deleting folders from start menu ' May need a 2nd look
+		      If ItemLLItem.StartMenuSourcePath <> "" Then ' Careful deleting folders from start menu ' May need a 2nd look, works ok for now, no losses
 		        Deltree (StartPathAll+ItemLLItem.StartMenuSourcePath) 'Remove it, clean up
 		        Deltree (StartPathUser+ItemLLItem.StartMenuSourcePath) 'Remove it, clean up
 		      End If
-		      
-		      
 		    End If
-		    
-		    'DaBugs = StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ ItemLLItem.ShortCutNamesKeep +".lnk"+">>>"+ StartPathAll+DestStartPath
-		    ''SaveDataToFile (DaBugs+Chr(10)+"------"+Chr(10)+Debugger ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
-		    
 		  End If
 		End Sub
 	#tag EndMethod
@@ -3704,10 +3787,11 @@ Protected Module LLMod
 		  DebugOutput.Close 'Close File when quiting
 		  Dim today As DateTime = DateTime.Now
 		  Dim FileNameOut As String
+		  Dim Suc As Boolean
 		  If Debugging Then
 		    FileNameOut = "LLStore_Debug "+today.Year.ToString+"-"+today.Month.ToString+"-"+today.Day.ToString+" "+today.Hour.ToString+"-"+today.Minute.ToString+"-"+today.Second.ToString+".txt"
 		    MakeFolder (Slash(SpecialFolder.Desktop.NativePath)+"LLStore Debug-Logs")
-		    Copy(DebugFileName, Slash(SpecialFolder.Desktop.NativePath)+"LLStore Debug-Logs/"+FileNameOut) 'Copy Debug to Desktop
+		    Suc = Copy(DebugFileName, Slash(SpecialFolder.Desktop.NativePath)+"LLStore Debug-Logs/"+FileNameOut) 'Copy Debug to Desktop
 		  End If
 		  
 		  'Clean Up Temp
@@ -4372,6 +4456,7 @@ Protected Module LLMod
 		  Dim BType As String
 		  Dim PicInFile As String
 		  Dim PicOutFile As String
+		  Dim Suc As Boolean
 		  
 		  Select Case ItemLLItem.BuildType
 		  Case "ppGame"
@@ -4400,13 +4485,13 @@ Protected Module LLMod
 		  PicInFile = FixPath(NewFileScreenshot) 'FixPath(Slash(SaveToPath)+ItemLLItem.BuildType+".jpg")
 		  PicOutFile = FixPath(Slash(SaveToPath)+ItemLLItem.BuildType+".jpg")
 		  If PicInFile <> PicOutFile Then
-		    Copy(PicInFile,PicOutFile)
+		    Suc = Copy(PicInFile,PicOutFile)
 		  End If
 		  
 		  PicInFile = FixPath(NewFileFader) 'FixPath(Slash(SaveToPath)+ItemLLItem.BuildType+".png")
 		  PicOutFile = FixPath(Slash(SaveToPath)+ItemLLItem.BuildType+".png")
 		  If PicInFile <> PicOutFile Then
-		    Copy(PicInFile,PicOutFile)
+		    Suc = Copy(PicInFile,PicOutFile)
 		  End If
 		  
 		  PicInFile = FixPath(NewFileIcon) 'FixPath(Slash(SaveToPath)+ItemLLItem.BuildType+".ico")
@@ -4416,7 +4501,7 @@ Protected Module LLMod
 		    PicOutFile = FixPath(Slash(SaveToPath)+ItemLLItem.BuildType+".ico")
 		  End If
 		  If PicInFile <> PicOutFile Then
-		    Copy(PicInFile,PicOutFile)
+		    Suc = Copy(PicInFile,PicOutFile)
 		  End If
 		  
 		  
@@ -4610,6 +4695,9 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Sub XCopy(InPath As String, OutPath As String)
+		  InPath = InPath.ReplaceAll("/","\")
+		  OutPath = OutPath.ReplaceAll("/","\")
+		  
 		  If Debugging Then Debug("XCopy: "+ InPath +" To " + OutPath)
 		  
 		  ' /O <- Removed /O as it can give access denied errors
@@ -4620,6 +4708,9 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Sub XCopyFile(InPath As String, OutPath As String)
+		  InPath = InPath.ReplaceAll("/","\")
+		  OutPath = OutPath.ReplaceAll("/","\")
+		  
 		  If Debugging Then Debug("XCopy: "+ InPath +" To " + OutPath)
 		  ' /O <- Removed /O as it can cause AccessDenied Errors
 		  
@@ -5006,6 +5097,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		NewFileScreenshot As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		OldMiniUpTo As Integer = -1
 	#tag EndProperty
 
 	#tag Property, Flags = &h0

@@ -25,7 +25,6 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,7 +65,6 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -75,7 +73,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -84,7 +81,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -2535,12 +2531,6 @@ End
 		    App.DoEvents(1)
 		    CheckCompatible
 		    
-		    'Get Shortcut Redirects
-		    Loading.Status.Text = "Checking Shortcut Redirects..."
-		    Loading.Refresh
-		    App.DoEvents(1)
-		    GetCatalogRedirects
-		    
 		    'Make the Category list in Data Sections
 		    Loading.Status.Text = "Generating Lists..."
 		    Loading.Refresh
@@ -3032,12 +3022,6 @@ End
 		    ppGames = Slash(HomePath)+".wine/drive_c/ppGames/"
 		    ppApps = Slash(HomePath)+".wine/drive_c/ppApps/"
 		    
-		    'Clean Temp Path if Flagged to
-		    If CleanTempFolders = True Then
-		      Deltree(TmpPath)
-		      CleanTempFolders = False
-		    End If
-		    
 		    'Get Default Paths
 		    LLStoreDrive = "" 'Drive not used by linux
 		    SysProgramFiles = "C:/Program Files/"
@@ -3049,6 +3033,12 @@ End
 		    SysTerminal = SysTerminal.ReplaceAll(Chr(10),"")
 		    SysTerminal = SysTerminal.ReplaceAll(Chr(13),"")
 		    SysTerminal = SysTerminal.ReplaceAll(EndOfLine,"")
+		  End If
+		  
+		  'Clean Temp Path if Flagged to
+		  If CleanTempFolders = True Then
+		    Deltree(TmpPath)
+		    CleanTempFolders = False
 		  End If
 		  
 		  If TargetWindows Then
@@ -3334,6 +3324,11 @@ End
 		  'Load Settings - (This is Where the Debugger is activated, else it's not writing until after here)
 		  LoadSettings
 		  
+		  
+		  'Get Shortcut Redirects - This has to be done except when in Launcher mode, so the installer has access to them!
+		  GetCatalogRedirects 'May as well always do this, not needed for Storemode 1 - but what if you change modes? - wont hurt
+		  
+		  
 		  'Get Actual CommandLineFile File if only a Folder is given
 		  If CommandLineFile <> "" Then
 		    'Remove Quotes that get put on my Nemo etc
@@ -3367,9 +3362,6 @@ End
 		  End If
 		  
 		  'If EditorOnly = True Then StoreMode = 3 ' Editor mode, even though the file above is a file, I never want the store or launcher to start
-		  
-		  'Show Loading Screen here if the Store Mode is 0
-		  If StoreMode = 0 Then Loading.Visible = True 'Show the loading form here
 		  
 		  'Get Package Manager
 		  For I = 0 To SysAvailablePackageManagers.Count -1
@@ -3514,6 +3506,9 @@ End
 		    ForceRefreshDBs = True
 		    ForceRefreshDBsShift = False ' Only do it the once
 		  End If
+		  
+		  'Show Loading Screen here if the Store Mode is 0
+		  If StoreMode = 0 Then Loading.Visible = True 'Show the loading form here
 		  
 		  'Using a timer at the end of Form open allows it to display, many events hold off other processes until the complete
 		  If StoreMode <=1 Then FirstRunTime.RunMode = Timer.RunModes.Single ' Only show the store in Installer or Launcher modes, else just quit?

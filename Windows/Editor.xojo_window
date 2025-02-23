@@ -5104,6 +5104,7 @@ End
 	#tag Method, Flags = &h0
 		Sub BuildLLFile()
 		  Dim Success As Boolean
+		  Dim Suc As Boolean
 		  Dim BT As String = ItemLLItem.BuildType
 		  Dim OutFile, InFile, RootPath, InFolder, OutFolder As String
 		  Dim CompressedFileOut As String
@@ -5195,7 +5196,7 @@ End
 		              Else 'Just copy it
 		                If InFile <> OutFile Then 'Don't Copy Self
 		                  If OutFile <> "/" And Exist(OutFile) Then Deltree(OutFile)
-		                  Copy (InFile, OutFile)
+		                  Suc = Copy (InFile, OutFile)
 		                End If
 		              End If
 		            Else 'Do Nothing so far as it's already existing
@@ -5214,7 +5215,7 @@ End
 		            Else 'Copy Existing Only
 		              If InFile <> OutFile Then 'Don't Copy Self
 		                If OutFile <> "/" And Exist(OutFile) Then Deltree(OutFile)
-		                Copy (InFile, OutFile)
+		                Suc = Copy (InFile, OutFile)
 		              End If
 		            End If
 		          End If
@@ -5341,7 +5342,7 @@ End
 		                  If Len(OutFile)>=3 Then
 		                    If OutFile <> "/" And Exist(OutFile) Then Deltree(OutFile)
 		                  End If
-		                  Copy (InFile, OutFile)
+		                  Suc = Copy (InFile, OutFile)
 		                End If
 		              End If
 		            Else 'Do Nothing so far as it's already existing
@@ -5361,7 +5362,7 @@ End
 		                If Len(OutFile)>=3 Then
 		                  If OutFile <> "/" And Exist(OutFile) Then Deltree(OutFile)
 		                End If
-		                Copy (InFile, OutFile)
+		                Suc = Copy (InFile, OutFile)
 		              End If
 		            End If
 		          End If

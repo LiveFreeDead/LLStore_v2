@@ -1579,9 +1579,10 @@ End
 		        If Sp(I).Trim = "" Then Continue 'Skip empty items
 		        'MsgBox Sp(I)
 		        For J = 0 To Data.Items.RowCount - 1
-		          If Sp(I).Trim = Data.Items.CellTextAt(J, Data.GetDBHeader("UniqueName")) And  Data.Items.CellTextAt(J, Data.GetDBHeader("Hidden")) <> "T" Then
+		          If Sp(I).Trim = Data.Items.CellTextAt(J, Data.GetDBHeader("UniqueName")) And Data.Items.CellTextAt(J, Data.GetDBHeader("Hidden")) <> "T" Then
 		            Data.Items.CellTextAt(J, Data.GetDBHeader("Selected")) = "T"
-		            Continue 'No Need to keep looking if it's already found it
+		            'Continue 'No Need to keep looking if it's already found it
+		            Exit 'No Need to keep looking if it's already found it - Exit jumps out of the loop
 		          End If
 		        Next
 		      Next

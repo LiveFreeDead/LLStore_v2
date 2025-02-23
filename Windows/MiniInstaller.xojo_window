@@ -223,6 +223,9 @@ End
 	#tag Event
 		Function CancelClosing(appQuitting As Boolean) As Boolean
 		  If ForceQuit = False Then
+		    If Downloading Then CancelDownloading = True
+		    SkippedInstalling = True
+		    MiniUpTo = 99999
 		    Me.Hide
 		    Return True
 		  Else
@@ -405,6 +408,7 @@ End
 
 	#tag Method, Flags = &h0
 		Sub StartInstaller()
+		  OldMiniUpTo = -1
 		  FileToInstallFrom = ""
 		  InstallDone = False
 		  MiniSelected = -1
@@ -759,11 +763,14 @@ End
 		    
 		    Dim P As Integer
 		    'Position List if off screen
-		    If MiniUpTo + 6 >= Items.ScrollPosition + 12 Then
-		      P = MiniUpTo - 6
-		      If P <= 0 Then P = 0
-		      If P >= Items.RowCount - 7 Then P = Items.RowCount - 7
-		      Items.ScrollPosition = P
+		    If MiniUpTo <> OldMiniUpTo Then
+		      OldMiniUpTo = MiniUpTo
+		      If MiniUpTo + 6 >= Items.ScrollPosition + 12 Then
+		        P = MiniUpTo - 6
+		        If P <= 0 Then P = 0
+		        If P >= Items.RowCount - 7 Then P = Items.RowCount - 7
+		        Items.ScrollPosition = P
+		      End If
 		    End If
 		    
 		    'Update Stats
