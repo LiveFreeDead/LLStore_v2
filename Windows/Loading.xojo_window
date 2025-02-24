@@ -2092,6 +2092,8 @@ End
 		  Loading.Status.TextColor = ColLoading
 		  Loading.Status.FontName = FontLoading
 		  
+		  Notification.Status.FontName = FontLoading
+		  
 		  ColDual = Color.RGB(((ColHiLite.Blue + ColSelect.Blue) /2),((ColHiLite.Green + ColSelect.Green)/2),((ColHiLite.Red + ColSelect.Red) /2)) 'Inversed
 		  'ColDual = Color.RGB(((ColHiLite.Red + ColSelect.Red) /2),((ColHiLite.Green + ColSelect.Green)/2),((ColHiLite.Blue + ColSelect.Blue) /2)) 'Average
 		  

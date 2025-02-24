@@ -51,7 +51,7 @@ Begin DesktopWindow Editor
       Top             =   0
       Transparent     =   False
       Underline       =   False
-      Value           =   5
+      Value           =   1
       Visible         =   True
       Width           =   630
       Begin DesktopLabel LabelTitle
@@ -363,7 +363,7 @@ Begin DesktopWindow Editor
          Index           =   -2147483648
          InitialParent   =   "TabPanelEditor"
          Italic          =   False
-         Left            =   299
+         Left            =   262
          LockBottom      =   False
          LockedInPosition=   False
          LockLeft        =   True
@@ -380,7 +380,7 @@ Begin DesktopWindow Editor
          Value           =   False
          Visible         =   True
          VisualState     =   0
-         Width           =   175
+         Width           =   184
       End
       Begin DesktopLabel LabelDescription
          AllowAutoDeactivate=   True
@@ -406,14 +406,14 @@ Begin DesktopWindow Editor
          TabPanelIndex   =   1
          TabStop         =   False
          Text            =   "Description:"
-         TextAlignment   =   3
+         TextAlignment   =   1
          TextColor       =   &c000000
          Tooltip         =   ""
          Top             =   287
          Transparent     =   False
          Underline       =   False
          Visible         =   True
-         Width           =   71
+         Width           =   86
       End
       Begin DesktopTextArea TextDescription
          AllowAutoDeactivate=   True
@@ -474,7 +474,7 @@ Begin DesktopWindow Editor
          Index           =   -2147483648
          InitialParent   =   "TabPanelEditor"
          Italic          =   False
-         Left            =   437
+         Left            =   444
          LockBottom      =   False
          LockedInPosition=   False
          LockLeft        =   False
@@ -3644,7 +3644,7 @@ Begin DesktopWindow Editor
          Index           =   -2147483648
          InitialParent   =   "TabPanelEditor"
          Italic          =   False
-         Left            =   474
+         Left            =   447
          LockBottom      =   False
          LockedInPosition=   False
          LockLeft        =   True
@@ -3661,7 +3661,7 @@ Begin DesktopWindow Editor
          Value           =   False
          Visible         =   True
          VisualState     =   0
-         Width           =   145
+         Width           =   172
       End
       Begin DesktopLabel LabelDE
          AllowAutoDeactivate=   True
