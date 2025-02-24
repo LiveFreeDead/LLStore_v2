@@ -6,7 +6,7 @@ Begin DesktopWindow Notification
    DefaultLocation =   2
    FullScreen      =   False
    HasBackgroundColor=   False
-   HasCloseButton  =   True
+   HasCloseButton  =   False
    HasFullScreenButton=   False
    HasMaximizeButton=   False
    HasMinimizeButton=   False
@@ -21,7 +21,7 @@ Begin DesktopWindow Notification
    MinimumWidth    =   400
    Resizeable      =   False
    Title           =   "LLStore"
-   Type            =   6
+   Type            =   4
    Visible         =   False
    Width           =   400
    Begin DesktopLabel Status
@@ -85,7 +85,7 @@ Begin DesktopWindow Notification
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   4000
-      RunMode         =   1
+      RunMode         =   0
       Scope           =   0
       TabPanelIndex   =   0
    End
@@ -94,14 +94,9 @@ End
 
 #tag WindowCode
 	#tag Event
-		Sub Activated()
-		  If NotificationTime = -1 Then
-		    NotifyTimeOut.Period = 99999 'A long time
-		  Else
-		    NotifyTimeOut.Period = (NotificationTime)
-		  End If
-		  NotifyTimeOut.RunMode = Timer.RunModes.Single
-		End Sub
+		Function MouseDown(x As Integer, y As Integer) As Boolean
+		  Notification.Hide
+		End Function
 	#tag EndEvent
 
 
@@ -112,10 +107,27 @@ End
 
 #tag EndWindowCode
 
+#tag Events Status
+	#tag Event
+		Function MouseDown(x As Integer, y As Integer) As Boolean
+		  Notification.Hide
+		End Function
+	#tag EndEvent
+#tag EndEvents
+#tag Events Icon
+	#tag Event
+		Function MouseDown(x As Integer, y As Integer) As Boolean
+		  Notification.Hide
+		End Function
+	#tag EndEvent
+#tag EndEvents
 #tag Events NotifyTimeOut
 	#tag Event
 		Sub Action()
-		  Notification.Visible = False
+		  'Notification.Visible = False
+		  Notification.Hide
+		  
+		  'MsgBox ("Hide")
 		  
 		End Sub
 	#tag EndEvent

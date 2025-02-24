@@ -1897,7 +1897,7 @@ Protected Module LLMod
 		    If ItemLLItem.BuildType = "ppGame" Then Deltree (ppGames+"/.lldb")
 		  End If
 		  
-		  If InstallOnly = True Then Notify ("LLStore Installing", "Installing "+ItemLLItem.BuildType+":-"+Chr(10)+ItemLLItem.TitleName, ItemLLItem.FileIcon, 1) 'Mini Installer can't call this and wouldn't want to.
+		  If InstallOnly = True Then Notify ("LLStore Installing", "Installing "+ItemLLItem.BuildType+":-"+Chr(10)+ItemLLItem.TitleName, ItemLLItem.FileIcon, 100) 'This closes the Notification Window
 		  
 		  'Put INIPath back to what it was
 		  ItemLLItem.PathINI = TempString
@@ -1929,6 +1929,9 @@ Protected Module LLMod
 		  Dim TargetPath As String
 		  Dim Target As String
 		  Dim OutPath As String
+		  
+		  Notify ("LLStore Installing", "Installing LL Store:-"+Chr(10)+"LL Store v"+App.MajorVersion.ToString+"."+App.MinorVersion.ToString, ThemePath+"Icon.png", -1) 'Show it's installing LL Store
+		  
 		  
 		  If TargetWindows Then
 		    If Debugging Then Debug ("--- Installing LLStore in Windows ---")
@@ -2143,6 +2146,8 @@ Protected Module LLMod
 		    'Close Sudo Terminal
 		    If KeepSudo = False Then ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > /tmp/LLSudoDone") 'Quits Terminal after All items have been installed.
 		  End If
+		  
+		  Notify ("LLStore Installed", "Installed LL Store:-"+Chr(10)+"LL Store v"+App.MajorVersion.ToString+"."+App.MinorVersion.ToString, ThemePath+"Icon.png", 3000) 'Show its finished installing LL Store
 		End Sub
 	#tag EndMethod
 
@@ -3826,7 +3831,7 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub Notify(Head As String, Msg As String, IconFile As String = "", NoteTimeOut As Integer = 4)
+		Sub Notify(Head As String, Msg As String, IconFile As String = "", NoteTimeOut As Integer = 4000)
 		  Dim F As FolderItem
 		  Dim IconPic As Picture
 		  Notification.Status.Text = Msg
@@ -3880,6 +3885,16 @@ Protected Module LLMod
 		  Notification.NotificationTime = NoteTimeOut
 		  
 		  Notification.Title = Head
+		  
+		  
+		  If Notification.NotificationTime = -1 Then
+		    Notification.NotifyTimeOut.Period = 99999 'A long time
+		  Else
+		    Notification.NotifyTimeOut.Period = (Notification.NotificationTime)
+		  End If
+		  Notification.NotifyTimeOut.RunMode = Timer.RunModes.Single
+		  Notification.NotifyTimeOut.Reset
+		  
 		  
 		  Notification.Show
 		  Notification.SetFocus

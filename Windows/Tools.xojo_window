@@ -88,6 +88,8 @@ End
 #tag Events ButtonInstallLLStore
 	#tag Event
 		Sub Pressed()
+		  Tools.Hide
+		  
 		  Dim Old As String
 		  Old = ButtonInstallLLStore.Caption
 		  ButtonInstallLLStore.Caption = "Installing..."
@@ -98,8 +100,8 @@ End
 		  ButtonInstallLLStore.Caption = Old
 		  ButtonInstallLLStore.Visible = True
 		  App.DoEvents(7)
-		  Tools.Hide
 		  
+		  Tools.Hide
 		End Sub
 	#tag EndEvent
 #tag EndEvents
