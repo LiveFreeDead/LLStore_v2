@@ -25,6 +25,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -65,6 +66,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -73,6 +75,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -81,6 +84,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -3509,6 +3513,33 @@ End
 		  
 		  'Show Loading Screen here if the Store Mode is 0
 		  If StoreMode = 0 Then Loading.Visible = True 'Show the loading form here
+		  
+		  
+		  'Check if Send To and Associations are applied (if store is installed)
+		  If TargetWindows And StoreMode = 0 And AdminEnabled = True Then 'Only do as Admin so the File Associations work
+		    Dim OutPath As String
+		    Dim Target, TargetPath As String
+		    'Make Shortcuts to SendTo and Start Menu
+		    TargetPath = "C:\Program Files\LLStore"
+		    Target = TargetPath +"\llstore.exe"
+		    If Exist(Target) Then
+		      OutPath = Slash(SpecialFolder.ApplicationData.NativePath).ReplaceAll("/","\") + "Microsoft\Windows\SendTo\"
+		      If Not Exist(OutPath+"LL Install.lnk") Then 'Only make it if not already made as the Associate Filetypes can be slow
+		        If Debugging Then Debug("Adding to Send To and Associating file types")
+		        
+		        'Send To
+		        CreateShortcut("LL Install", Target, TargetPath, OutPath, "-i")
+		        CreateShortcut("LL Edit", Target, TargetPath, OutPath, "-e", TargetPath +"\Themes\LLEdit.ico")
+		        CreateShortcut("LL Edit (AutoBuild Archive)", Target, TargetPath, OutPath, "-c", TargetPath +"\Themes\LLEdit.ico")
+		        CreateShortcut("LL Edit (AutoBuild Folder)", Target, TargetPath, OutPath, "-b", TargetPath +"\Themes\LLEdit.ico")
+		        
+		        'Make .apz, .pgz, .app and .ppg associations. Only works as Admin
+		        MakeFileType("LLStore", "apz pgz app ppg", "LLStore File", Target, TargetPath, Target, "-i ") '2nd Target is the icon, The -i allows it to install default
+		      Else
+		        If Debugging Then Debug("Send To and Associated file types already applied")
+		      End If
+		    End If
+		  End If
 		  
 		  'Using a timer at the end of Form open allows it to display, many events hold off other processes until the complete
 		  If StoreMode <=1 Then FirstRunTime.RunMode = Timer.RunModes.Single ' Only show the store in Installer or Launcher modes, else just quit?
