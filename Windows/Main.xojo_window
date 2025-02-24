@@ -372,6 +372,7 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -428,6 +429,7 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -436,6 +438,7 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200

@@ -169,6 +169,7 @@ Begin DesktopWindow MiniInstaller
       Width           =   56
    End
    Begin Thread InstallItems
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Priority        =   5
@@ -178,6 +179,7 @@ Begin DesktopWindow MiniInstaller
       Type            =   0
    End
    Begin Timer UpdateUI
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -742,7 +744,7 @@ End
 		      QuitApp 'If set to Quit on Complete then do so
 		      Exit
 		    End If
-		    
+		    If RunRefreshScript = True Then RunRefresh("cinnamon -r&") 'Refresh after Mini Installer Completes so Panel Items show
 		    Main.Show
 		    QuitInstaller = False
 		    Exit'Don't Continue this Sub after Quitting

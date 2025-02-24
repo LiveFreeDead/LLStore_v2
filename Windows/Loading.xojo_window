@@ -2860,14 +2860,14 @@ End
 		            While Sh.IsRunning
 		              App.DoEvents(1)
 		            Wend
-		            If Debugging Then Debug ("Move Results: "+ Sh.Result)
+		            If Debugging Then Debug ("Move Results: "+ Sh.ReadAll)
 		          Else
 		            Sh = New Shell ' Clear previous results
 		            Sh.Execute ("mv -f " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + " " + Chr(34) + QueueLocal(QueueUpTo) + Chr(34))
 		            While Sh.IsRunning
 		              App.DoEvents(1)
 		            Wend
-		            If Debugging Then Debug ("Move Results: "+ Sh.Result)
+		            If Debugging Then Debug ("Move Results: "+ Sh.ReadAll)
 		          End If
 		          
 		          Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
@@ -3462,6 +3462,7 @@ End
 		        SudoEnabled = False
 		        If KeepSudo = False Then ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > /tmp/LLSudoDone") 'Quits Terminal after All items have been installed.
 		      End If
+		      If RunRefreshScript = True Then RunRefresh("cinnamon -r&") 'If only installing one item at a time, refresh cinnamon each time
 		    End If
 		    PreQuitApp ' Save Debug etc
 		    QuitApp 'Done installing, exit app, no need to continue

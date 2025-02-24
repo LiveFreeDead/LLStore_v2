@@ -5790,7 +5790,7 @@ End
 		            'Add files back to the .tar, if they exist
 		            ShellFast.Execute ("cd " + Chr(34) + BTF + Chr(34) + " && " + "tar -uf " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + INIFile + Chr(34) )
 		            
-		            If Debugging Then Debug(ShellFast.Result)
+		            If Debugging Then Debug(ShellFast.ReadAll)
 		            
 		            'MsgBox INIFile
 		            
@@ -5823,11 +5823,11 @@ End
 		            If Debugging Then Debug("Updating: "+ItemLLItem.FileINI + " With: " + BTF+INIFile)
 		            'ShellFast.Execute ("cd " + Chr(34) + BTF + Chr(34) + Chr(10) + Linux7z+" u " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BTF+INIFile + Chr(34)) '7z doesn't need the cd command to make the files in the root of archive
 		            ShellFast.Execute (Linux7z+" u " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BTF+INIFile + Chr(34))
-		            If Debugging Then Debug(ShellFast.Result)
+		            If Debugging Then Debug(ShellFast.ReadAll)
 		            
 		            If Exist(BTF+INIFile) Then ShellFast.Execute (Linux7z+" u " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BTF+INIFile + Chr(34)) 'Upgrade .ini File in 7z
 		            If Exist(BTF+BT+".jpg") Then ShellFast.Execute (Linux7z+" u " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BTF+BT+".jpg" + Chr(34))
-		            If Debugging Then Debug(ShellFast.Result)
+		            If Debugging Then Debug(ShellFast.ReadAll)
 		            If Exist(BTF+BT+".png") Then ShellFast.Execute (Linux7z+" u " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BTF+BT+".png" + Chr(34))
 		            If Exist(BTF+BT+".ico") Then ShellFast.Execute (Linux7z+" u " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BTF+BT+".ico" + Chr(34))
 		            If Exist(BTF+BT+".svg") Then ShellFast.Execute (Linux7z+" u " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BTF+BT+".svg" + Chr(34))

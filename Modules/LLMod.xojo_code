@@ -1172,14 +1172,14 @@ Protected Module LLMod
 		      Do
 		        App.DoEvents(7)  ' used to be 50, trying 7 to see if more responsive. - It is
 		      Loop Until Sh.IsRunning = False
-		      If Debugging Then Debug(Sh.Result)
+		      If Debugging Then Debug(Sh.ReadAll)
 		    Else
 		      If Right(Archive,3) = ".gz" Then
 		        Sh.Execute ("tar -xf " + Chr(34) + Archive + Chr(34) + " -C " + Chr(34) + OutPath + Chr(34) + ExcludesIncludes)
 		        Do
 		          App.DoEvents(7)  ' used to be 50, trying 7 to see if more responsive. - It is
 		        Loop Until Sh.IsRunning = False
-		        If Debugging Then Debug(Sh.Result)
+		        If Debugging Then Debug(Sh.ReadAll)
 		      Else 'Just treat it as a standard non Linux zip, 7z etc works fine for this as it doesn't need to handle symlinks (7z can't extract tar.gz files)
 		        Commands = Zip + " -mtc -aoa x "+Chr(34)+Archive+Chr(34)+ " -o"+Chr(34) + OutPath+Chr(34)+ExcludesIncludes
 		        If TargetWindows Then
@@ -1189,7 +1189,7 @@ Protected Module LLMod
 		          Do
 		            App.DoEvents(7)  ' used to be 50, trying 7 to see if more responsive. - It is
 		          Loop Until Sh.IsRunning = False
-		          If Debugging Then Debug(Sh.Result)
+		          If Debugging Then Debug(Sh.ReadAll)
 		        End If
 		      End If
 		    End If
@@ -1748,9 +1748,9 @@ Protected Module LLMod
 		          
 		          if Not TargetWindows Then 'Only Linux needs this, Win doesn't
 		            ShellFast.Execute ("chmod 775 "+Chr(34)+Slash(InstallToPath) + "*.cmd"+Chr(34)) 'Change Read/Write/Execute to defaults
-		            If Debugging Then Debug("Shell Fast Execute: "+"chmod 775 "+Chr(34)+Slash(InstallToPath) + "*.cmd"+Chr(34)+Chr(10)+"Results: " + ShellFast.Result )
+		            If Debugging Then Debug("Shell Fast Execute: "+"chmod 775 "+Chr(34)+Slash(InstallToPath) + "*.cmd"+Chr(34)+Chr(10)+"Results: " + ShellFast.ReadAll )
 		            ShellFast.Execute ("chmod 775 "+Chr(34)+Slash(InstallToPath) + "*.sh"+Chr(34)) 'Change Read/Write/Execute to defaults
-		            If Debugging Then Debug("Shell Fast Execute: "+"chmod 775 "+Chr(34)+Slash(InstallToPath) + "*.sh"+Chr(34)+Chr(10)+"Results: " + ShellFast.Result )
+		            If Debugging Then Debug("Shell Fast Execute: "+"chmod 775 "+Chr(34)+Slash(InstallToPath) + "*.sh"+Chr(34)+Chr(10)+"Results: " + ShellFast.ReadAll )
 		          End If
 		        End If
 		      End If
@@ -2995,7 +2995,7 @@ Protected Module LLMod
 		      If Debugging Then Debug ("- Make Folder: "+Path+" = " + Res)
 		    Else
 		      Sh.Execute(S)
-		      If Debugging Then Debug ("- Make Folder: "+Path+" = " + Sh.Result)
+		      If Debugging Then Debug ("- Make Folder: "+Path+" = " + Sh.ReadAll)
 		      Sh.Execute("chmod 775 "+Chr(34)+Path+Chr(34)) 'Change Read/Write/Execute to defaults, -R would do all files and folders, but we might not want this here
 		    End If
 		  Catch
@@ -3023,6 +3023,9 @@ Protected Module LLMod
 		  Dim StartPath As String
 		  Dim ExecName As String
 		  Dim BT As String
+		  
+		  Dim Sh As New Shell
+		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
 		  
 		  Dim StartDestTemp As String
 		  
@@ -3225,6 +3228,8 @@ Protected Module LLMod
 		          End If
 		        End If
 		        
+		        ItemLnk(I).Categories = ItemLnk(I).Categories.ReplaceAll("ppGame","Game") 'Fix invalid category to make sort correctly.
+		        
 		        DesktopContent = DesktopContent + "Path=" + ExpPath(ItemLnk(I).RunPath) + Chr(10)
 		        DesktopContent = DesktopContent + "Comment=" + ItemLnk(I).Comment + Chr(10)
 		        DesktopContent = DesktopContent + "Icon=" + ItemLnk(I).Icon + Chr(10)
@@ -3254,11 +3259,27 @@ Protected Module LLMod
 		          End If
 		        End If
 		        
+		        'Desktop Link
 		        If ItemLnk(I).Desktop = True Then
 		          SaveDataToFile(DesktopContent, Slash(HomePath)+"Desktop/"+DesktopFile) 'Also save to Desktop
 		          ShellFast.Execute ("chmod 775 "+Chr(34)+Slash(HomePath)+"Desktop/"+DesktopFile+Chr(34)) 'Change Read/Write/Execute to defaults
 		        End If
 		        
+		        'Panel Link
+		        If ItemLnk(I).Panel = True Then
+		          If Exist(Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.json") Then 'If it's not there, don't bother
+		            ShellFast.Execute("which jq")
+		            If ShellFast.Result <> "" Then 'Can only add to the panel if jq is installed to work with .json files
+		              ShellFast.Execute("jq --arg order "+Chr(34)+DesktopFile+Chr(34)+" '."+Chr(34)+"pinned-apps"+Chr(34)+".value |= if index($order) then . else . + [$order] end' "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.json | tee "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.new >/dev/null && mv "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.new "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.json")
+		              RunRefreshScript = True
+		            End If
+		          End If
+		        End If
+		        
+		        'Favorites Menu
+		        If ItemLnk(I).Favorite = True Then
+		          ShellFast.Execute("gsettings set org.cinnamon favorite-apps "+Chr(34)+"$(gsettings get org.cinnamon favorite-apps | sed s/.$//), '"+DesktopFile+"']"+Chr(34))
+		        End If
 		      Next I
 		    End If
 		    
@@ -4140,7 +4161,7 @@ Protected Module LLMod
 		    While Shelly.IsRunning 
 		      App.DoEvents(7)
 		    Wend
-		    If Debugging Then Debug("Assembly Return: "+ Shelly.Result)
+		    If Debugging Then Debug("Assembly Return: "+ Shelly.ReadAll)
 		    
 		    'Delete the temp script I run
 		    #Pragma BreakOnExceptions Off
@@ -4190,7 +4211,7 @@ Protected Module LLMod
 		        Wend
 		      End If
 		      F = Nil
-		      If Debugging Then Debug("Results: -"+Chr(10)+Sh.Result.Trim+Chr(10))
+		      If Debugging Then Debug("Results: -"+Chr(10)+Sh.ReadAll.Trim+Chr(10))
 		      'Delete Temp Script
 		      Deltree ScriptFile
 		    Else ''Linux Command, doesn't need to go to script file to work (it just does)
@@ -4201,7 +4222,7 @@ Protected Module LLMod
 		      While Sh.IsRunning
 		        App.DoEvents(1)
 		      Wend
-		      If Debugging Then Debug("Results: -"+Chr(10)+Sh.Result.Trim+Chr(10))
+		      If Debugging Then Debug("Results: -"+Chr(10)+Sh.ReadAll.Trim+Chr(10))
 		      
 		    End If
 		  End If
@@ -4278,6 +4299,49 @@ Protected Module LLMod
 		  
 		  Return ""
 		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub RunRefresh(CmdIn As String, FoldIn As String = "")
+		  If Debugging Then 
+		    Debug("--- RunCommand ---")
+		    Debug("Cmd: -"+Chr(10)+ CmdIn)
+		    If FoldIn <> "" Then
+		      Debug("From Folder: "+FoldIn)
+		    End If
+		  End If
+		  
+		  Dim Sh As New Shell
+		  Dim Success As Boolean
+		  
+		  Sh.TimeOut = -1
+		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		  
+		  Dim F As FolderItem
+		  Dim ScriptFile As String = Slash(TmpPath)+"Refresh.sh"
+		  ShellFast.Execute("chmod +x "+ ScriptFile)
+		  If CmdIn <> "" Then
+		    
+		    'If FoldIn <> "" Then Success = ChDirSet(FoldIn)
+		    
+		    SaveDataToFile(CmdIn, ScriptFile)
+		    
+		    F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
+		    If F.Exists Then
+		      'Run Script
+		      Sh.Execute (F.NativePath)
+		      
+		      'Wait For Completion
+		      'While Sh.IsRunning
+		      'App.DoEvents(1)
+		      'Wend
+		    End If
+		    F = Nil
+		    'If Debugging Then Debug("Results: -"+Chr(10)+Sh.ReadAll.Trim+Chr(10))
+		    'Delete Temp Script
+		    Deltree ScriptFile
+		  End If
+		End Sub
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
@@ -4369,7 +4433,7 @@ Protected Module LLMod
 		        While Shelly.IsRunning
 		          App.DoEvents(7)
 		        Wend
-		        If Debugging Then Debug("Script Return (.sh): "+ Shelly.Result)
+		        If Debugging Then Debug("Script Return (.sh): "+ Shelly.ReadAll)
 		      End If
 		    Catch
 		      If Debugging Then Debug("* Error: "+ InstallToPath + "LLScript.sh - Isn't found or invalid path")
@@ -4392,7 +4456,7 @@ Protected Module LLMod
 		        While Shelly.IsRunning
 		          App.DoEvents(7)
 		        Wend
-		        If Debugging Then Debug("Script Return (ssApp.cmd): "+ Shelly.Result)
+		        If Debugging Then Debug("Script Return (ssApp.cmd): "+ Shelly.ReadAll)
 		      End If
 		    Catch
 		      If Debugging Then Debug("* Error: "+ InstallToPath + "ssApp.cmd - Isn't found or invalid path")
@@ -4415,7 +4479,7 @@ Protected Module LLMod
 		        While Shelly.IsRunning
 		          App.DoEvents(7)
 		        Wend
-		        If Debugging Then Debug("Script Return ("+ItemLLItem.BuildType+".cmd): "+ Shelly.Result)
+		        If Debugging Then Debug("Script Return ("+ItemLLItem.BuildType+".cmd): "+ Shelly.ReadAll)
 		      End If
 		    Catch
 		      If Debugging Then Debug("* Error: "+ InstallToPath + ItemLLItem.BuildType+".cmd - Isn't found or invalid path")
@@ -4537,7 +4601,7 @@ Protected Module LLMod
 		  While theShell.IsRunning
 		    App.DoEvents(3)
 		  Wend
-		  If Debugging Then Debug(theShell.Result) ' Debug Print all of the Run Results
+		  If Debugging Then Debug(theShell.ReadAll) ' Debug Print all of the Run Results
 		  
 		  If Debugging Then Debug("---------- End of RunWait ----------") ' Debug Print all of the Run Results
 		  
@@ -5356,6 +5420,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		RunningInIDE As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		RunRefreshScript As Boolean
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
