@@ -2617,10 +2617,12 @@ End
 		    WritableAppPath = IsWritable(AppPath) 'This checks to see if the current user can write to the path, if not it skips updating it
 		    
 		    If Settings.SetCheckForUpdates.Value = True And RunningInIDE = False And WritableAppPath = True Then
+		      CheckingForUpdates = True
 		      Loading.Status.Text = "Check For Store Updates..."
 		      Loading.Refresh
 		      App.DoEvents(1)
 		      CheckForLLStoreUpdates
+		      CheckingForUpdates = False
 		    End IF
 		    If Debugging Then Debug ("Writable AppPath: " + WritableAppPath.ToString)
 		    
@@ -3027,6 +3029,24 @@ End
 		            End If
 		            MiniInstaller.Stats.Text = "Downloading "+ DownloadPercentage
 		          End If
+		          
+		          'Update Loading Stats for Updating files
+		          If CheckingForUpdates = True Then
+		            theResults = DownloadShell.ReadAll
+		            
+		            ProgPerc = Right(theResults, 80)
+		            ProgPerc = Left(ProgPerc, ProgPerc.IndexOf("%")+1)
+		            ProgPerc = Right(ProgPerc, 6)
+		            ProgPerc = ProgPerc.ReplaceAll(".","").Trim
+		            
+		            If ProgPerc <> "" Then
+		              DownloadPercentage = ProgPerc
+		            End If
+		            'MiniInstaller.Stats.Text = "Downloading "+ DownloadPercentage
+		            Loading.Status.Text = "Check For Store Updates: "+DownloadPercentage
+		          End If
+		          
+		          
 		        Wend
 		        
 		        'This was due to ForceQuit being enabled in Loading, make sure to remember this bug causing issue next time

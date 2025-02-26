@@ -5122,6 +5122,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		CheckingForUpdates As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		CleanTempFolders As Boolean
 	#tag EndProperty
 
