@@ -2307,6 +2307,8 @@ Protected Module LLMod
 		  Dim Compressed As Boolean = False
 		  Dim ActualIni As String
 		  
+		  Dim UniqueName As String = ""
+		  
 		  Dim Success As Boolean
 		  
 		  Dim TmpItem As String
@@ -2744,6 +2746,8 @@ Protected Module LLMod
 		    ItemLLItem.LnkCount = LnkCount
 		  End If
 		  
+		  'Get Screenshots, Faders and Icons ***********************
+		  
 		  Dim MediaPath As String
 		  MediaPath = Slash(ExpPath(ItemLLItem.PathINI)) 
 		  If Compressed = True Then
@@ -2751,44 +2755,70 @@ Protected Module LLMod
 		    MediaPath = TmpItem
 		  End If
 		  
+		  'Set Unique Name to check for alternative screenshots and icons
+		  UniqueName = ItemLLItem.TitleName.Lowercase + ItemLLItem.BuildType.Lowercase
+		  UniqueName= UniqueName.ReplaceAll(" ","")
+		  
 		  'Load Items Screenshot and Fader
 		  'Screenshot
-		  ItemLLItem.FileScreenshot =  MediaPath+ItemLLItem.BuildType+".jpg"
+		  ItemLLItem.FileScreenshot =  MediaPath+UniqueName+".jpg"
 		  F = GetFolderItem(ItemLLItem.FileScreenshot, FolderItem.PathTypeNative)
-		  If Not F.Exists Then ItemLLItem.FileScreenshot =  "" 'None
+		  If Not F.Exists Then
+		    ItemLLItem.FileScreenshot =  MediaPath+ItemLLItem.BuildType+".jpg"
+		    F = GetFolderItem(ItemLLItem.FileScreenshot, FolderItem.PathTypeNative)
+		    If Not F.Exists Then ItemLLItem.FileScreenshot =  "" 'None
+		  End If
 		  NewFileScreenshot = ItemLLItem.FileScreenshot
 		  
 		  'Fader
-		  ItemLLItem.FileFader =  MediaPath +ItemLLItem.BuildType+".png"
+		  ItemLLItem.FileFader =  MediaPath+UniqueName+".png"
+		  'MsgBox ItemLLItem.FileFader
 		  F = GetFolderItem(ItemLLItem.FileFader, FolderItem.PathTypeNative)
 		  If Not F.Exists Then
-		    ItemLLItem.FileFader =  MediaPath+ItemLLItem.BuildType+".svg"
-		    F = GetFolderItem(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
-		    If Not F.Exists Then 
-		      ItemLLItem.FileFader =  MediaPath +ItemLLItem.BuildType+".ico"
+		    ItemLLItem.FileFader =  MediaPath+UniqueName+".svg"
+		    F = GetFolderItem(ItemLLItem.FileFader, FolderItem.PathTypeNative)
+		    If Not F.Exists Then
+		      ItemLLItem.FileFader =  MediaPath +ItemLLItem.BuildType+".png"
 		      F = GetFolderItem(ItemLLItem.FileFader, FolderItem.PathTypeNative)
 		      If Not F.Exists Then
-		        ItemLLItem.FileFader =  "" 'None
-		        ItemIcon = Nil
+		        ItemLLItem.FileFader =  MediaPath+ItemLLItem.BuildType+".svg"
+		        F = GetFolderItem(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
+		        If Not F.Exists Then 
+		          ItemLLItem.FileFader =  MediaPath +ItemLLItem.BuildType+".ico"
+		          F = GetFolderItem(ItemLLItem.FileFader, FolderItem.PathTypeNative)
+		          If Not F.Exists Then
+		            ItemLLItem.FileFader =  "" 'None
+		            ItemIcon = Nil
+		          End If
+		        End If
 		      End If
 		    End If
 		  End If
 		  NewFileFader = ItemLLItem.FileFader
 		  
 		  'Icon
-		  ItemLLItem.FileIcon =  MediaPath +ItemLLItem.BuildType+".svg"
+		  ItemLLItem.FileIcon =  MediaPath+UniqueName+".svg"
 		  F = GetFolderItem(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
 		  If Not F.Exists Then
-		    ItemLLItem.FileIcon =  MediaPath +ItemLLItem.BuildType+".png"
+		    ItemLLItem.FileIcon =  MediaPath+UniqueName+".png"
 		    F = GetFolderItem(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
 		    If Not F.Exists Then
-		      'Disabled .ico because Linux doesn't always display them right, Re-enabled as you can build on Windows
-		      ItemLLItem.FileIcon =  MediaPath +ItemLLItem.BuildType+".ico"
+		      
+		      ItemLLItem.FileIcon =  MediaPath +ItemLLItem.BuildType+".svg"
 		      F = GetFolderItem(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
-		      If Not F.Exists Then 
-		        
-		        ItemLLItem.FileIcon =  "" 'None
-		        ItemIcon = Nil
+		      If Not F.Exists Then
+		        ItemLLItem.FileIcon =  MediaPath +ItemLLItem.BuildType+".png"
+		        F = GetFolderItem(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
+		        If Not F.Exists Then
+		          'Disabled .ico because Linux doesn't always display them right, Re-enabled as you can build on Windows
+		          ItemLLItem.FileIcon =  MediaPath +ItemLLItem.BuildType+".ico"
+		          F = GetFolderItem(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
+		          If Not F.Exists Then 
+		            
+		            ItemLLItem.FileIcon =  "" 'None
+		            ItemIcon = Nil
+		          End If
+		        End If
 		      End If
 		    End If
 		  End If
@@ -2806,12 +2836,15 @@ Protected Module LLMod
 		  End If
 		  
 		  'Movie
-		  ItemLLItem.FileMovie =  MediaPath +ItemLLItem.BuildType+".mp4"
+		  ItemLLItem.FileMovie =  MediaPath+UniqueName+".mp4"
 		  F = GetFolderItem(ItemLLItem.FileMovie, FolderItem.PathTypeNative)
 		  If Not F.Exists Then
-		    ItemLLItem.FileMovie =  "" 'None
+		    ItemLLItem.FileMovie =  MediaPath +ItemLLItem.BuildType+".mp4"
+		    F = GetFolderItem(ItemLLItem.FileMovie, FolderItem.PathTypeNative)
+		    If Not F.Exists Then
+		      ItemLLItem.FileMovie =  "" 'None
+		    End If
 		  End If
-		  
 		  ItemTempPath = MediaPath ' Media Path is inipath if not compressed and temp path if is compressed
 		  
 		  Return True
@@ -4230,6 +4263,78 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function RunCommandDownload(CmdIn As String, FoldIn As String = "") As String
+		  If Debugging Then 
+		    Debug("--- RunCommandResults ---")
+		    Debug("Cmd: -"+Chr(10)+ CmdIn)
+		    If FoldIn <> "" Then
+		      Debug("From Folder: "+FoldIn)
+		    End If
+		  End If
+		  Dim Sh As New Shell
+		  Dim Success As Boolean
+		  Dim Res As String
+		  
+		  Sh.TimeOut = -1
+		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		  
+		  Dim F As FolderItem
+		  Dim ScriptFile As String = Slash(TmpPath)+"LLRunner.cmd"
+		  If CmdIn <> "" Then
+		    
+		    If FoldIn <> "" Then Success = ChDirSet(FoldIn)
+		    
+		    If TargetWindows Then
+		      SaveDataToFile(CmdIn, ScriptFile)
+		      
+		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
+		      If F.Exists Then
+		        'Run Script
+		        Sh.Execute (F.NativePath)
+		        
+		        'Wait For Completion
+		        While Sh.IsRunning
+		          App.DoEvents(1)
+		        Wend
+		        If Debugging Then
+		          Res = Sh.Result.Trim
+		          'Res = Sh.ReadAll
+		          If Left (CmdIn,4) = "curl" Then Res = Left(Res,12) 'Shrink curl output
+		          Debug("RunCommandResults: -"+Chr(10)+Res+Chr(10))
+		        End If
+		        
+		        'Delete Temp Script
+		        F.Remove
+		      End If
+		      F = Nil
+		      
+		    Else 'Linux Command, doesn't need to go to script file to work (it just does)
+		      'Run Script
+		      Sh.Execute (CmdIn)
+		      
+		      'Wait For Completion
+		      While Sh.IsRunning
+		        App.DoEvents(1)
+		      Wend
+		      If Debugging Then
+		        Res = Sh.Result.Trim
+		        'Res = Sh.ReadAll
+		        If Left (CmdIn,4) = "curl" Then Res = Left(Res,12) 'Shrink curl output
+		        Debug("RunCommandResults: -"+Chr(10)+Res+Chr(10))
+		      End If
+		      
+		    End If
+		    
+		    'For Both
+		    Return Sh.Result
+		    'Return Sh.ReadAll
+		  End If
+		  
+		  Return ""
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function RunCommandResults(CmdIn As String, FoldIn As String = "") As String
 		  If Debugging Then 
 		    Debug("--- RunCommandResults ---")
@@ -5084,6 +5189,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		CurrentPath As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		CurrentScanPath As String
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -6718,6 +6827,22 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue="-1"
 			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="RunRefreshScript"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CurrentScanPath"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior

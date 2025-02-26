@@ -25,7 +25,6 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,7 +65,6 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -75,7 +73,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -84,7 +81,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -753,6 +749,12 @@ End
 		  Dim Exten As String
 		  Dim Success As Boolean = False
 		  
+		  Dim MediaPath As String
+		  Dim UniqueName As String = ""
+		  Dim UniqueIcon As Boolean = False
+		  
+		  Dim FadeFile As String
+		  
 		  F = GetFolderItem(ItemInn,FolderItem.PathTypeShell)
 		  If F.Exists Then
 		    
@@ -870,9 +872,10 @@ End
 		      Case "ArchCompatible"
 		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.ArchCompatible
 		        
-		      Case "LnkMultiple" 'Links
-		        If LnkCount >1 Then
-		          Data.Items.CellTextAt(ItemCount,I) = "T"
+		      Case "LnkMultiple" 'Links' GlennGlenn - Don't add the Core Item to the Multi Links as it's already getting added to the DB
+		        If LnkCount >1 And StoreMode = 1 Then 'Hide Parent items in Launcher mode
+		          'Data.Items.CellTextAt(ItemCount,I) = "T"
+		          Data.Items.CellTextAt(ItemCount,I) = "Hide" 'Set to Hide so can Hide main items in MultiLinks
 		        Else 
 		          Data.Items.CellTextAt(ItemCount,I) = "F" 'LnkMultiple
 		        End If
@@ -920,7 +923,7 @@ End
 		  
 		  Dim MainItem As Integer = ItemCount
 		  
-		  'Add Icon to Cache and associate Icon with item (Do vefore the Links so can use same icon if none provided
+		  'Add Icon to Cache and associate Icon with item (Do Before the Links so can use same icon if none provided
 		  If ItemIcon <> Nil Then
 		    IconCount = Data.Icons.RowCount
 		    Data.Icons.AddRow
@@ -932,6 +935,10 @@ End
 		  
 		  'If Launcher then duplicate Items to Shortcut Link Counts and point to Lnk's
 		  If StoreMode = 1 Then 'Get all the links and clone
+		    
+		    'Dim ParentIcon As New Picture
+		    'ParentIcon = ItemIcon
+		    
 		    If LnkCount >1 Then 'Clone Items
 		      For J = 1 To LnkCount
 		        ItemCount =  Data.Items.RowCount
@@ -940,12 +947,13 @@ End
 		        For I = 1 To Data.Items.ColumnCount
 		          Data.Items.CellTextAt(ItemCount,I) = Data.Items.CellTextAt(MainItem,I)
 		          Select Case  Data.Items.HeaderAt(I)
-		          Case "LnkMultiple" 'Links
-		            'If LnkCount >1 Then
-		            'Data.Items.CellTextAt(ItemCount,I) = "T"
-		            'Else 
-		            Data.Items.CellTextAt(ItemCount,I) = "F" 'LnkMultiple, make them all not true, so can hide all the ones that are in Launcher
-		            'End If
+		          Case "LnkMultiple" 'Links 'GlennGlenn Trying to fix this
+		            If LnkCount >1 And StoreMode = 1 Then 'Only do this for Launcher mode so the SaveAllDB's works
+		              Data.Items.CellTextAt(ItemCount,I) = "T"
+		              Data.Items.CellTagAt(ItemCount,I) = CurrentScanPath 'Set this to the ScanPath Item so if the paths match it'll only add to that DB
+		            Else 
+		              Data.Items.CellTextAt(ItemCount,I) = "F" 'LnkMultiple, make them all not true, so can hide all the ones that are in Launcher
+		            End If
 		          Case "LnkTitle"
 		            Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Title
 		          Case "TitleName"
@@ -995,6 +1003,101 @@ End
 		            
 		          End Select
 		        Next
+		        
+		        
+		        'Get Screenshots, Faders and Icons ***********************
+		        MediaPath = Slash(ExpPath(ItemLLItem.PathINI)) 
+		        
+		        'Set Unique Name to check for alternative screenshots and icons
+		        UniqueName = ItemLnk(J).Title.Lowercase + ItemLLItem.BuildType.Lowercase
+		        UniqueName= UniqueName.ReplaceAll(" ","")
+		        
+		        'Load Items Screenshot and Fader per Link
+		        'Screenshot
+		        Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileScreenshot")) =  MediaPath+UniqueName+".jpg"
+		        F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileScreenshot")), FolderItem.PathTypeNative)
+		        If Not F.Exists Then
+		          Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileScreenshot")) =  MediaPath+ItemLLItem.BuildType+".jpg"
+		          F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileScreenshot")), FolderItem.PathTypeNative)
+		          If Not F.Exists Then Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileScreenshot")) =  "" 'None
+		        End If
+		        
+		        'Fader
+		        Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader"))  =  MediaPath+UniqueName+".png"
+		        F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
+		        If Not F.Exists Then
+		          Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")) =  MediaPath+UniqueName+".svg"
+		          F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
+		          If Not F.Exists Then
+		            Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")) =  MediaPath +ItemLLItem.BuildType+".png"
+		            F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
+		            If Not F.Exists Then
+		              Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")) =  MediaPath+ItemLLItem.BuildType+".svg"
+		              F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
+		              If Not F.Exists Then 
+		                Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")) =  MediaPath +ItemLLItem.BuildType+".ico"
+		                F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
+		                If Not F.Exists Then
+		                  Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")) =  "" 'None
+		                End If
+		              End If
+		            End If
+		          End If
+		        End If
+		        NewFileFader = ItemLLItem.FileFader
+		        
+		        'Icon
+		        UniqueIcon = False
+		        Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")) =  MediaPath+UniqueName+".svg"
+		        F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
+		        If Not F.Exists Then
+		          Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")) =  MediaPath+UniqueName+".png"
+		          F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
+		          If Not F.Exists Then
+		            Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")) =  MediaPath +ItemLLItem.BuildType+".svg"
+		            F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
+		            If Not F.Exists Then
+		              Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")) =  MediaPath +ItemLLItem.BuildType+".png"
+		              F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
+		              If Not F.Exists Then
+		                'Disabled .ico because Linux doesn't always display them right, Re-enabled as you can build on Windows
+		                Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")) =  MediaPath +ItemLLItem.BuildType+".ico"
+		                F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
+		                If Not F.Exists Then 
+		                  UniqueIcon = False
+		                End If
+		              End If
+		            End If
+		          Else
+		            UniqueIcon = True 'png found
+		          End If
+		        Else
+		          UniqueIcon = True 'svg found
+		        End If
+		        
+		        If UniqueIcon = True Then 'Add new Icon
+		          IconCount = Data.Icons.RowCount
+		          Data.Icons.AddRow
+		          FadeFile = Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon"))
+		          F = GetFolderItem(FadeFile, FolderItem.PathTypeNative)
+		          If F.Exists Then
+		            ItemIcon = Picture.Open(F)
+		            Data.Icons.RowImageAt(IconCount) = ItemIcon
+		            Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("IconRef")) = Str(IconCount)
+		          End If
+		        End If
+		        
+		        'Movie
+		        Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileMovie")) =  MediaPath+UniqueName+".mp4"
+		        F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileMovie")), FolderItem.PathTypeNative)
+		        If Not F.Exists Then
+		          Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileMovie")) =  MediaPath +ItemLLItem.BuildType+".mp4"
+		          F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileMovie")), FolderItem.PathTypeNative)
+		          If Not F.Exists Then
+		            Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileMovie")) =  "" 'None
+		          End If
+		        End If
+		        
 		      Next
 		    End If
 		    
@@ -2146,8 +2249,9 @@ End
 		    
 		    For J = 0 To Data.ScanItems.RowCount - 1
 		      If Data.ScanItems.CellTextAt(J, 2) = Data.ScanPaths.CellTextAt(I, 0) Then
+		        'If Debugging Then Debug(Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),Data.GetDBHeader("TitleName")))
 		        If Data.ScanItems.CellTagAt(J,0) >=0 Then 'Only Add Valid Items to the DB
-		          
+		          'If Debugging Then Debug(Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),Data.GetDBHeader("TitleName"))+" ~ Valid")
 		          'Get if compressed and the correct INI Path for the item
 		          IsCompressed = IsTrue(Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),Data.GetDBHeader("Compressed")))
 		          If IsCompressed Then
@@ -2214,6 +2318,87 @@ End
 		        End If
 		      End If
 		    Next
+		    
+		    'If Launcher mode just add all the MultiLinks to the DB's, I may need to add a ID to know which one to add it too if I find multiple locations causes adding to both DB's
+		    If StoreMode = 1 Then
+		      For J = 0 To Data.Items.RowCount - 1
+		        If IsTrue(Data.Items.CellTextAt (J,Data.GetDBHeader("LnkMultiple"))) Then
+		          'MsgBox "LnkMultiple Tag: "+ Data.Items.CellTagAt(J,Data.GetDBHeader("LnkMultiple"))+Chr(10)+" ScanPath: "+Data.ScanPaths.CellTextAt(I, 0)
+		          'The Line below makes it only save the items related to the path stored in the DB
+		          If Data.Items.CellTagAt(J,Data.GetDBHeader("LnkMultiple")) = Data.ScanPaths.CellTextAt(I, 0) Then 'Scan Path compared, if same then add to current DB, so no duplication from other folders
+		            'If Debugging Then Debug("Multi Link - " + Data.Items.CellTextAt (J,Data.GetDBHeader("TitleName")))
+		            
+		            'If Debugging Then Debug(Data.Items.CellTextAt (J,Data.GetDBHeader("TitleName"))+" ~ Valid")
+		            'Get if compressed and the correct INI Path for the item
+		            IsCompressed = IsTrue(Data.Items.CellTextAt (J,Data.GetDBHeader("Compressed")))
+		            If IsCompressed Then
+		              PatINI = Data.Items.CellTextAt (J,Data.GetDBHeader("PathINI"))
+		              PatINI = Left(PatIni,InStrRev(PatIni,"/")-1)
+		            Else
+		              PatINI = Data.Items.CellTextAt (J,Data.GetDBHeader("PathINI"))
+		              PatINI = Left(PatIni,InStrRev(PatIni,"/") -1)
+		              PatINI = Left(PatIni,InStrRev(PatIni,"/")-1)
+		            End If
+		            
+		            UniqueName = Data.Items.CellTextAt (J,Data.GetDBHeader("UniqueName"))
+		            
+		            For K = 0 To Data.Items.ColumnCount -2 'Changed this from -1 to -2 to ignore the Sorting Column
+		              'Add each item (May Be slow) but a DB if enabled is faster once built.
+		              Select Case Data.Items.HeaderAt(K)
+		              Case "FileINI" 'If doing INIFile, we need to change to %dbpath%
+		                DataOut = Data.Items.CellTextAt (J,K)
+		                DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
+		                DataOut = DataOut.ReplaceAll("\", "/") 'Windows can use Linux paths, but Linux can't use Windows paths, so do the switch
+		              Case "PathINI" 'If doing INIFile, we need to change to %dbpath%
+		                DataOut = Data.Items.CellTextAt (J,K)
+		                DataOut = DataOut.ReplaceAll(PatINI, "%URLPath%")
+		                DataOut = DataOut.ReplaceAll("\", "/") 'Windows can use Linux paths, but Linux can't use Windows paths, so do the switch
+		              Case "FileIcon", "FileFader", "FileScreenshot" 'Change to %DBPath%
+		                DataOut = Data.Items.CellTextAt (J,K)
+		                DataOut = DataOut.ReplaceAll("\", "/") 'Windows can use Linux paths, but Linux can't use Windows paths, so do the switch
+		                If IsCompressed Then
+		                  If DataOut <>"" Then
+		                    H = GetFolderItem(DataOut, FolderItem.PathTypeNative)
+		                    G = GetFolderItem(DBOutPath+UniqueName+Right(DataOut,4), FolderItem.PathTypeNative) 'Right is the extension
+		                    If G.Exists Then 
+		                      Try 
+		                        If FixPath(H.NativePath) <> FixPath(G.NativePath) Then G.Delete 'If it's not the same file delete it
+		                      Catch
+		                      End Try
+		                    End If
+		                    
+		                    If FixPath(H.NativePath) <> FixPath(G.NativePath) Then 'Don't copy if it's itself
+		                      If G.IsWriteable Then
+		                        If H.Exists Then
+		                          #Pragma BreakOnExceptions Off
+		                          Try
+		                            If G.Exists Then G.Remove ' Delete before copying to it
+		                            H.CopyTo(G)
+		                            DataOut = "%DBPath%/.lldb/"+UniqueName+Right(DataOut,4)
+		                          Catch
+		                          End Try
+		                          #Pragma BreakOnExceptions On
+		                        End If
+		                      End If
+		                    End If
+		                  End If
+		                Else 'Not compressed, just use current ini path
+		                  DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
+		                  DataOut = DataOut.ReplaceAll("\", "/") 'Windows can use Linux paths, but Linux can't use Windows paths, so do the switch
+		                End If
+		              Case Else
+		                DataOut = CompPath(Data.Items.CellTextAt (J,K))
+		              End Select
+		              DBOutText=DBOutText+DataOut+",|,"
+		              
+		            Next K
+		            
+		            DBOutText = DBOutText + Chr(10)'New Line per item Added
+		          End If
+		        End If 
+		      Next
+		    End If
+		    
 		    'Save File
 		    SaveDataToFile (DBOutText, DBOutPath+"lldb.ini")
 		    'Change Permissions
@@ -2484,6 +2669,9 @@ End
 		    If Data.ScanItems.RowCount >=1 Then
 		      For I = 0 To Data.ScanItems.RowCount - 1
 		        Loading.Status.Text = "Adding Items: "+ Str(I)+"/"+Str(Data.ScanItems.RowCount - 1)
+		        '************************************************************************************
+		        'Item ,2 is the ScanPath
+		        CurrentScanPath = Data.ScanItems.CellTextAt(I,2) 'This is used to Identify Multiple Links so can save Launcher DB's with them
 		        Data.ScanItems.CellTagAt(I,0) = GetItem(Data.ScanItems.CellTextAt(I,0), Data.ScanItems.CellTextAt(I,1)) 'The 2nd Part is the TmpFolder stored in the DB if it has Data
 		      Next
 		    End If
@@ -2760,7 +2948,7 @@ End
 		    End If
 		    
 		    'Check Remote file exist, else it'll fail
-		    Test = RunCommandResults("curl --head --silent " + Chr(34) + GetURL + Chr(34))
+		    Test = RunCommandDownload("curl --head --silent " + Chr(34) + GetURL + Chr(34))
 		    
 		    If Debugging Then Debug(">>> Download <<<")
 		    If Debugging Then Debug("URL: "+GetURL)

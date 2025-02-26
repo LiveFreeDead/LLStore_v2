@@ -1501,6 +1501,12 @@ End
 		      Else
 		        Hidden = True
 		      End If
+		      
+		      'Check If Parent item in Launcher mode and hide if so
+		      If Data.Items.CellTextAt (I,Data.GetDBHeader("LnkMultiple")) = "Hide" Then
+		        Hidden = True 'Hide Parent
+		      End If
+		      
 		    End If
 		    
 		    
