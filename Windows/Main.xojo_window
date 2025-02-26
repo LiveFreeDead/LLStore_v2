@@ -372,7 +372,6 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -429,7 +428,6 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -438,7 +436,6 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -1898,11 +1895,16 @@ End
 		  Exec = ExpPath(Data.Items.CellTextAt(GameIDIn, Data.GetDBHeader("LnkExec")))
 		  Exe = Exec
 		  
-		  'Best for Windows -------------------------------
-		  If Left(Exe,1) <>Chr(34) Then ' This helps sometimes, it's all a mess and need a routine to build the command, save it to a script file to run instead
-		    'Exe = Chr(34)+Slash(RunPath)+Exe+Chr(34) ' Try adding RunPath in
-		    Exe = Chr(34)+Exe+Chr(34)
+		  'Best for Windows ------------------------------- Also added add path to Linux ones if it exists
+		  
+		  If Exist(Slash(RunPath)+Exe) Then
+		    Exe = Chr(34)+Slash(RunPath)+Exe+Chr(34) ' Try adding RunPath in
+		  Else
+		    If Left(Exe,1) <>Chr(34) Then ' This helps sometimes, it's all a mess and need a routine to build the command, save it to a script file to run instead
+		      Exe = Chr(34)+Exe+Chr(34)
+		    End If
 		  End If
+		  
 		  
 		  If TargetWindows Then ' Best Way for Windows
 		    SaveDataToFile (Left(RunPath,2)+Chr(10)+"cd "+ Chr(34)+RunPath+Chr(34)+Chr(10)+Exe, Slash(TmpPath)+"LLRun.cmd")
@@ -1939,9 +1941,10 @@ End
 		        
 		        ShWait.Execute (ToolPath+"BackupWineDPI.sh")
 		        ShWait.Execute (ToolPath+"DefaultWineDPI.sh")
-		        
+		        If Debugging Then Debug("Linux Run:- "+"Path: "+ RunPath+Chr(10)+"Running: "+"xrandr -s " +ScreenRes + " ; wine explorer /desktop=name," + ScreenRes + " " + Exe)
 		        Sh.Execute ("xrandr -s " +ScreenRes + " ; wine explorer /desktop=name," + ScreenRes + " " + Exe)
 		      Else 'No Res or Desktop mode set
+		        If Debugging Then Debug("Linux Run:- "+"Path: "+ RunPath+Chr(10)+"Running: wine "+Exe)
 		        Sh.Execute ("wine " +  Exe) 'Adding z:/ Allows it to run from any path, Need to test without it.
 		      End If
 		      
@@ -1955,6 +1958,7 @@ End
 		        Sh.Execute ("xrandr -s " +ScreenRes + " ; " + Exe)
 		        
 		      Else 'No Res Given
+		        If Debugging Then Debug("Linux Run:- "+"Path: "+ RunPath+Chr(10)+"Running: "+Exe)
 		        Sh.Execute (Exe) 'Was just set to Exec
 		        'Sh.Execute (ToolPath +"run-1080p "+ Exec)
 		        
