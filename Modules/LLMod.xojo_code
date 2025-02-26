@@ -1532,6 +1532,8 @@ Protected Module LLMod
 		  
 		  'App.DoEvents(1) 'Redraw Forms
 		  
+		  Dim TempScriptData As String
+		  
 		  Dim Suc As Boolean
 		  Dim Success As Boolean
 		  Dim Shelly As New Shell
@@ -1813,6 +1815,21 @@ Protected Module LLMod
 		      If ItemLLItem.InternetRequired = False Then 'Only add this script to Offline installed items as the online ones will be tracked by the package manager used.
 		        CopyWild(Slash(ToolPath)+"uninstall.sh", InstallToPath)
 		      End If
+		      
+		      'Check for start.sh and if it contains run-1080p then remove that from the script file if it's unavailable on the OS your using
+		      'If in Linux check if run-1080p is available and if not remove it from the Exe being called.
+		      If TargetLinux Then
+		        ShellFast.Execute("which run-1080p")
+		        If ShellFast.Result = "" Then 'Not found remove it, makes it able to use the Launcher on Non-LastOS installs that don't include the run-1080p file
+		          'ItemLnk(I).Exec= ItemLnk(I).Exec.Replace("run-1080p ","")
+		          If Exist(Slash(InstallToPath)+"start.sh") Then
+		            TempScriptData = LoadDataFromFile(Slash(InstallToPath)+"start.sh")
+		            TempScriptData = TempScriptData.ReplaceAll("run-1080p","") 'This removes it if the system doesn't have it
+		            SaveDataToFile(TempScriptData, Slash(InstallToPath)+"start.sh")
+		          End If
+		        End If
+		      End If
+		      
 		    End If
 		    
 		    'Do Delete Temp Path here? if TempInstall has a path (Make sure it's in .lltemp
@@ -3220,6 +3237,15 @@ Protected Module LLMod
 		          If Exist(InstallToPath + "LLGame.png") Then ItemLnk(I).Icon = InstallToPath + "LLGame.png"
 		          If Exist(InstallToPath + "LLApp.png") Then ItemLnk(I).Icon = InstallToPath + "LLApp.png"
 		        End If
+		        
+		        'If in Linux check if run-1080p is available and if not remove it from the Exe being called.
+		        If TargetLinux Then
+		          ShellFast.Execute("which run-1080p")
+		          If ShellFast.Result = "" Then 'Not found remove it, makes it able to use the Launcher on Non-LastOS installs that don't include the run-1080p file
+		            ItemLnk(I).Exec= ItemLnk(I).Exec.Replace("run-1080p ","")
+		          End If
+		        End If
+		        
 		        
 		        'Fix missing path if exec doesn't contain the path (for linux)
 		        If Exist (Slash(ExpPath(ItemLnk(I).RunPath))+ItemLnk(I).Exec) Then
@@ -6843,7 +6869,7 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue=""
 			Type="String"
-			EditorType=""
+			EditorType="MultiLineEditor"
 		#tag EndViewProperty
 	#tag EndViewBehavior
 End Module

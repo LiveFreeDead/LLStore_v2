@@ -1897,6 +1897,14 @@ End
 		  
 		  'Best for Windows ------------------------------- Also added add path to Linux ones if it exists
 		  
+		  'If in Linux check if run-1080p is available and if not remove it from the Exe being called.
+		  If TargetLinux Then
+		    ShellFast.Execute("which run-1080p")
+		    If ShellFast.Result = "" Then 'Not found remove it, makes it able to use the Launcher on Non-LastOS installs that don't include the run-1080p file
+		      Exe= Exe.Replace("run-1080p ","")
+		    End If
+		  End If
+		  
 		  If Exist(Slash(RunPath)+Exe) Then
 		    Exe = Chr(34)+Slash(RunPath)+Exe+Chr(34) ' Try adding RunPath in
 		  Else
