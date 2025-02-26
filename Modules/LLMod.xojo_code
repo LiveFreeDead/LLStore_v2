@@ -5322,6 +5322,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		ForceFullUpdate As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		ForcePostQuit As Boolean
 	#tag EndProperty
 

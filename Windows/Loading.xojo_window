@@ -184,6 +184,16 @@ End
 		  If Debugging Then Debug("- Starting Check For LLStore Updates -")
 		  ForceQuit = False ' Need to do this if using downloader as that aborts if it's set
 		  
+		  'Check if Online
+		  IsOnline = True
+		  ShellFast.Execute("curl -fsS http://google.com > /dev/null")
+		  If  ShellFast.Result.Trim <> "" Then IsOnline = False
+		  
+		  If IsOnline = False And ForceFullUpdate = True Then
+		    MessageBox ("No Internet Detected")
+		    Return
+		  End If
+		  
 		  Dim CurrentVersion As Double
 		  Dim CurrentVersionS As String
 		  Dim OnlineVersion As Double
@@ -236,12 +246,12 @@ End
 		  MajorRemote = Val(Left(OnlineVersionS,OnlineVersionS.IndexOf(".")))
 		  'MajorRemote = MajorRemote + 1
 		  
-		  If MajorRemote > MajorLocal Then
+		  If MajorRemote > MajorLocal  Or ForceFullUpdate = True Then
 		    Dim Success As Boolean
 		    'MsgBox "Full Update - Local: "+MajorLocal.ToString+" Remote: "+MajorRemote.ToString
 		    
 		    'Updating
-		    Loading.Status.Text = "Updating Full Store" +CurrentVersionS+ " to " + OnlineVersionS
+		    Loading.Status.Text = "Updating Full Store v" +CurrentVersionS+ " to v"+OnlineVersionS
 		    Loading.Refresh
 		    App.DoEvents(1)
 		    
@@ -298,7 +308,7 @@ End
 		    If OnlineVersion > CurrentVersion Then 'Is Newer, download and apply executables only
 		      
 		      'Updating Executables
-		      Loading.Status.Text = "Updating Executables" +CurrentVersionS+ " to " + OnlineVersionS
+		      Loading.Status.Text = "Updating Executables v" +CurrentVersionS+ " to v"+ OnlineVersionS
 		      Loading.Refresh
 		      App.DoEvents(1)
 		      If App.MajorVersion = 1 Then ' Changed below so it only updates the current running exe, no point in a Linux user constantly updating the windows exe

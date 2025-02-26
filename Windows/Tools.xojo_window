@@ -55,6 +55,37 @@ Begin DesktopWindow Tools
       Visible         =   True
       Width           =   120
    End
+   Begin DesktopButton ForceUpdate
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Cancel          =   False
+      Caption         =   "Force Full Update"
+      Default         =   True
+      Enabled         =   True
+      FontName        =   "System"
+      FontSize        =   0.0
+      FontUnit        =   0
+      Height          =   40
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   334
+      LockBottom      =   True
+      LockedInPosition=   False
+      LockLeft        =   False
+      LockRight       =   True
+      LockTop         =   False
+      MacButtonStyle  =   0
+      Scope           =   0
+      TabIndex        =   1
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   ""
+      Top             =   349
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   125
+   End
 End
 #tag EndDesktopWindow
 
@@ -102,6 +133,24 @@ End
 		  App.DoEvents(7)
 		  
 		  Tools.Hide
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events ForceUpdate
+	#tag Event
+		Sub Pressed()
+		  Tools.Hide
+		  Main.Hide
+		  
+		  Loading.Left = (screen(0).AvailableWidth - Loading.Width) / 2
+		  Loading.Top = (screen(0).AvailableHeight - Loading.Height) / 2
+		  
+		  Loading.Show
+		  ForceFullUpdate = True
+		  Loading.CheckForLLStoreUpdates
+		  ForceFullUpdate = False
+		  Loading.Hide
+		  Main.Show
 		End Sub
 	#tag EndEvent
 #tag EndEvents
