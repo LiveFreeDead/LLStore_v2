@@ -2038,7 +2038,7 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub SaveToPreset()
+		Sub SaveToPreset(PresetInFile As String = "")
 		  If Data.Items.RowCount <= 0 Then Return 'No Items
 		  Dim I As Integer
 		  Dim SelCount As Integer
@@ -2066,7 +2066,11 @@ End
 		      PreviousPresetPath = PreviousPresetPath.ReplaceAll("\","/")
 		    End If
 		    
-		    PresetFileName = SaveDialog(iniType, "Save Preset .ini File", PreviousPresetPath, "My Preset.ini")
+		    If PresetInFile = "" Then
+		      PresetFileName = SaveDialog(iniType, "Save Preset .ini File", PreviousPresetPath, "My Preset.ini")
+		    Else
+		      PresetFileName = PresetInFile
+		    End If
 		    
 		    If PresetFileName <> "" Then
 		      If TargetWindows Then
@@ -2205,6 +2209,8 @@ End
 		  
 		  If StoreMode = 0 Then 'Installer
 		    If SelectsCount >= 1 Then ' Must have selected one item
+		      'GlennGlennGlenn - Save Current Install as a preset, so can reload if it fails
+		      SaveToPreset (Slash(RepositoryPathLocal)+"Current_LLStore_Install.ini")
 		      MiniInstallerShowing = True
 		      MiniInstaller.StartInstaller()
 		    Else
