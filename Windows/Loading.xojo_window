@@ -193,11 +193,12 @@ End
 		  ShellFast.Execute("curl -fsS http://google.com > /dev/null")
 		  If  ShellFast.Result.Trim <> "" Then IsOnline = False
 		  
-		  If IsOnline = False And ForceFullUpdate = True Then
-		    MessageBox ("No Internet Detected")
-		    Return
+		  If IsOnline = False Then
+		    If ForceFullUpdate = True Or ForceExeUpdate = True Then
+		      MessageBox ("No Internet Detected")
+		      Return
+		    End If
 		  End If
-		  
 		  Dim CurrentVersion As Double
 		  Dim CurrentVersionS As String
 		  Dim OnlineVersion As Double
@@ -309,7 +310,7 @@ End
 		    
 		  Else
 		    'MsgBox "EXE Updates - Local: "+MajorLocal.ToString+" Remote: "+MajorRemote.ToString
-		    If OnlineVersion > CurrentVersion Then 'Is Newer, download and apply executables only
+		    If OnlineVersion > CurrentVersion Or ForceExeUpdate = True Then 'Is Newer, download and apply executables only, or if set to forced update
 		      
 		      'Updating Executables
 		      Loading.Status.Text = "Updating Executables v" +CurrentVersionS+ " to v"+ OnlineVersionS

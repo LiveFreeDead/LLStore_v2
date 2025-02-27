@@ -1819,10 +1819,14 @@ Protected Module LLMod
 		      'Check for start.sh and if it contains run-1080p then remove that from the script file if it's unavailable on the OS your using
 		      'If in Linux check if run-1080p is available and if not remove it from the Exe being called.
 		      If TargetLinux Then
-		        ShellFast.Execute("which run-1080p")
-		        If ShellFast.Result = "" Then 'Not found remove it, makes it able to use the Launcher on Non-LastOS installs that don't include the run-1080p file
+		        If  Not Exist("/usr/bin/run-1080p") Then 'Not found remove it, makes it able to use the Launcher on Non-LastOS installs that don't include the run-1080p file
 		          'ItemLnk(I).Exec= ItemLnk(I).Exec.Replace("run-1080p ","")
 		          If Exist(Slash(InstallToPath)+"start.sh") Then
+		            TempScriptData = LoadDataFromFile(Slash(InstallToPath)+"start.sh")
+		            TempScriptData = TempScriptData.ReplaceAll("run-1080p","") 'This removes it if the system doesn't have it
+		            SaveDataToFile(TempScriptData, Slash(InstallToPath)+"start.sh")
+		          End If
+		          If Exist(Slash(InstallToPath)+"run.sh") Then
 		            TempScriptData = LoadDataFromFile(Slash(InstallToPath)+"start.sh")
 		            TempScriptData = TempScriptData.ReplaceAll("run-1080p","") 'This removes it if the system doesn't have it
 		            SaveDataToFile(TempScriptData, Slash(InstallToPath)+"start.sh")
@@ -3240,8 +3244,7 @@ Protected Module LLMod
 		        
 		        'If in Linux check if run-1080p is available and if not remove it from the Exe being called.
 		        If TargetLinux Then
-		          ShellFast.Execute("which run-1080p")
-		          If ShellFast.Result = "" Then 'Not found remove it, makes it able to use the Launcher on Non-LastOS installs that don't include the run-1080p file
+		          If  Not Exist("/usr/bin/run-1080p") Then 'Not found remove it, makes it able to use the Launcher on Non-LastOS installs that don't include the run-1080p file
 		            ItemLnk(I).Exec= ItemLnk(I).Exec.Replace("run-1080p ","")
 		          End If
 		        End If
@@ -5322,6 +5325,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		ForceExeUpdate As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		ForceFullUpdate As Boolean = False
 	#tag EndProperty
 
@@ -6878,6 +6885,22 @@ Protected Module LLMod
 			InitialValue=""
 			Type="String"
 			EditorType="MultiLineEditor"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CheckingForUpdates"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="ForceFullUpdate"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
 End Module
