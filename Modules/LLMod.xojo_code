@@ -1823,12 +1823,12 @@ Protected Module LLMod
 		          'ItemLnk(I).Exec= ItemLnk(I).Exec.Replace("run-1080p ","")
 		          If Exist(Slash(InstallToPath)+"start.sh") Then
 		            TempScriptData = LoadDataFromFile(Slash(InstallToPath)+"start.sh")
-		            TempScriptData = TempScriptData.ReplaceAll("run-1080p","") 'This removes it if the system doesn't have it
+		            TempScriptData = TempScriptData.ReplaceAll("run-1080p ","") 'This removes it if the system doesn't have it
 		            SaveDataToFile(TempScriptData, Slash(InstallToPath)+"start.sh")
 		          End If
 		          If Exist(Slash(InstallToPath)+"run.sh") Then
 		            TempScriptData = LoadDataFromFile(Slash(InstallToPath)+"start.sh")
-		            TempScriptData = TempScriptData.ReplaceAll("run-1080p","") 'This removes it if the system doesn't have it
+		            TempScriptData = TempScriptData.ReplaceAll("run-1080p ","") 'This removes it if the system doesn't have it
 		            SaveDataToFile(TempScriptData, Slash(InstallToPath)+"start.sh")
 		          End If
 		        End If
@@ -5710,6 +5710,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		WasContext As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		Wayland As Boolean = False
 	#tag EndProperty
 
 	#tag Property, Flags = &h0

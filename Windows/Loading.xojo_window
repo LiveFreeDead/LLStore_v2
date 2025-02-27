@@ -3142,6 +3142,7 @@ End
 		  'Get Consts
 		  If TargetLinux Then
 		    SysDesktopEnvironment = System.EnvironmentVariable("XDG_SESSION_DESKTOP").Lowercase
+		    If System.EnvironmentVariable("XDG_SESSION_TYPE").Lowercase.Trim = "wayland" Then Wayland = True
 		    SysPackageManager = ""
 		    SysTerminal = ""
 		    ManualLocationsFile = "Linux"
@@ -3636,6 +3637,7 @@ End
 		  
 		  If Debugging Then Debug("Architecture: "+SysArchitecture)
 		  If Debugging Then Debug("Desktop Environment: "+SysDesktopEnvironment)
+		  If Debugging Then Debug("Wayland: "+Wayland.ToString)
 		  If Debugging Then Debug("Package Manager: "+SysPackageManager)
 		  If Debugging Then Debug("Terminal: "+SysTerminal+ Chr(10))
 		  

@@ -1979,6 +1979,8 @@ End
 		  While Sh.IsRunning
 		    App.DoEvents(7)
 		  Wend
+		  
+		  
 		  If TargetWindows Then
 		    'Wait for Screen Res to go back to default for 4 seconds
 		    'If ScreenRes <> "" Then
@@ -1993,18 +1995,19 @@ End
 		    'If Settings.SetRecoverScreenRes.Value = True Then
 		    If Wid = "0" Then Wid = ""
 		    If Wid <> "" Then ' Put Orig Res back if changed
-		      While ShWait.Result.Trim <> Wid ' Wait for Screen Width to be the original res
-		        ShWait.Execute ("xrandr -s " + Wid + "x" + Hit) 'Keep Trying until it's set
-		        App.DoEvents(1)
-		        ShWait.Execute ("xrandr --current | grep current | awk '{print $8}'") ' Get current Width
-		        App.DoEvents(1)
-		      Wend
+		      ShWait.Execute ("xrandr -s " + Wid + "x" + Hit) ' Do Once and hope for the best
+		      If Not Wayland Then
+		        While ShWait.Result.Trim <> Wid ' Wait for Screen Width to be the original res
+		          ShWait.Execute ("xrandr -s " + Wid + "x" + Hit) 'Keep Trying until it's set
+		          App.DoEvents(1)
+		          ShWait.Execute ("xrandr --current | grep current | awk '{print $8}'") ' Get current Width
+		          App.DoEvents(1)
+		        Wend
+		      End If
 		    End If
-		    'End If
 		    ShWait.Execute (ToolPath+"RestoreWineDPI.sh")
 		  End If
-		  
-		  App.DoEvents(40) 'Wait .04 of a second
+		  'App.DoEvents(40) 'Wait .04 of a second
 		  
 		  'Restore Position
 		  Main.Left = PosLeft
@@ -2012,9 +2015,9 @@ End
 		  Main.Width = PosWidth
 		  Main.Height = PosHeight
 		  
-		  App.DoEvents(40) 'Wait .04 of a second
+		  'App.DoEvents(40) 'Wait .04 of a second
 		  Main.Show
-		  App.DoEvents(40) 'Wait .04 of a second
+		  'App.DoEvents(40) 'Wait .04 of a second
 		  'Restore Position
 		  Main.Left = PosLeft
 		  Main.Top = PosTop
