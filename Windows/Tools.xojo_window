@@ -37,7 +37,7 @@ Begin DesktopWindow Tools
       Height          =   40
       Index           =   -2147483648
       Italic          =   False
-      Left            =   471
+      Left            =   467
       LockBottom      =   True
       LockedInPosition=   False
       LockLeft        =   False
@@ -53,7 +53,7 @@ Begin DesktopWindow Tools
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   120
+      Width           =   130
    End
    Begin DesktopButton ForceUpdate
       AllowAutoDeactivate=   True
@@ -68,7 +68,7 @@ Begin DesktopWindow Tools
       Height          =   40
       Index           =   -2147483648
       Italic          =   False
-      Left            =   334
+      Left            =   320
       LockBottom      =   True
       LockedInPosition=   False
       LockLeft        =   False
@@ -79,12 +79,12 @@ Begin DesktopWindow Tools
       TabIndex        =   1
       TabPanelIndex   =   0
       TabStop         =   True
-      Tooltip         =   ""
+      Tooltip         =   "DOwnloades the lastest full release and writes over the top of current version"
       Top             =   349
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   125
+      Width           =   130
    End
    Begin DesktopButton ForceUpdate1
       AllowAutoDeactivate=   True
@@ -99,7 +99,7 @@ Begin DesktopWindow Tools
       Height          =   40
       Index           =   -2147483648
       Italic          =   False
-      Left            =   197
+      Left            =   178
       LockBottom      =   True
       LockedInPosition=   False
       LockLeft        =   False
@@ -110,12 +110,12 @@ Begin DesktopWindow Tools
       TabIndex        =   2
       TabPanelIndex   =   0
       TabStop         =   True
-      Tooltip         =   ""
+      Tooltip         =   "download the latest EXE from github"
       Top             =   349
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   125
+      Width           =   130
    End
 End
 #tag EndDesktopWindow
