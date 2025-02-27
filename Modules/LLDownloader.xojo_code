@@ -64,11 +64,11 @@ Protected Module LLDownloader
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
-		WebLinksLink(2048) As String
+		WebLinksLink(4096) As String
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
-		WebLinksName(2048) As String
+		WebLinksName(4096) As String
 	#tag EndProperty
 
 

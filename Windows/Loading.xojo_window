@@ -25,6 +25,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -65,6 +66,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -73,6 +75,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -81,6 +84,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -1295,12 +1299,12 @@ End
 		  End If
 		  
 		  ''Get Remote WebLinks to use 'Disabled for now due to Google stopping API use with wget
-		  'GetOnlineFile ("https://github.com/LiveFreeDead/LLStore/raw/refs/heads/main/WebLinks.db",Slash(RepositoryPathLocal)+"RemoteWebLinks.db")
-		  'TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
-		  'While Downloading = True
-		  'App.DoEvents(3)
-		  'If System.Microseconds >= TimeOut Then Exit 'Timeout after 5 seconds
-		  'Wend
+		  GetOnlineFile ("https://raw.githubusercontent.com/LiveFreeDead/LLStore_v2/refs/heads/main/WebLinks.ini",Slash(RepositoryPathLocal)+"RemoteWebLinks.db")
+		  TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
+		  While Downloading = True
+		    App.DoEvents(3)
+		    If System.Microseconds >= TimeOut Then Exit 'Timeout after 5 seconds
+		  Wend
 		End Sub
 	#tag EndMethod
 
@@ -2711,13 +2715,13 @@ End
 		      End If
 		    End If
 		    'Disabled Weblinks for now while I find an alternative as google API is blocked by wget for non logged in users.
-		    'If StoreMode = 0 Then
-		    ''Get Weblinks to use Google etcx to host large files
-		    'Loading.Status.Text = "Get Weblinks for large items..."
-		    'Loading.Refresh
-		    'App.DoEvents(1)
-		    'GetWebLinks()
-		    'End If
+		    If StoreMode = 0 Then
+		      'Get Weblinks to use Google etcx to host large files
+		      Loading.Status.Text = "Get Weblinks for large items..."
+		      Loading.Refresh
+		      App.DoEvents(1)
+		      GetWebLinks()
+		    End If
 		    
 		    'Hide Old Version (Only need to do this once as you load in Items)
 		    Loading.Status.Text = "Hiding Old Versions..."
