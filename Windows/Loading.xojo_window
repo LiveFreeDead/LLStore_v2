@@ -25,6 +25,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -65,6 +66,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -73,6 +75,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -81,6 +84,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -2232,6 +2236,7 @@ End
 		  
 		  Dim H, G, F As FolderItem
 		  Dim I, J, K As Integer
+		  Dim DBHeader As String
 		  Dim DBOutPath As String
 		  Dim DBOutText As String
 		  Dim DataOut As String
@@ -2252,11 +2257,12 @@ End
 		    
 		    If IsWritable(DBOutPath) = False Then Continue 'No point in Generating the new Database file as it can't be save to a path that isn't writable
 		    
-		    DBOutText=""
+		    DBOutText = ""
+		    DBHeader = ""
 		    For K = 0 To Data.Items.ColumnCount -2 'Changed this from -1 to -2 to ignore the Sorting Column
-		      DBOutText=DBOutText + Data.Items.HeaderAt(K)+"|"
+		      DBHeader=DBHeader + Data.Items.HeaderAt(K)+"|"
 		    Next K
-		    DBOutText = DBOutText + Chr(10)'New Line To Seperate the header
+		    DBHeader = DBHeader + Chr(10)'New Line To Seperate the header
 		    
 		    For J = 0 To Data.ScanItems.RowCount - 1
 		      If Data.ScanItems.CellTextAt(J, 2) = Data.ScanPaths.CellTextAt(I, 0) Then
@@ -2411,7 +2417,10 @@ End
 		    End If
 		    
 		    'Save File
-		    SaveDataToFile (DBOutText, DBOutPath+"lldb.ini")
+		    
+		    If DBOutText <> "" Then 'Only bother saving a DB if the path has items in it, no need to make blank ones
+		      SaveDataToFile (DBHeader+DBOutText, DBOutPath+"lldb.ini")
+		    End If
 		    'Change Permissions
 		    If TargetLinux Then ChMod(DBOutPath,"-R 777") ' DB files should be full accessible to everyone, else how can they update them?
 		  Next
@@ -2539,7 +2548,9 @@ End
 		      IniFile = Slash(AppPath)+"LLL_Launcher_Linux_Manual_Locations.ini"
 		    End If
 		  End If
-		  SaveDataToFile(Settings.SetManualLocations.Text, IniFile)
+		  If Settings.SetManualLocations.Text.Trim <> "" Or Exist (IniFile) Then  'Only update if not empty or empty it if already exist and nothing to save
+		    SaveDataToFile(Settings.SetManualLocations.Text, IniFile)
+		  End If
 		  
 		  'Save Repo's
 		  SaveDataToFile(Settings.SetOnlineRepos.Text.ReplaceAll(Chr(13), Chr(10)),Slash(AppPath)+"LLL_Repos.ini")

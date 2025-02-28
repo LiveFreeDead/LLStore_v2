@@ -1,19 +1,19 @@
 #!/bin/bash
 
-IS_GNOMETERMINAL=$(which gnome-terminal)
+IS_GNOMETERMINAL=$(type -P gnome-terminal)
 
 if [[ -z $IS_GNOMETERMINAL ]]; then
 
 PACKAGES=gnome-terminal
 
-APT_CMD=$(which apt 2>/dev/null)
-DNF_CMD=$(which dnf 2>/dev/null)
-EMERGE_CMD=$(which emerge 2>/dev/null)
-EOPKG_CMD=$(which eopkg 2>/dev/null)
-APK_CMD=$(which apk 2>/dev/null)
-PACMAN_CMD=$(which pacman 2>/dev/null)
-ZYPPER_CMD=$(which zypper 2>/dev/null)
-YUM_CMD=$(which yum 2>/dev/null)
+APT_CMD=$(type -P apt 2>/dev/null)
+DNF_CMD=$(type -P dnf 2>/dev/null)
+EMERGE_CMD=$(type -P emerge 2>/dev/null)
+EOPKG_CMD=$(type -P eopkg 2>/dev/null)
+APK_CMD=$(type -P apk 2>/dev/null)
+PACMAN_CMD=$(type -P pacman 2>/dev/null)
+ZYPPER_CMD=$(type -P zypper 2>/dev/null)
+YUM_CMD=$(type -P yum 2>/dev/null)
 
 if [[ ! -z $APT_CMD ]]; then
     sudo $APT_CMD -y install $PACKAGES
@@ -38,22 +38,6 @@ fi
 fi  #Top gnome check
 
 
-
-#Run LLStore to install the rest (requires gnome terminal to get sudo)
+#Run LLStore to install the rest (requires gnome terminal to get sudo properly, konsole works but most others will error out unless you pick to run this script in terminal)
 env GDK_BACKEND=x11 ./llstore -setup
-
-
-
-#Notes
-
-#emerge uses non standard package names, will have to manually get their names if supporting gentoo with package manager
-
-# the apk manager is silent by default? you need to add -ask to make it ask?
-
-#elif [[ ! -z $ZYPPER_CMD ]]; then
-#    sudo $ZYPPER_CMD --non-interactive install $PACKAGES
-
-#sudo env DEBIAN_FRONTEND=noninteractive sudo apt
-
-#emerge net-proxy/tinyproxy
 
