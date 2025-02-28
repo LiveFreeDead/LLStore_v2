@@ -1819,7 +1819,8 @@ Protected Module LLMod
 		      'Check for start.sh and if it contains run-1080p then remove that from the script file if it's unavailable on the OS your using
 		      'If in Linux check if run-1080p is available and if not remove it from the Exe being called.
 		      If TargetLinux Then
-		        If  Not Exist("/usr/bin/run-1080p") Then 'Not found remove it, makes it able to use the Launcher on Non-LastOS installs that don't include the run-1080p file
+		        ShellFast.Execute("type -P run-1080p")
+		        If  ShellFast.Result = "" Then
 		          'ItemLnk(I).Exec= ItemLnk(I).Exec.Replace("run-1080p ","")
 		          If Exist(Slash(InstallToPath)+"start.sh") Then
 		            TempScriptData = LoadDataFromFile(Slash(InstallToPath)+"start.sh")
@@ -3244,7 +3245,8 @@ Protected Module LLMod
 		        
 		        'If in Linux check if run-1080p is available and if not remove it from the Exe being called.
 		        If TargetLinux Then
-		          If  Not Exist("/usr/bin/run-1080p") Then 'Not found remove it, makes it able to use the Launcher on Non-LastOS installs that don't include the run-1080p file
+		          ShellFast.Execute("type -P run-1080p")
+		          If  ShellFast.Result = "" Then
 		            ItemLnk(I).Exec= ItemLnk(I).Exec.Replace("run-1080p ","")
 		          End If
 		        End If
@@ -3330,7 +3332,7 @@ Protected Module LLMod
 		        'Panel Link
 		        If ItemLnk(I).Panel = True Then
 		          If Exist(Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.json") Then 'If it's not there, don't bother
-		            ShellFast.Execute("which jq")
+		            ShellFast.Execute("type -P jq")
 		            If ShellFast.Result <> "" Then 'Can only add to the panel if jq is installed to work with .json files
 		              ShellFast.Execute("jq --arg order "+Chr(34)+DesktopFile+Chr(34)+" '."+Chr(34)+"pinned-apps"+Chr(34)+".value |= if index($order) then . else . + [$order] end' "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.json | tee "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.new >/dev/null && mv "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.new "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.json")
 		              RunRefreshScript = True
@@ -6900,6 +6902,22 @@ Protected Module LLMod
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="ForceFullUpdate"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="ForceExeUpdate"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="Wayland"
 			Visible=false
 			Group="Behavior"
 			InitialValue="False"

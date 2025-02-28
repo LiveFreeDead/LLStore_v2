@@ -1902,7 +1902,8 @@ End
 		  
 		  'If in Linux check if run-1080p is available and if not remove it from the Exe being called.
 		  If TargetLinux Then
-		    If  Not Exist("/usr/bin/run-1080p") Then
+		    ShellFast.Execute("type -P run-1080p")
+		    If  ShellFast.Result = "" Then
 		      Exe= Exe.Replace("run-1080p ","")
 		    End If
 		  End If

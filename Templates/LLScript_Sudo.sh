@@ -1,15 +1,15 @@
 #!/bin/bash
 
-#Functions
+#---------- Functions ----------
 inst () {
-APT_CMD=$(which apt 2>/dev/null)
-DNF_CMD=$(which dnf 2>/dev/null)
-EMERGE_CMD=$(which emerge 2>/dev/null)
-EOPKG_CMD=$(which eopkg 2>/dev/null)
-APK_CMD=$(which apk 2>/dev/null)
-PACMAN_CMD=$(which pacman 2>/dev/null)
-ZYPPER_CMD=$(which zypper 2>/dev/null)
-YUM_CMD=$(which yum 2>/dev/null)
+APT_CMD=$(type -P apt 2>/dev/null)
+DNF_CMD=$(type -P dnf 2>/dev/null)
+EMERGE_CMD=$(type -P emerge 2>/dev/null)
+EOPKG_CMD=$(type -P eopkg 2>/dev/null)
+APK_CMD=$(type -P apk 2>/dev/null)
+PACMAN_CMD=$(type -P pacman 2>/dev/null)
+ZYPPER_CMD=$(type -P zypper 2>/dev/null)
+YUM_CMD=$(type -P yum 2>/dev/null)
 
 if [[ ! -z $DNF_CMD ]]; then
     sudo $DNF_CMD -y install $*
@@ -22,7 +22,6 @@ elif [[ ! -z $EOPKG_CMD ]]; then
 elif [[ ! -z $APK_CMD ]]; then
     sudo $APK_CMD add install $*
 elif [[ ! -z $PACMAN_CMD ]]; then
-    #yes | sudo $PACMAN_CMD -S $*
     # Syu gets dependancies etc
     yes | sudo $PACMAN_CMD -Syu $*
 elif [[ ! -z $ZYPPER_CMD ]]; then
@@ -33,11 +32,11 @@ else
     echo "error can't install package $*"
 fi
 }
+#-------------------------------
 
-
-#Get Best Terminal
-terms=(gnome-terminal konsole x-terminal-emulator xterm xfce4-terminal)
-for t in ${terms[*]}
+#Get Best Terminal For LLStore (in order)
+TERMS=(gnome-terminal konsole x-terminal-emulator xterm xfce4-terminal)
+for t in ${TERMS[*]}
 do
     if [ $(command -v $t) ]
     then
@@ -47,19 +46,20 @@ do
 done
 
 #Get Package Manager
-APT_CMD=$(which apt 2>/dev/null)
-DNF_CMD=$(which dnf 2>/dev/null)
-EMERGE_CMD=$(which emerge 2>/dev/null)
-EOPKG_CMD=$(which eopkg 2>/dev/null)
-APK_CMD=$(which apk 2>/dev/null)
-PACMAN_CMD=$(which pacman 2>/dev/null)
-ZYPPER_CMD=$(which zypper 2>/dev/null)
-YUM_CMD=$(which yum 2>/dev/null)
-
+APT_CMD=$(type -P apt 2>/dev/null)
+DNF_CMD=$(type -P dnf 2>/dev/null)
+EMERGE_CMD=$(type -P emerge 2>/dev/null)
+EOPKG_CMD=$(type -P eopkg 2>/dev/null)
+APK_CMD=$(type -P apk 2>/dev/null)
+PACMAN_CMD=$(type -P pacman 2>/dev/null)
+ZYPPER_CMD=$(type -P zypper 2>/dev/null)
+YUM_CMD=$(type -P yum 2>/dev/null)
 
 #Get Desktop Environment to do tasks
 echo "Terminal Used: $OSTERM"
 echo "Desktop Environment: $XDG_SESSION_DESKTOP"
+
+#-------------------------------
 
 #Use below sections to put update/upgrade repository or add PPA or repo's
 PM=""
@@ -67,14 +67,12 @@ if [[ ! -z $DNF_CMD ]]; then #dnf
     PM=dnf
     echo "Package Manager: dnf"
 elif [[ ! -z $APT_CMD ]]; then #apt
-    echo "Package Manager: apt"
     PM=apt
-    #sudo apt -qq update -y 
-    #sudo apt upgrade -y
+    echo "Package Manager: apt"
 elif [[ ! -z $EMERGE_CMD ]]; then #emerge
     PM=emerge
     echo "Package Manager: emerge"
-elif [[ ! -z $EOPKG_CMD ]]; then
+elif [[ ! -z $EOPKG_CMD ]]; then #eopkg
     PM=eopkg
     echo "Package Manager: eopkg"
 elif [[ ! -z $APK_CMD ]]; then #apk
@@ -86,42 +84,30 @@ elif [[ ! -z $PACMAN_CMD ]]; then #pacman
 elif [[ ! -z $ZYPPER_CMD ]]; then #zypper
     PM=zypper
     echo "Package Manager: zypper"
-    #zypper refresh
 elif [[ ! -z $YUM_CMD ]]; then #yum
     PM=yum
     echo "Package Manager: yum"
 else
-    echo "Package Manager: none configured"
+    echo "Unknown Package Manager. Script section skipped"
 fi
 
 
-#Get OS ID and do things depending on which one
+#Do Tasks For Detected OS
 . /etc/os-release
 
 echo "OS ID: $ID"
 
 case $ID in
   linuxmint|ubuntu) 
-    #sudo mkdir -pm755 /etc/apt/keyrings
-    #sudo wget -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
-    #sudo wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources
-    #sudo apt -qq update -y && sudo apt upgrade -y
     ;;
 
   debian|pop)
-    #sudo wget -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
-    #sudo wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/debian/dists/bookworm/winehq-bookworm.sources
-    #sudo apt update
     ;;
 
-  fedora)
-    #yes | sudo dnf config-manager addrepo --from-repofile=https://dl.winehq.org/wine-builds/fedora/41/winehq.repo
-    #yes | sudo dnf upgrade
+  fedora|nobara)
     ;;
 
   opensuse-tumbleweed) 
-    #zypper --non-interactive addrepo https://download.opensuse.org/repositories/Emulators:Wine/openSUSE_Tumbleweed/Emulators:Wine.repo
-    #zypper refresh
     ;;
 
   arch|endeavouros)
@@ -131,13 +117,13 @@ case $ID in
     ;;
 
   *) 
-    echo "This is an unknown distribution."
+    echo "Unknown Distribution. Script section skipped"
       ;;
 esac
 
-#Do tasks for each Desktop Environment
-case $XDG_SESSION_DESKTOP in
 
+#Do Tasks For Active Desktop Environment
+case $XDG_SESSION_DESKTOP in
   cinnamon)
     ;;
 
@@ -169,17 +155,20 @@ case $XDG_SESSION_DESKTOP in
     ;;
 
   *)
-    echo "This is an unknown desktop environment."
+    echo "Unknown Desktop Environment. Script section skipped"
     ;;
 esac
 
 
-#Install Apps - using Inst function to work on many Distro's and if packages available on it's repositories.
-#inst numlockx xclip
+#Install Apps - using Inst function to work on many Distro's if the package(s) are available on its repositories.
+#inst appname1 appname2 etc
 
 
-#FlatPak System Wide, user should be done in non Sudo script
+#FlatPak Install Package System Wide (User mode should be done in non Sudo LLScript)
 #Add "org.name.thing" to end of line in quote below and unremark to install a Flatpak
 #$OSTERM -e "flatpak install --system -y --noninteractive flathub "
+
+
+#----- Add Your Code Here ------
 
 
