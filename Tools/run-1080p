@@ -1,13 +1,30 @@
 #!/bin/bash
 
-# Resolution Fix
-WID=$(xrandr --current | grep current | awk '{print $8}')
-HIT=$(xrandr --current | grep current | awk '{print $10}')
-Res="${WID}x${HIT}"
+#Bypass if Wayland, xrandr doesn't work
+if [ $XDG_SESSION_TYPE = "wayland" ]; then
+    #run passed command here
+    $@
+    exit 0
+fi
 
-xrandr -s 1920x1080
+# Resolution to 1080p
+if [ "$(type -P xrandr)" ]; then
+    echo "Found xrandr" 
+    xrandr -s 1920x1080
+fi
 
-$@ 
+#run passed command here
+$@
 
-xrandr -s $Res
+#sleep 5
+
+if [ "$(type -P xrandr)" ]; then
+
+   #This doesn't restore the Cinnamon User Interface Scale, it puts back to correct resolution only.
+    res="$(xrandr -q|grep '^\*')"
+    if [[ "${res:1:1}" != 0 ]]; then
+            xrandr -s 0
+    fi
+
+fi
 exit 0

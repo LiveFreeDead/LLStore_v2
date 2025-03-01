@@ -356,6 +356,12 @@ Protected Module LLMod
 		        if SudoShellLoop.IsRunning = True Then
 		          SudoEnabled = True
 		          
+		          If Exist(Slash(ToolPath)+"run-1080p") Then
+		            'If Not Exist("/usr/bin/run-1080p") Then 'Disabled check, just do it every time so I can easily update it.
+		            RunSudo("cp -f "+Slash(ToolPath)+"run-1080p /usr/bin/run-1080p && chmod +x /usr/bin/run-1080p") 'Make run-1080p available if it's not already
+		            'End If
+		          End If
+		          
 		          If Debugging Then Debug("Sudo Enabled: " +SudoEnabled.ToString)
 		        Else
 		          SudoEnabled = False
