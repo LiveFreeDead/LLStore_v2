@@ -1923,7 +1923,7 @@ End
 		  
 		  '-------------------------------------------------
 		  
-		  'Make game run and wait for it to exit
+		  'Make game run and wait for it to exit using a loop
 		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
 		  
 		  'Set Current Directory
@@ -1952,33 +1952,40 @@ End
 		        
 		        ShWait.Execute (ToolPath+"BackupWineDPI.sh")
 		        ShWait.Execute (ToolPath+"DefaultWineDPI.sh")
-		        If Debugging Then Debug("Linux Run:- "+"Path: "+ RunPath+Chr(10)+"Running: "+"xrandr -s " +ScreenRes + " ; wine explorer /desktop=name," + ScreenRes + " " + Exe)
-		        Sh.Execute ("xrandr -s " +ScreenRes + " ; wine explorer /desktop=name," + ScreenRes + " " + Exe)
+		        If Debugging Then Debug("Wine Run:- "+"Path: "+ RunPath+Chr(10)+"Running: "+"xrandr -s " +ScreenRes + " ; wine explorer /desktop=name," + ScreenRes + " " + Exe)
+		        Sh.Execute ("xrandr -s " +ScreenRes + " ; wine explorer /desktop=name," + ScreenRes + " " + Exe +" && echo 'done' > "+Slash(TmpPath)+"DoneGame")
 		      Else 'No Res or Desktop mode set
-		        If Debugging Then Debug("Linux Run:- "+"Path: "+ RunPath+Chr(10)+"Running: wine "+Exe)
-		        Sh.Execute ("wine " +  Exe) 'Adding z:/ Allows it to run from any path, Need to test without it.
+		        If Debugging Then Debug("Wine Run:- "+"Path: "+ RunPath+Chr(10)+"Running: wine "+Exe)
+		        Sh.Execute ("wine " +  Exe +" && echo 'done' > "+Slash(TmpPath)+"DoneGame") 'Adding z:/ Allows it to run from any path, Need to test without it.
 		      End If
 		      
 		    End If
 		  Else ' Linux Game
+		    Deltree(Slash(TmpPath)+"DoneGame") 'Make sure it doesn't leave the file behind, else it'll think the game has quit before it even starts
 		    If TargetWindows Then
-		      Sh.Execute (Exe)
+		      Sh.Execute (Exe) 'This will never run as you can't run Linux stuff in Windows.
 		    Else
 		      If ScreenRes <> "" Then 'Change to Picked Res
-		        
-		        Sh.Execute ("xrandr -s " +ScreenRes + " ; " + Exe)
+		        If Debugging Then Debug("Linux Run:- "+"Path: "+ RunPath+Chr(10)+"Running: "+Exe + "Res: "+ ScreenRes)
+		        Sh.Execute ("xrandr -s " +ScreenRes + " ; " + Exe +" && echo 'done' > "+Slash(TmpPath)+"DoneGame")
 		        
 		      Else 'No Res Given
 		        If Debugging Then Debug("Linux Run:- "+"Path: "+ RunPath+Chr(10)+"Running: "+Exe)
-		        Sh.Execute (Exe) 'Was just set to Exec
+		        Sh.Execute (Exe+" && echo 'done' > "+Slash(TmpPath)+"DoneGame") 'Was just set to Exec
 		        'Sh.Execute (ToolPath +"run-1080p "+ Exec)
 		        
 		      End If
 		    End If
 		  End If
 		  
+		  'For All OS's
+		  
 		  While Sh.IsRunning
 		    App.DoEvents(7)
+		    If Exist(Slash(TmpPath)+"DoneGame") Then
+		      Deltree(Slash(TmpPath)+"DoneGame")
+		      Exit 'Quit waiting for item to end, this is faster than waiting for the process to release
+		    End If
 		  Wend
 		  
 		  
@@ -1998,11 +2005,13 @@ End
 		    If Wid <> "" Then ' Put Orig Res back if changed
 		      ShWait.Execute ("xrandr -s " + Wid + "x" + Hit) ' Do Once and hope for the best
 		      If Not Wayland Then
+		        TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
 		        While ShWait.Result.Trim <> Wid ' Wait for Screen Width to be the original res
 		          ShWait.Execute ("xrandr -s " + Wid + "x" + Hit) 'Keep Trying until it's set
 		          App.DoEvents(1)
 		          ShWait.Execute ("xrandr --current | grep current | awk '{print $8}'") ' Get current Width
 		          App.DoEvents(1)
+		          If System.Microseconds >= TimeOut Then Exit 'Took more than 5 seconds, just give up
 		        Wend
 		      End If
 		    End If
