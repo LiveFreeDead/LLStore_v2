@@ -1212,6 +1212,8 @@ End
 		  'If Debugging Then Debug("- Starting Get Item Path -")
 		  Dim F As FolderItem
 		  Dim DirToCheck As String
+		  Dim TestLocations As String
+		  Dim Sp() As String
 		  Dim I As Integer
 		  If Inn = "" Then Return
 		  Inn = Slash(FixPath(Inn))
@@ -1241,6 +1243,24 @@ End
 		    CheckPath(Slash(Inn + "ppAppsInstalls"))
 		    CheckPath(Slash(Inn + "ppAppsLive"))
 		    CheckPath(Slash(Inn + "ppGamesInstalls"))
+		    
+		    'Get Manual Locations If %ExtraPath%
+		    If Settings.SetUseManualLocations.Value = True And TargetLinux Then 'Only use them if set to use them
+		      If Debugging Then Debug("--- Get %ExtraPath% Manual Locations: ---")
+		      TestLocations = Settings.SetManualLocations.Text
+		      TestLocations = TestLocations.ReplaceAll(Chr(10), Chr(13))
+		      Sp() = TestLocations.Split(Chr(13))
+		      If Sp.Count >= 1 Then
+		        For I = 0 To Sp.Count - 1
+		          DirToCheck = Sp(I).Trim
+		          If DirToCheck.IndexOf("%ExtraPath%") >=0 Then
+		            DirToCheck = DirToCheck.Replace("%ExtraPath%", NoSlash(Inn))
+		            CheckPath(DirToCheck) 'This is a checker
+		          End If
+		        Next
+		      End If
+		    End If
+		    
 		    
 		  Catch
 		  End Try
