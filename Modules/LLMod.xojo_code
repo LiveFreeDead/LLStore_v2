@@ -2170,7 +2170,13 @@ Protected Module LLMod
 		    SaveDataToFile(DesktopContent, DesktopOutPath+DesktopFile)
 		    ShellFast.Execute ("chmod 775 "+Chr(34)+DesktopOutPath+DesktopFile+Chr(34)) 'Change Read/Write/Execute to defaults
 		    
-		    
+		    'Run Fixes
+		    If Wayland = True Then 
+		      If Exist(Slash(ToolPath)+"WaylandFixes.sh") Then
+		        ShellFast.Execute(Slash(ToolPath)+"WaylandFixes.sh")
+		      End If
+		    End If
+		    '
 		    'Close Sudo Terminal
 		    If KeepSudo = False Then ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > /tmp/LLSudoDone") 'Quits Terminal after All items have been installed.
 		  End If
