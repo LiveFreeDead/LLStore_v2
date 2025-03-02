@@ -479,7 +479,7 @@ Begin DesktopWindow Settings
       TabIndex        =   21
       TabPanelIndex   =   0
       TabStop         =   True
-      Text            =   "https://raw.githubusercontent.com/LiveFreeDead/LastOSLinux_Repository/main/.lldb/lldb.ini\r\nhttps://www.lastos.org/linuxrepo/.lldb/lldb.ini"
+      Text            =   "https://raw.githubusercontent.com/LiveFreeDead/LastOSLinux_Repository/main/.lldb/lldb.ini\nhttps://www.lastos.org/linuxrepo/.lldb/lldb.ini\nhttps://www.lastos.org/linuxrepogames/.lldb/lldb.ini"
       TextAlignment   =   1
       TextColor       =   &c000000
       Tooltip         =   ""
@@ -848,7 +848,7 @@ End
 #tag Events DefaultRepos
 	#tag Event
 		Sub Pressed()
-		  SetOnlineRepos.Text = "https://raw.githubusercontent.com/LiveFreeDead/LastOSLinux_Repository/main/.lldb/lldb.ini"+Chr(10)+"https://www.lastos.org/linuxrepo/.lldb/lldb.ini"
+		  SetOnlineRepos.Text = "https://raw.githubusercontent.com/LiveFreeDead/LastOSLinux_Repository/main/.lldb/lldb.ini"+Chr(10)+"https://www.lastos.org/linuxrepo/.lldb/lldb.ini"+Chr(10)+"https://www.lastos.org/linuxrepogames/.lldb/lldb.ini"
 		End Sub
 	#tag EndEvent
 #tag EndEvents
