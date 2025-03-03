@@ -372,7 +372,6 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -429,7 +428,6 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -438,7 +436,6 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -2221,6 +2218,8 @@ End
 		  Dim ColSelected As Integer = Data.GetDBHeader("Selected")
 		  
 		  Installing = False 'Clear the flag to make sure it only enabled if all is corect to.
+		  
+		  ForceDERefresh = False 'Clear this so it's not pre applied if only installing one item (if it doesn't do the Mini Installer)
 		  
 		  If StoreMode = 0 Then 'Installer
 		    If SelectsCount >= 1 Then ' Must have selected one item
