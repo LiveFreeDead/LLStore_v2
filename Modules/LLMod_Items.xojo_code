@@ -91,7 +91,8 @@ Protected Module LLMod_Items
 		  DECompatible As String * 1024
 		  PMCompatible As String * 1024
 		  ArchCompatible As String * 32
-		InternetRequired As Boolean
+		  InternetRequired As Boolean
+		ForceDERefresh As Boolean
 	#tag EndStructure
 
 	#tag Structure, Name = LLLnk, Flags = &h0

@@ -51,7 +51,7 @@ Begin DesktopWindow Editor
       Top             =   0
       Transparent     =   False
       Underline       =   False
-      Value           =   1
+      Value           =   0
       Visible         =   True
       Width           =   630
       Begin DesktopLabel LabelTitle
@@ -4989,6 +4989,37 @@ Begin DesktopWindow Editor
          Visible         =   True
          Width           =   595
       End
+      Begin DesktopCheckBox CheckForceDERefresh
+         AllowAutoDeactivate=   True
+         Bold            =   False
+         Caption         =   "Force DE Refresh"
+         Enabled         =   True
+         FontName        =   "System"
+         FontSize        =   0.0
+         FontUnit        =   0
+         Height          =   24
+         Index           =   -2147483648
+         InitialParent   =   "TabPanelEditor"
+         Italic          =   False
+         Left            =   447
+         LockBottom      =   False
+         LockedInPosition=   False
+         LockLeft        =   True
+         LockRight       =   False
+         LockTop         =   True
+         Scope           =   0
+         TabIndex        =   38
+         TabPanelIndex   =   1
+         TabStop         =   True
+         Tooltip         =   "This will force the desktop to refresh once all apps are installed"
+         Top             =   283
+         Transparent     =   False
+         Underline       =   False
+         Value           =   False
+         Visible         =   True
+         VisualState     =   0
+         Width           =   172
+      End
    End
    Begin DesktopLabel Status
       AllowAutoDeactivate=   True
@@ -5513,6 +5544,7 @@ End
 		  'ComboArch.Text = ItemLLItem.ArchCompatible
 		  'MsgBox ItemLLItem.ArchCompatible
 		  CheckInternetRequired.Value = ItemLLItem.InternetRequired
+		  CheckForceDERefresh.Value = ItemLLItem.ForceDERefresh
 		  CheckHideInLauncher.Value = ItemLLItem.HideInLauncher
 		  TextDescription.Text = ItemLLItem.Descriptions.ReplaceAll(Chr(30), Chr(13))
 		  
@@ -5695,6 +5727,7 @@ End
 		    If ItemLLItem.NoInstall = True Then  FlagsOut = FlagsOut + "noinstall "
 		    If ItemLLItem.KeepAll = True Then  FlagsOut = FlagsOut + "keepall "
 		    If ItemLLItem.KeepInFolder = True Then  FlagsOut = FlagsOut + "keepinfolder "
+		    If ItemLLItem.ForceDERefresh = True Then  FlagsOut = FlagsOut + "forcederefresh "
 		    ItemLLItem.Flags = FlagsOut.Trim
 		    
 		    'Only update the item choice here, not each time it's changed
@@ -7172,6 +7205,13 @@ End
 	#tag Event
 		Sub TextChanged()
 		  ItemLLItem.Tags = Me.Text.Trim
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events CheckForceDERefresh
+	#tag Event
+		Sub ValueChanged()
+		  ItemLLItem.ForceDERefresh = CheckForceDERefresh.Value
 		End Sub
 	#tag EndEvent
 #tag EndEvents

@@ -2514,6 +2514,7 @@ Protected Module LLMod
 		    ItemLLItem.KeepInFolder = False
 		    ItemLLItem.SendTo = False
 		    ItemLLItem.InternetRequired = False
+		    ItemLLItem.ForceDERefresh = False
 		    For I = 1 To Sp().Count -1
 		      Lin = Sp(I).Trim
 		      OrigLine = Lin
@@ -2627,7 +2628,8 @@ Protected Module LLMod
 		            ItemLLItem.SendTo = True
 		          End If
 		          If ItemLLItem.Flags.IndexOf("forcederefresh") >=0 Then
-		            ForceDERefresh = True
+		            ItemLLItem.ForceDERefresh = True
+		            ForceDERefresh = True 'If ANY of the loaded items are set to true then make this true, wont hurt to do it here
 		          End If
 		          
 		          Continue 'Once used Data no need to process the rest, The other lines will cause the lower things to be tested per line
