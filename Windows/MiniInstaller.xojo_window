@@ -744,7 +744,16 @@ End
 		      QuitApp 'If set to Quit on Complete then do so
 		      Exit
 		    End If
-		    If RunRefreshScript = True Then RunRefresh("cinnamon -r&") 'Refresh after Mini Installer Completes so Panel Items show
+		    
+		    If RunRefreshScript = True Or ForceDERefresh = True Then RunRefresh("cinnamon -r&") 'Refresh after Mini Installer Completes so Panel Items show
+		    'Also do KDE
+		    If SysDesktopEnvironment = "KDE" Then
+		      If RunRefreshScript = True Or ForceDERefresh = True Then 
+		        ForceDERefresh = False
+		        RunRefresh("kquitapp plasmashell && plasmashell&") 'Refresh after Mini Installer Completes so Panel Items show
+		      End If
+		    End If
+		    
 		    Main.Show
 		    QuitInstaller = False
 		    Exit'Don't Continue this Sub after Quitting

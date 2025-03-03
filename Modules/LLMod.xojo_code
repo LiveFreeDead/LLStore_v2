@@ -2626,6 +2626,10 @@ Protected Module LLMod
 		          If ItemLLItem.Flags.IndexOf("sendto") >=0 Then
 		            ItemLLItem.SendTo = True
 		          End If
+		          If ItemLLItem.Flags.IndexOf("forcederefresh") >=0 Then
+		            ForceDERefresh = True
+		          End If
+		          
 		          Continue 'Once used Data no need to process the rest, The other lines will cause the lower things to be tested per line
 		        Case "priority"
 		          ItemLLItem.Priority = Val(LineData)
@@ -5336,6 +5340,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		FontTitle As String = "Ubuntu"
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		ForceDERefresh As Boolean = False
 	#tag EndProperty
 
 	#tag Property, Flags = &h0

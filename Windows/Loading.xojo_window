@@ -3714,7 +3714,16 @@ End
 		        SudoEnabled = False
 		        If KeepSudo = False Then ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > /tmp/LLSudoDone") 'Quits Terminal after All items have been installed.
 		      End If
-		      If RunRefreshScript = True Then RunRefresh("cinnamon -r&") 'If only installing one item at a time, refresh cinnamon each time
+		      
+		      If RunRefreshScript = True Or ForceDERefresh = True Then RunRefresh("cinnamon -r&") 'Refresh after single item Completes so Panel Items show
+		      'Also do KDE
+		      If SysDesktopEnvironment = "KDE" Then
+		        If RunRefreshScript = True Or ForceDERefresh = True Then 
+		          ForceDERefresh = False
+		          RunRefresh("kquitapp plasmashell && plasmashell&") 'Refresh after single item Completes so Panel Items show
+		        End If
+		      End If
+		      
 		    End If
 		    PreQuitApp ' Save Debug etc
 		    QuitApp 'Done installing, exit app, no need to continue
