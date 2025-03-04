@@ -1360,122 +1360,132 @@ End
 		    
 		    DirToCheck = Left(DirToCheck, InStrRev(DirToCheck, "/",-1)) ' Checks up one level from the LastOSLinux Store    
 		    
-		    If TargetWindows Then
-		      F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeShell)
-		    Else
-		      F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
-		    End If
-		    If F.IsFolder And F.IsReadable Then
-		      GetItemsPaths(DirToCheck)
-		      GetItemsPaths(Slash(DirToCheck) +"ssTek")
-		      GetItemsPaths(Slash(DirToCheck) +"LLTek")
-		    End If
-		    
-		    If TargetLinux Then
-		      DirToCheck = "/media/"
-		      F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
-		      If F.IsFolder And F.IsReadable Then
-		        If F.Count > 0 Then
-		          For D = 1 To F.Count
-		            If F.Item(D).Directory Then 'Look for folders only
-		              G = F.Item(D)
-		              If G.IsReadable Then
-		                If G.Count > 0 Then
-		                  For E = 1 To G.Count
-		                    If G.Item(E).Directory Then 'Look for sub folders only
-		                      GetItemsPaths(FixPath(G.Item(E).NativePath))
-		                      GetItemsPaths(Slash(FixPath(G.Item(E).NativePath) +"ssTek"))
-		                      GetItemsPaths(Slash(FixPath(G.Item(E).NativePath) +"LLTek"))
-		                    End If
-		                  Next
-		                End If
-		              End If
-		            End If
-		          Next
-		        End If
-		      End If
-		      
-		      
-		      DirToCheck = "/run/media/"
-		      F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
-		      If F.IsFolder And F.IsReadable Then
-		        If F.Count > 0 Then
-		          For D = 1 To F.Count
-		            If F.Item(D).Directory Then 'Look for folders only
-		              G = F.Item(D)
-		              If G.IsReadable Then
-		                If G.Count > 0 Then
-		                  For E = 1 To G.Count
-		                    If G.Item(E).Directory Then 'Look for sub folders only
-		                      GetItemsPaths(FixPath(G.Item(E).NativePath))
-		                      GetItemsPaths(Slash(FixPath(G.Item(E).NativePath) +"ssTek"))
-		                      GetItemsPaths(Slash(FixPath(G.Item(E).NativePath) +"LLTek"))
-		                    End If
-		                  Next
-		                End If
-		              End If
-		            End If
-		          Next
-		        End If
-		      End If
-		      
-		      
-		      DirToCheck = "/mnt/"
-		      F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
-		      If F.IsFolder And F.IsReadable Then
-		        If F.Count > 0 Then
-		          For D = 1 To F.Count
-		            If F.Item(D).Directory Then 'Look for folders only
-		              GetItemsPaths(FixPath(F.Item(D).NativePath))
-		              GetItemsPaths(Slash(FixPath(F.Item(D).NativePath) +"ssTek"))
-		              GetItemsPaths(Slash(FixPath(F.Item(D).NativePath) +"LLTek"))
-		            End If
-		          Next
-		        End If
-		      End If
-		      
-		    ElseIf TargetWindows Then 'Get Items in Windows, check C to Z drives
-		      Let = Asc("C")
-		      For I = 0 To 23
-		        Let = Asc("C") + I
-		        DirToCheck = Chr(Let)+":/" 'Linux Path
-		        F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeShell) 'This fixes the issue, yes whenever windows does folder stuff, convert it back until it returns, or it will add a backslash after the forward slash
-		        
-		        If F.IsFolder And F.IsReadable Then
-		          If F.Count > 0 Then
-		            For D = 1 To F.Count
-		              item = F.trueItem(D) 'This is the issue, it returns "D:/\Path/" instead when using "D:/" in path
-		              
-		              If Right(FixPath(Item.NativePath),4) <> ".lnk" Then 'Do NOT use .lnk to folders, if missing it will throw an error, plus why would you?
-		                
-		                If F.Item(D).Directory Then 'Look for folders only
-		                  CheckDir = FixPath(NoSlash(F.Item(D).NativePath))
-		                  CheckDir = Right(CheckDir,Len(CheckDir)-InStrRev(CheckDir,"/")) ' Always Backslash in Windows but you can use Forward slash too
-		                  
-		                  'Ignores all other folders (to speed up loading and keep to proper paths) ' May need to make a new one for Manual Added Paths to check the root folders
-		                  If CheckDir = "LLAppsInstalls" Or CheckDir = "ssAppsInstalls" Or CheckDir = "ppAppsInstalls" Or CheckDir = "LLGamesInstalls" Or CheckDir = "ppGamesInstalls" Or CheckDir = "ppAppsLive" Or CheckDir = "ssTek" Or CheckDir = "LLTek" Then
-		                    GetItemsPaths(FixPath(F.Item(D).NativePath), True) 'True to Do Root folder as it'll only have proper items in at this stage
-		                  End If
-		                End If
-		              End If
-		            Next
-		          End If
-		        End If
-		      Next
-		    End If
-		    
-		    
-		    'Check the Repo Cache if Enabled to do so
-		    If Settings.SetIgnoreCache.Value = True Or Exist(Slash(AppPath)+"RepoBuilderNoCache") Then 'So if you have it set to ignore the cache or the file exists it does nothing (wont scan for it)
-		    Else
-		      DirToCheck = RepositoryPathLocal
+		    If Settings.SetScanLocalItems.Value = True Then
 		      If TargetWindows Then
 		        F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeShell)
 		      Else
 		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
 		      End If
 		      If F.IsFolder And F.IsReadable Then
-		        GetItemsPaths(DirToCheck, True)
+		        GetItemsPaths(DirToCheck)
+		        GetItemsPaths(Slash(DirToCheck) +"ssTek")
+		        GetItemsPaths(Slash(DirToCheck) +"LLTek")
+		      End If
+		    End If
+		    
+		    If Settings.SetScanLocalItems.Value = True Then
+		      If TargetLinux Then
+		        DirToCheck = "/media/"
+		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
+		        If F.IsFolder And F.IsReadable Then
+		          If F.Count > 0 Then
+		            For D = 1 To F.Count
+		              If F.Item(D).Directory Then 'Look for folders only
+		                G = F.Item(D)
+		                If G.IsReadable Then
+		                  If G.Count > 0 Then
+		                    For E = 1 To G.Count
+		                      If G.Item(E).Directory Then 'Look for sub folders only
+		                        GetItemsPaths(FixPath(G.Item(E).NativePath))
+		                        GetItemsPaths(Slash(FixPath(G.Item(E).NativePath) +"ssTek"))
+		                        GetItemsPaths(Slash(FixPath(G.Item(E).NativePath) +"LLTek"))
+		                      End If
+		                    Next
+		                  End If
+		                End If
+		              End If
+		            Next
+		          End If
+		        End If
+		      End If
+		      
+		      If Settings.SetScanLocalItems.Value = True Then
+		        DirToCheck = "/run/media/"
+		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
+		        If F.IsFolder And F.IsReadable Then
+		          If F.Count > 0 Then
+		            For D = 1 To F.Count
+		              If F.Item(D).Directory Then 'Look for folders only
+		                G = F.Item(D)
+		                If G.IsReadable Then
+		                  If G.Count > 0 Then
+		                    For E = 1 To G.Count
+		                      If G.Item(E).Directory Then 'Look for sub folders only
+		                        GetItemsPaths(FixPath(G.Item(E).NativePath))
+		                        GetItemsPaths(Slash(FixPath(G.Item(E).NativePath) +"ssTek"))
+		                        GetItemsPaths(Slash(FixPath(G.Item(E).NativePath) +"LLTek"))
+		                      End If
+		                    Next
+		                  End If
+		                End If
+		              End If
+		            Next
+		          End If
+		        End If
+		      End If
+		      
+		      If Settings.SetScanLocalItems.Value = True Then
+		        DirToCheck = "/mnt/"
+		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
+		        If F.IsFolder And F.IsReadable Then
+		          If F.Count > 0 Then
+		            For D = 1 To F.Count
+		              If F.Item(D).Directory Then 'Look for folders only
+		                GetItemsPaths(FixPath(F.Item(D).NativePath))
+		                GetItemsPaths(Slash(FixPath(F.Item(D).NativePath) +"ssTek"))
+		                GetItemsPaths(Slash(FixPath(F.Item(D).NativePath) +"LLTek"))
+		              End If
+		            Next
+		          End If
+		        End If
+		      End If
+		      
+		    ElseIf TargetWindows Then 'Get Items in Windows, check C to Z drives
+		      If Settings.SetScanLocalItems.Value = True Then
+		        Let = Asc("C")
+		        For I = 0 To 23
+		          Let = Asc("C") + I
+		          DirToCheck = Chr(Let)+":/" 'Linux Path
+		          F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeShell) 'This fixes the issue, yes whenever windows does folder stuff, convert it back until it returns, or it will add a backslash after the forward slash
+		          
+		          If F.IsFolder And F.IsReadable Then
+		            If F.Count > 0 Then
+		              For D = 1 To F.Count
+		                item = F.trueItem(D) 'This is the issue, it returns "D:/\Path/" instead when using "D:/" in path
+		                
+		                If Right(FixPath(Item.NativePath),4) <> ".lnk" Then 'Do NOT use .lnk to folders, if missing it will throw an error, plus why would you?
+		                  
+		                  If F.Item(D).Directory Then 'Look for folders only
+		                    CheckDir = FixPath(NoSlash(F.Item(D).NativePath))
+		                    CheckDir = Right(CheckDir,Len(CheckDir)-InStrRev(CheckDir,"/")) ' Always Backslash in Windows but you can use Forward slash too
+		                    
+		                    'Ignores all other folders (to speed up loading and keep to proper paths) ' May need to make a new one for Manual Added Paths to check the root folders
+		                    If CheckDir = "LLAppsInstalls" Or CheckDir = "ssAppsInstalls" Or CheckDir = "ppAppsInstalls" Or CheckDir = "LLGamesInstalls" Or CheckDir = "ppGamesInstalls" Or CheckDir = "ppAppsLive" Or CheckDir = "ssTek" Or CheckDir = "LLTek" Then
+		                      GetItemsPaths(FixPath(F.Item(D).NativePath), True) 'True to Do Root folder as it'll only have proper items in at this stage
+		                    End If
+		                  End If
+		                End If
+		              Next
+		            End If
+		          End If
+		        Next
+		      End If
+		    End If
+		    
+		    
+		    'Check the Repo Cache if Enabled to do so
+		    If Settings.SetIgnoreCache.Value = True Or Exist(Slash(AppPath)+"RepoBuilderNoCache") Then 'So if you have it set to ignore the cache or the file exists it does nothing (wont scan for it)
+		    Else
+		      If Settings.SetScanLocalItems.Value = True Then
+		        DirToCheck = RepositoryPathLocal
+		        If TargetWindows Then
+		          F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeShell)
+		        Else
+		          F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
+		        End If
+		        If F.IsFolder And F.IsReadable Then
+		          GetItemsPaths(DirToCheck, True)
+		        End If
 		      End If
 		    End If
 		    
@@ -1975,6 +1985,8 @@ End
 		        Settings.SetHideUnsetFlags.Value = IsTrue(LineData)
 		        Main.HideUnsetFlags= IsTrue(LineData) 'Apply it to current settings
 		      End If
+		    Case "scanlocalitems"
+		      If LineData <> "" Then  Settings.SetScanLocalItems.Value = IsTrue(LineData)
 		    Case "usemanuallocations"
 		      If LineData <> "" Then Settings.SetUseManualLocations.Value = IsTrue(LineData)
 		    Case "flatpaklocation"
@@ -2540,6 +2552,8 @@ End
 		  
 		  RL = RL + "HideInstalledOnStartup=" + Str(Settings.SetHideInstalled.Value) + Chr(10)
 		  RL = RL + "HideUnsetFlagsOnStartup=" + Str(Settings.SetHideUnsetFlags.Value) + Chr(10)
+		  
+		  RL = RL + "ScanLocalItems=" + Str(Settings.SetScanLocalItems.Value) + Chr(10)
 		  
 		  RL = RL + "UseManualLocations=" + Str(Settings.SetUseManualLocations.Value) + Chr(10)
 		  RL = RL + "UseOnlineRepositiories=" + Str(Settings.SetUseOnlineRepos.Value) + Chr(10)

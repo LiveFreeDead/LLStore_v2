@@ -794,6 +794,36 @@ Begin DesktopWindow Settings
       VisualState     =   0
       Width           =   152
    End
+   Begin DesktopCheckBox SetScanLocalItems
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Caption         =   "Scan Local Items"
+      Enabled         =   True
+      FontName        =   "System"
+      FontSize        =   0.0
+      FontUnit        =   0
+      Height          =   27
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   158
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      Scope           =   0
+      TabIndex        =   24
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "This will disable using ny local path except the manual ones if set"
+      Top             =   167
+      Transparent     =   False
+      Underline       =   False
+      Value           =   False
+      Visible         =   True
+      VisualState     =   1
+      Width           =   149
+   End
 End
 #tag EndDesktopWindow
 
