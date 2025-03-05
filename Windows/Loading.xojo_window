@@ -3198,6 +3198,10 @@ End
 		  ShellFast = New Shell ' Just do this once to see if it speeds up loading using the one shell for 7z each time
 		  ShellFast.TimeOut = -1 'Give it All the time it needs
 		  
+		  'Test Code here
+		  'MakeFolderIcon("D:\Documents\Desktop\New folder","D:\Documents\Desktop\New folder\ppApp.ico")
+		  'Quit
+		  
 		  'Sudo Shell Loop waits forever to run Sudo Tasks without needing to type password constantly
 		  SudoShellLoop = New Shell 'Keep the admin shell running /looping until you quit LLStore
 		  SudoShellLoop.TimeOut = -1 'Give it All the time it needs

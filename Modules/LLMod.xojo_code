@@ -1699,6 +1699,9 @@ Protected Module LLMod
 		        CopyWild(Slash(InstallFromPath) + "*.svg", Slash(InstallToPath))
 		        CopyWild(Slash(InstallFromPath) + "*.mp4", Slash(InstallToPath))
 		      End If
+		      If Exist(Slash(InstallToPath)+ItemLLItem.BuildType+".ico") Then 'Try to set the folder icon
+		        MakeFolderIcon(InstallToPath, Slash(InstallToPath)+ItemLLItem.BuildType+".ico")
+		      End If
 		      
 		    Else 'Linux Mode
 		      'Ignore LLApps??? Yeah, no need to copy the installer data to it's folder, but I do below because it's easier
@@ -3077,6 +3080,47 @@ Protected Module LLMod
 		    If Debugging Then Debug ("~ Failed to Make Folder: " + Path)
 		  End Try
 		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub MakeFolderIcon(FolderIn As String, IconPathFile As String)
+		  Dim Data As String
+		  Dim DesktopINI As String
+		  
+		  Dim IconFile As String
+		  
+		  FolderIn = NoSlash(FolderIn)
+		  FolderIn = FolderIn.ReplaceAll("/","\")
+		  
+		  DesktopINI = Slash(FolderIn)+"desktop.ini"
+		  DesktopINI = DesktopINI.ReplaceAll("/","\")
+		  
+		  IconPathFile = IconPathFile.ReplaceAll("/","\")
+		  
+		  IconFile = Right(IconPathFile, Len(IconPathFile)-InStrRev(IconPathFile,"\"))
+		  
+		  If Not Exist(IconPathFile) Then
+		    IconPathFile = IconPathFile.Replace(IconFile, "folder.ico")
+		    IconFile = "folder.ico"
+		  End If
+		  
+		  'As this isn't important to the functioning, I'll capture any errors and ignore doing it.
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    If Exist(FolderIn) Then
+		      Data = "[.ShellClassInfo]"+ Chr(13)
+		      Data = Data + "ConfirmFileOp=0"+ Chr(13)
+		      Data = Data + "IconFile=.\"+IconFile+ Chr(13)
+		      Data = Data + "IconIndex=0"+ Chr(13)
+		      SaveDataToFile(Data, DesktopINI)
+		      ShellFast.Execute("attrib "+Chr(34)+DesktopINI+Chr(34)+" +h +s") 'Ini is hidden and system
+		      ShellFast.Execute("attrib "+Chr(34)+FolderIn+Chr(34)+" +s") 'Folder is system, else no icons shown, can't give it a trailing slash or it fails
+		    End If
+		  Catch
+		  End Try
+		  
+		  #Pragma BreakOnExceptions On
 		End Sub
 	#tag EndMethod
 
