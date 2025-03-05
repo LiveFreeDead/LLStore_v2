@@ -1211,7 +1211,9 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Function FileExists(InTXT As String) As Boolean
+		Function FileExistsDisabled(InTXT As String) As Boolean
+		  'Dont use, seems dodgy!!!
+		  
 		  'Returns a True or False of if a File or Folder exists, only in Windows
 		  
 		  If InTXT <> "" Then
@@ -6940,6 +6942,14 @@ Protected Module LLMod
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="Wayland"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="ForceDERefresh"
 			Visible=false
 			Group="Behavior"
 			InitialValue="False"

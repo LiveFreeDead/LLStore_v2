@@ -708,34 +708,25 @@ End
 		  Ret = ""
 		  A = Asc("Z")
 		  
-		  Select Case Lowercase(GetType)
-		  Case "ppapps"
-		    Try
-		      For I = 0 To 23
-		        If FileExists (Chr(A-I)+":/ppApps") Then
-		          F = GetFolderItem(Chr(A-I)+":/ppAppsWritable.ini", FolderItem.PathTypeShell)
-		          If F.IsWriteable And WritableLocation(F) Then
-		            Ret = Chr(A-I)+":"
-		            Exit For I
-		          End If
+		  Dim Test, Drive As String
+		  
+		  Try
+		    For I = 0 To 23
+		      Drive = Chr(A-I)+":"
+		      Test = Drive+"\"+GetType
+		      'MsgBox(Test)
+		      
+		      If Exist (Test) Then
+		        F = GetFolderItem(Drive+"\ppWritable.ini", FolderItem.PathTypeShell)
+		        If F.IsWriteable And WritableLocation(F) Then
+		          Ret = Drive
+		          'MsgBox(Ret)
+		          Exit For I
 		        End If
-		      Next I
-		    Catch
-		    End Try
-		  Case "ppGames"
-		    Try
-		      For I = 0 To 23
-		        If FileExists (Chr(A-I)+":/ppGames") Then
-		          F = GetFolderItem(Chr(A-I)+":/ppGamesWritable.ini", FolderItem.PathTypeShell)
-		          If F.IsWriteable And WritableLocation(F) Then
-		            Ret = Chr(A-I)+":"
-		            Exit For I
-		          End If
-		        End If
-		      Next I
-		    Catch
-		    End Try
-		  End Select
+		      End If
+		    Next I
+		  Catch
+		  End Try
 		  
 		  Call SetErrorMode( oldMode )
 		  #Pragma BreakOnExceptions Off
@@ -3342,10 +3333,34 @@ End
 		    Catch
 		    End Try
 		    
+		    If Not Exist (ppAppsDrive+"\ppApps") Then
+		      F = GetFolderItem(ppAppsDrive+"\ppWritable.ini", FolderItem.PathTypeShell)
+		      If F.IsWriteable And WritableLocation(F) Then
+		        ShellFast.Execute("mkdir " + chr(34) + ppAppsDrive+"\ppApps"+ chr(34)) 'Make folder if possible, else it'll redetect the drive
+		        If Not Exist (ppAppsDrive+"\ppApps") Then ppAppsDrive = "" 'If not found then detect where it should be or set to C:
+		        MsgBox "Tried"
+		      Else
+		        ppAppsDrive = "" 'If not found then detect where it should be or set to C:
+		      End If
+		    End If
+		    
 		    If ppAppsDrive = "" Then 'If not set in Above file then scan for existing ones if not in LivePE
 		      ppAppsDrive = SysDrive 'Just in case none exist
 		      ppAppsDrive = GetExistingppFolder("ppApps")
 		    End If
+		    
+		    
+		    If Not Exist (ppGamesDrive+"\ppGames") Then
+		      F = GetFolderItem(ppGamesDrive+"\ppWritable.ini", FolderItem.PathTypeShell)
+		      If F.IsWriteable And WritableLocation(F) Then
+		        ShellFast.Execute("mkdir " + chr(34) + ppGamesDrive+"\ppApps"+ chr(34)) 'Make folder if possible, else it'll redetect the drive
+		        If Not Exist (ppGamesDrive+"\ppGames") Then ppGamesDrive = "" 'If not found then detect where it should be or set to C:
+		      Else
+		        ppGamesDrive = "" 'If not found then detect where it should be or set to C:
+		      End If
+		    End If
+		    
+		    
 		    If ppGamesDrive = "" Then 'If not set in Above file then scan for existing ones if not in LivePE
 		      ppGamesDrive = SysDrive 'Just in case none exist
 		      ppGamesDrive = GetExistingppFolder("ppGames")
@@ -3669,6 +3684,7 @@ End
 		  If Debugging Then Debug("RepositoryPathLocal: "+RepositoryPathLocal)
 		  If Debugging Then Debug("WinWget: "+WinWget)
 		  If Debugging Then Debug("LinuxWget: "+LinuxWget)
+		  If Debugging Then Debug("System Drive: "+SysDrive)
 		  If Debugging Then Debug("ppApps: "+ppApps)
 		  If Debugging Then Debug("ppGames: "+ppGames+ Chr(10))
 		  
