@@ -168,6 +168,7 @@ End
 		  'Get current set Menu Style from C:\Windows\SetupSMenu.ini
 		  Dim I As Integer
 		  Dim MenuIn As String
+		  Dim MenuName As String
 		  Dim Sp() As String
 		  
 		  ComboMenuStyle.RemoveAllRows
@@ -180,10 +181,15 @@ End
 		    MenuIn = MenuIn.ReplaceAll(Chr(13),Chr(10))
 		    MenuIn = MenuIn.ReplaceAll(Chr(10)+Chr(10),Chr(10))
 		    Sp()=MenuIn.Split(Chr(10))
+		    StartMenuStylesCount = 0 ' Clear Styles Count
 		    If Sp.Count >= 1 Then
 		      For I = 1 To Sp.Count -1
-		        ComboMenuStyle.AddRow(Right(Sp(I), Len(Sp(I))-InStrRev(Sp(I),"=")))
+		        MenuName = Right(Sp(I), Len(Sp(I))-InStrRev(Sp(I),"="))
+		        ComboMenuStyle.AddRow(MenuName)
+		        StartMenuStyles(StartMenuStylesCount) = MenuName
+		        StartMenuStylesCount = StartMenuStylesCount + 1
 		      Next
+		      StartMenuStylesCount = StartMenuStylesCount - 1
 		    End If
 		  End If
 		  
@@ -241,6 +247,11 @@ End
 		        If Exist(MenuPath) Then 'Only do it if Source Menu path found in Tools
 		          
 		          MenuStyle = ComboMenuStyle.Text.Trim
+		          'Get the correct Menu Number ASAP
+		          For I = 0 To StartMenuStylesCount
+		            If StartMenuStyles(I) = MenuStyle Then StartMenuUsed = I 'Gets the current Menu Style Number
+		            'Start
+		          Next
 		          
 		          'Update Menu Style ini File here
 		          Data = MenuStyle + Chr(10)

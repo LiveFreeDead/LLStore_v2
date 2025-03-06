@@ -11,7 +11,7 @@ Protected Module LLMod
 		  
 		  Dim DataOut As String
 		  
-		  If StartMenuLocationsCount <=0 Then Return 'Failed, just exit or assume no menu sorting
+		  If StartMenuLocationsCount(StartMenuUsed) <=0 Then Return 'Failed, just exit or assume no menu sorting
 		  
 		  'MsgBox "Starting Menu Folders"
 		  
@@ -19,9 +19,9 @@ Protected Module LLMod
 		  Deltree (MenuPath)
 		  
 		  MakeFolderBatch = ""
-		  For I = 1 To StartMenuLocationsCount
-		    If Not Exist(MenuPath+StartMenuLocations(I).Path) Then
-		      MakeFolderBatch = MakeFolderBatch + "mkdir "+Chr(34)+MenuPath+StartMenuLocations(I).Path+Chr(34)+Chr(10)
+		  For I = 0 To StartMenuLocationsCount(StartMenuUsed)
+		    If Not Exist(MenuPath+StartMenuLocations(I,StartMenuUsed).Path) Then
+		      MakeFolderBatch = MakeFolderBatch + "mkdir "+Chr(34)+MenuPath+StartMenuLocations(I,StartMenuUsed).Path+Chr(34)+Chr(10)
 		    End If
 		  Next
 		  
@@ -31,10 +31,10 @@ Protected Module LLMod
 		  
 		  MakeFolderBatch = ""
 		  
-		  For I = 1 To StartMenuLocationsCount 'Not go thorugh and make sure desktop.ini files are made
-		    If MenuPath+StartMenuLocations(I).IconFile <> "" And MenuPath+StartMenuLocations(I).IconIndex <> "" Then
+		  For I = 0 To StartMenuLocationsCount(StartMenuUsed) 'Not go thorugh and make sure desktop.ini files are made
+		    If MenuPath+StartMenuLocations(I,StartMenuUsed).IconFile <> "" And MenuPath+StartMenuLocations(I,StartMenuUsed).IconIndex <> "" Then
 		      'Generate desktop.ini for the folders
-		      MakePathIcon (MenuPath+StartMenuLocations(I).Path, StartMenuLocations(I).IconFile, StartMenuLocations(I).IconIndex, True) 'The True is Make Command to Return Only
+		      MakePathIcon (MenuPath+StartMenuLocations(I,StartMenuUsed).Path, StartMenuLocations(I,StartMenuUsed).IconFile, StartMenuLocations(I,StartMenuUsed).IconIndex, True) 'The True is Make Command to Return Only
 		      
 		      MakeFolderBatch = MakeFolderBatch + CommandReturned + Chr(10)
 		      
@@ -61,18 +61,17 @@ Protected Module LLMod
 		  Dim MenuPath As String
 		  Dim DefinitionsFile As String
 		  
-		  If Exist("C:\Windows\ssTek\Definitions.ini") Then 'If one provided, then parse it, else use the LL Store Tools path ones
-		    DefinitionsFile = "C:\Windows\ssTek\Definitions.ini"
-		  Else
-		    MenuPath = Slash(Slash(ToolPath)+ Slash("Menus")+MenuStyle+"Menu")
-		    DefinitionsFile = MenuPath+"Definitions.ini"
-		    
-		  End If
+		  'If Exist("C:\Windows\ssTek\Definitions.ini") Then 'If one provided, then parse it, else use the LL Store Tools path ones
+		  'DefinitionsFile = "C:\Windows\ssTek\Definitions.ini"
+		  'Else
+		  'MenuPath = Slash(Slash(ToolPath)+ Slash("Menus")+MenuStyle+"Menu")
+		  'DefinitionsFile = MenuPath+"Definitions.ini"
+		  'End If
 		  
-		  'Clear Existing Count
-		  StartMenuLocationsCount = 0
+		  ''Clear Existing Count
+		  'StartMenuStylesCount = 0
 		  
-		  Dim I, J As Integer
+		  Dim I, J, K, L As Integer
 		  Dim DataIn As String
 		  Dim CatMode As Boolean = False
 		  Dim CatModeDone As Boolean = False
@@ -83,86 +82,116 @@ Protected Module LLMod
 		  Dim DetectedItem As Integer
 		  Dim IconFile As String
 		  Dim IconIndex As String
+		  Dim LoadMenuStyleName As String
 		  
-		  If Exist(DefinitionsFile) Then 'If one provided, then parse it
-		    DataIn = LoadDataFromFile(DefinitionsFile)
-		    DataIn = DataIn.ReplaceAll(Chr(13), Chr(10))
-		    DataIn = DataIn.ReplaceAll(Chr(10)+Chr(10),Chr(10))
-		    Sp() = DataIn.Split(Chr(10))
+		  'Get Menu Styles Count and Current Menu Style Number
+		  'For L = 0 To ControlPanel.ComboMenuStyle.RowCount - 1
+		  'LoadMenuStyleName = ControlPanel.ComboMenuStyle.RowTextAt(L)
+		  '
+		  'MenuPath = Slash(Slash(ToolPath)+ Slash("Menus")+LoadMenuStyleName+"Menu")
+		  'DefinitionsFile = MenuPath+"Definitions.ini"
+		  
+		  For K = 0 To StartMenuStylesCount 'Styles Count is done in Populate Control Panel
 		    
-		    If Sp.Count >=1 Then 'If Valid, do it
-		      For I = 0 To Sp.Count -1
-		        
-		        If Sp(I).IndexOf("=") >=0 Then 'Only do Valid converstions for all lines - regardless of mode
-		          SpLine() = Sp(I).Split("=") 'Split to 0 as Catalog and 1 as Start Path Used, or IconFile/IconIndex and values
-		          SpLine(0)=SpLine(0).Trim 'Catalog, IconFile/IconIndex
-		          SpLine(1)=SpLine(1).Trim 'Start Path, Value
-		        End If
-		        
-		        If CatMode = True Then 'Only process when it's below the right Header
+		    LoadMenuStyleName = StartMenuStyles(K)
+		    MenuPath = Slash(Slash(ToolPath)+ Slash("Menus")+LoadMenuStyleName+"Menu")
+		    DefinitionsFile = MenuPath+"Definitions.ini"
+		    
+		    'StartMenuLocations(StartMenuLocationsCount(K),K).MenuName = LoadMenuStyleName 'Store name of Menu
+		    StartMenuStyles(K) = LoadMenuStyleName 'Store name of Menu
+		    'If StartMenuLocations(StartMenuLocationsCount(K),K).MenuName = MenuStyle Then StartMenuUsed = K 'Gets the current Menu Style Number
+		    If LoadMenuStyleName = MenuStyle Then StartMenuUsed = K 'Gets the current Menu Style Number
+		    
+		    'Clear Existing Count
+		    StartMenuLocationsCount(K) = 0
+		    CatMode = False
+		    CatModeDone = False
+		    DesktopMode = False
+		    
+		    'MsgBox DefinitionsFile
+		    If Exist(DefinitionsFile) Then 'If one provided, then parse it
+		      'MsgBox "Loading"
+		      DataIn = LoadDataFromFile(DefinitionsFile)
+		      DataIn = DataIn.ReplaceAll(Chr(13), Chr(10))
+		      DataIn = DataIn.ReplaceAll(Chr(10)+Chr(10),Chr(10))
+		      Sp() = DataIn.Split(Chr(10))
+		      
+		      If Sp.Count >=1 Then 'If Valid, do it
+		        For I = 0 To Sp.Count -1
 		          
-		          If Left(SpLine(0),1)="!" Then ' Skip It because it's only a redirect, not used here
-		            Continue
+		          If Sp(I).IndexOf("=") >=0 Then 'Only do Valid converstions for all lines - regardless of mode
+		            SpLine() = Sp(I).Split("=") 'Split to 0 as Catalog and 1 as Start Path Used, or IconFile/IconIndex and values
+		            SpLine(0)=SpLine(0).Trim 'Catalog, IconFile/IconIndex
+		            SpLine(1)=SpLine(1).Trim 'Start Path, Value
 		          End If
 		          
-		          StartMenuLocationsCount = StartMenuLocationsCount + 1 'Don't make it 0 Based, Start at 1
-		          StartMenuLocations(StartMenuLocationsCount).Catalog = SpLine(0)
-		          StartMenuLocations(StartMenuLocationsCount).Path = SpLine(1)
+		          If CatMode = True Then 'Only process when it's below the right Header
+		            
+		            If Left(SpLine(0),1)="!" Then ' Skip It because it's only a redirect, not used here
+		              Continue
+		            End If
+		            
+		            StartMenuLocations(StartMenuLocationsCount(K),K).Catalog = SpLine(0)
+		            StartMenuLocations(StartMenuLocationsCount(K),K).Path = SpLine(1)
+		            StartMenuLocationsCount(K) = StartMenuLocationsCount(K) + 1
+		            
+		          End If
 		          
-		        End If
-		        
-		        If DesktopMode = True Then 'Get Icon file and index's
-		          If DetectedItem >= 1 Then 'Only do Valid items
+		          If DesktopMode = True Then 'Get Icon file and index's
+		            If DetectedItem >= 1 Then 'Only do Valid items
+		              
+		              If SpLine(0) = "IconFile" Then IconFile = SpLine(1) 'Set Icon File to go through the list of known paths to attach it to (Duplicate paths but different Categories)
+		              
+		              If SpLine(0) = "IconIndex" Then 'Once the Index is read in we can apply it to each stored path/catalog.
+		                IconIndex = SpLine(1) 'Set IconIndex
+		                'Do The complete check after the IconIndex line as it may be a duplicate path with a different catalog
+		                For J = 1 To StartMenuLocationsCount(K)
+		                  If StartMenuLocations(J, K).Path = StartMenuPath Then 'Check each item for matching path and set icon and index if same
+		                    StartMenuLocations(J, K).IconFile = IconFile
+		                    StartMenuLocations(J, K).IconIndex = IconIndex
+		                  End If
+		                Next J
+		              End If
+		            End If
 		            
-		            If SpLine(0) = "IconFile" Then IconFile = SpLine(1) 'Set Icon File to go through the list of known paths to attach it to (Duplicate paths but different Categories)
+		          End If
+		          
+		          If Left(Sp(I).Trim,1) = "[" Then
+		            If CatMode = True Then
+		              DesktopMode = True ' Can only process once cats and header is passed
+		              CatModeDone = True
+		            End If
+		            CatMode = False 'Revert to not CatMode if detected new header
 		            
-		            If SpLine(0) = "IconIndex" Then 'Once the Index is read in we can apply it to each stored path/catalog.
-		              IconIndex = SpLine(1) 'Set IconIndex
-		              'Do The complete check after the IconIndex line as it may be a duplicate path with a different catalog
-		              For J = 1 To StartMenuLocationsCount
-		                If StartMenuLocations(J).Path = StartMenuPath Then 'Check each item for matching path and set icon and index if same
-		                  StartMenuLocations(J).IconFile = IconFile
-		                  StartMenuLocations(J).IconIndex = IconIndex
+		            StartMenuPath = Sp(I).Trim.Replace("[","")
+		            StartMenuPath = StartMenuPath.Replace("]","")
+		            
+		            'Seek the Matching StartPath to attach the icon to
+		            DetectedItem = -1
+		            If CatModeDone = True Then 'Only Add New items once past Header and Catalog setions
+		              For J = 1 To StartMenuLocationsCount(K)
+		                If StartMenuLocations(J, K).Path = StartMenuPath Then
+		                  DetectedItem = J
+		                  Exit 'Found item, no need to re add it or keep looking
 		                End If
 		              Next J
-		            End If
-		          End If
-		          
-		        End If
-		        
-		        If Left(Sp(I).Trim,1) = "[" Then
-		          If CatMode = True Then
-		            DesktopMode = True ' Can only process once cats and header is passed
-		            CatModeDone = True
-		          End If
-		          CatMode = False 'Revert to not CatMode if detected new header
-		          
-		          StartMenuPath = Sp(I).Trim.Replace("[","")
-		          StartMenuPath = StartMenuPath.Replace("]","")
-		          
-		          'Seek the Matching StartPath to attach the icon to
-		          DetectedItem = -1
-		          If CatModeDone = True Then 'Only Add New items once past Header and Catalog setions
-		            For J = 1 To StartMenuLocationsCount
-		              If StartMenuLocations(J).Path = StartMenuPath Then
-		                DetectedItem = J
-		                Exit 'Found item, no need to re add it or keep looking
+		              If DetectedItem <=0 Then 'Add new Item as root folder option
+		                StartMenuLocationsCount(K) = StartMenuLocationsCount(K) + 1 'Don't make it 0 Based, Start at 1
+		                StartMenuLocations(StartMenuLocationsCount(K), K).Catalog = StartMenuPath
+		                StartMenuLocations(StartMenuLocationsCount(K), K).Path = StartMenuPath
+		                DetectedItem = StartMenuLocationsCount(K) 'Newly added item
 		              End If
-		            Next J
-		            If DetectedItem <=0 Then 'Add new Item as root folder option
-		              StartMenuLocationsCount = StartMenuLocationsCount + 1 'Don't make it 0 Based, Start at 1
-		              StartMenuLocations(StartMenuLocationsCount).Catalog = StartMenuPath
-		              StartMenuLocations(StartMenuLocationsCount).Path = StartMenuPath
-		              DetectedItem = StartMenuLocationsCount 'Newly added item
+		              
 		            End If
-		            
 		          End If
-		        End If
-		        If Sp(I).Trim = "[Catalog]" Then CatMode = True
-		      Next
+		          If Sp(I).Trim = "[Catalog]" Then CatMode = True
+		        Next
+		        StartMenuLocationsCount(K) = StartMenuLocationsCount(K) - 1 'One Less as it's empty for last item
+		      End If
 		    End If
-		  End If
+		  Next
 		  
+		  'Next
 		End Sub
 	#tag EndMethod
 
@@ -3784,6 +3813,9 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Sub MakePathIcon(FolderIn As String, IconPathFile As String, IconIndex As String, QueueUp As Boolean = False)
+		  If IconPathFile = "" Then Return 'No Icon Found, Skip
+		  If IconIndex = "" Then IconIndex = "0" 'Set to 0 if none specified
+		  
 		  Dim Data As String
 		  Dim DesktopINI As String
 		  
@@ -5904,11 +5936,27 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
-		StartMenuLocations(1024) As StartMenuLocation
+		StartMenuLocations(1024,5) As StartMenuLocation
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
-		StartMenuLocationsCount As Integer
+		StartMenuLocationsCount(5) As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		StartMenuName As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		StartMenuStyles(5) As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		StartMenuStylesCount As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		StartMenuUsed As Integer = 0
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -7239,6 +7287,22 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue="UnSorted"
 			Type="String"
+			EditorType="MultiLineEditor"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CommandReturned"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="StartMenuLocationsCount(5)"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
