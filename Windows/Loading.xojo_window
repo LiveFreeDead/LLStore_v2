@@ -3379,6 +3379,13 @@ End
 		    ppGamesFolder = Slash(HomePath)+".wine/drive_c/ppGames/"
 		  End If
 		  
+		  'Get MenuStyle
+		  ControlPanel.PopulateControlPanel()
+		  
+		  'Get Startmenu Paths, GlennGlennGlenn
+		  BuildStartMenuLocations()
+		  
+		  
 		  'Make All paths Linux, because they work in Linux and Windows (Except for Move, Copy and Deltree etc)
 		  AppPath = AppPath.ReplaceAll("\","/")
 		  ToolPath = ToolPath.ReplaceAll("\","/")
@@ -3692,6 +3699,7 @@ End
 		  If Debugging Then Debug("ppApps: "+ppApps)
 		  If Debugging Then Debug("ppGames: "+ppGames+ Chr(10))
 		  
+		  If Debugging Then Debug("MenuStyle: "+MenuStyle)
 		  If Debugging Then Debug("Architecture: "+SysArchitecture)
 		  If Debugging Then Debug("Desktop Environment: "+SysDesktopEnvironment)
 		  If Debugging Then Debug("Wayland: "+Wayland.ToString)

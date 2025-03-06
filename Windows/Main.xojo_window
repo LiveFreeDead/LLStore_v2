@@ -372,6 +372,7 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -428,6 +429,7 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -436,6 +438,7 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -482,6 +485,8 @@ End
 		    If Asc(Key) = 76 Or Asc(Key) = 108 Then SaveCurrentList() 'Ctrl + L or l
 		    
 		    If Asc(Key) = 84 Or Asc(Key) = 116 Or Asc(Key) = 20 Then Tools.Show 'Ctrl + T or t '20 is T in Windows
+		    
+		    If Asc(Key) = 80 Or Asc(Key) = 112 Or Asc(Key) = 16 Then ControlPanel.Show 'Ctrl + P or p '20 is T in Windows
 		    
 		    Return True
 		  End If
@@ -1166,6 +1171,11 @@ End
 		  MC = MC + 1
 		  base.Item(MC).Shortcut  = "T"
 		  
+		  'Tools Item
+		  base.Append New MenuItem("LL &Control Panel") '0
+		  MC = MC + 1
+		  base.Item(MC).Shortcut  = "P"
+		  
 		  'Open Item Location
 		  base.Append New MenuItem("Open Item Location") '0
 		  MC = MC + 1 
@@ -1195,6 +1205,8 @@ End
 		  Case "LLStore"
 		    'Tools.Visible = True
 		    Tools.Show
+		  Case "LL &Con"
+		    ControlPanel.Show
 		  Case "&Change"
 		    Loading.SavePosition 'Save the current modes position
 		    If StoreMode = 0 Then
@@ -2522,6 +2534,8 @@ End
 		      SaveCurrentList()
 		    Case 116
 		      Tools.Show
+		    Case 112
+		      ControlPanel.Show
 		    End Select
 		  End If
 		  
