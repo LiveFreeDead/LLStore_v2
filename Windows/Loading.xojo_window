@@ -25,6 +25,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -65,6 +66,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -73,6 +75,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -81,6 +84,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -3342,7 +3346,7 @@ End
 		      If F.IsWriteable And WritableLocation(F) Then
 		        ShellFast.Execute("mkdir " + chr(34) + ppAppsDrive+"\ppApps"+ chr(34)) 'Make folder if possible, else it'll redetect the drive
 		        If Not Exist (ppAppsDrive+"\ppApps") Then ppAppsDrive = "" 'If not found then detect where it should be or set to C:
-		        MsgBox "Tried"
+		        'MsgBox "Tried"
 		      Else
 		        ppAppsDrive = "" 'If not found then detect where it should be or set to C:
 		      End If

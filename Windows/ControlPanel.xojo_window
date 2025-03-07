@@ -38,7 +38,7 @@ Begin DesktopWindow ControlPanel
       Index           =   -2147483648
       InitialValue    =   "ComboMenuStyle"
       Italic          =   False
-      Left            =   316
+      Left            =   312
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -50,7 +50,7 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   ""
-      Top             =   23
+      Top             =   15
       Transparent     =   False
       Underline       =   False
       Visible         =   True
@@ -80,8 +80,8 @@ Begin DesktopWindow ControlPanel
       TabIndex        =   1
       TabPanelIndex   =   0
       TabStop         =   True
-      Tooltip         =   ""
-      Top             =   20
+      Tooltip         =   "This applies to Windows only (not used by Linux)"
+      Top             =   15
       Transparent     =   False
       Underline       =   False
       Visible         =   True
@@ -97,7 +97,7 @@ Begin DesktopWindow ControlPanel
       Height          =   24
       Index           =   -2147483648
       Italic          =   False
-      Left            =   56
+      Left            =   51
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -113,7 +113,7 @@ Begin DesktopWindow ControlPanel
       TextAlignment   =   3
       TextColor       =   &c000000
       Tooltip         =   ""
-      Top             =   20
+      Top             =   15
       Transparent     =   False
       Underline       =   False
       Visible         =   True
@@ -129,7 +129,7 @@ Begin DesktopWindow ControlPanel
       Height          =   24
       Index           =   -2147483648
       Italic          =   False
-      Left            =   186
+      Left            =   181
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -145,7 +145,7 @@ Begin DesktopWindow ControlPanel
       TextAlignment   =   1
       TextColor       =   &c000000
       Tooltip         =   ""
-      Top             =   20
+      Top             =   15
       Transparent     =   False
       Underline       =   False
       Visible         =   True
@@ -166,7 +166,7 @@ End
 	#tag Method, Flags = &h0
 		Sub PopulateControlPanel()
 		  'Get current set Menu Style from C:\Windows\SetupSMenu.ini
-		  Dim I As Integer
+		  Dim I, G As Integer
 		  Dim MenuIn As String
 		  Dim MenuName As String
 		  Dim Sp() As String
@@ -203,10 +203,19 @@ End
 		    If Sp(0) <>"" Then
 		      MenuStyle = Sp(0)
 		      'ComboMenuStyle.AddRow(MenuStyle)
+		      For G = 0 To StartMenuStylesCount
+		        If StartMenuStyles(G) = MenuStyle Then
+		          StartMenuUsed = G
+		          Exit
+		        End If
+		      Next
 		    End If
 		  Else
 		    MenuStyle = "UnSorted"
+		    StartMenuUsed = -1
 		  End If
+		  
+		  If TargetLinux Then MenuStyle = "Linux"
 		  
 		  SetMenuStyle.Text = MenuStyle
 		  
@@ -233,6 +242,9 @@ End
 		  If ComboMenuStyle.Text <> "" Then
 		    If ComboMenuStyle.Text = "UnSorted" Then
 		      Deltree ("C:\windows\SetupSMenu.ini") 'If not set, remove it
+		      Deltree ("C:\windows\ssTek\Menu")
+		      MenuStyle = ComboMenuStyle.Text.Trim
+		      StartMenuUsed = -1
 		    Else
 		      'Test it's valid
 		      Found = False
@@ -279,6 +291,10 @@ End
 		      End If
 		    End If
 		  End If
+		  
+		  
+		  'Resort/Clean Here
+		  
 		  
 		  '------------------------------------------------------------------------------------------------------------
 		  

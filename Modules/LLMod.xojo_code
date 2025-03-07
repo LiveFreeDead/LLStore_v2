@@ -3325,9 +3325,10 @@ Protected Module LLMod
 		  
 		  If Debugging Then Debug("--- Starting Make Links ---")
 		  
-		  Dim I, J, K, L As Integer
+		  Dim I, J, K, L, M As Integer
 		  Dim Target As String
 		  Dim DesktopFile, DesktopContent, DesktopOutPath As String
+		  Dim ParentPath As String
 		  Dim Catalog() As String
 		  Dim CatalogCount As Integer
 		  Dim TestLen As Integer
@@ -3371,6 +3372,12 @@ Protected Module LLMod
 		  'Sort Catalog to Shortcuts - Windows ItemsOnly
 		  'Get the StartMenu Stuff for ssApps and then for ppApps/Games
 		  'If TargetWindows Then
+		  
+		  '***********************************************************************************************************************************************************
+		  'GlennGlennGlenn - This line below stops the redirected Categories from happening, so the new sort method below should work???
+		  If TargetWindows Then RedirectAppCount = 0 '**************************************************************************************************************************************
+		  '***********************************************************************************************************************************************************
+		  
 		  If ItemLLItem.Catalog <> "" Then
 		    Catalog = ItemLLItem.Catalog.Split("|")
 		    CatalogCount = Catalog.Count - 1
@@ -3417,7 +3424,7 @@ Protected Module LLMod
 		            Next J
 		            'Case Else 'Game
 		            For J = 0 To RedirectGameCount -1
-		              If Catalog(I)  = RedirectsGame (J,0) Then
+		              If Catalog(I) = RedirectsGame (J,0) Then
 		                ItemLnk(L).Categories = ItemLnk(L).Categories.ReplaceAll(RedirectsGame (J,0),RedirectsGame (J,1)) 'Replace with new Game Catalog
 		                Exit 'Found item to replace, get out of here
 		              End If
@@ -3663,24 +3670,48 @@ Protected Module LLMod
 		          CatalogCount = Catalog.Count - 1
 		          If Debugging Then Debug ("Catalog Count: " + Str(Catalog.Count))
 		          If Debugging Then Debug ("Menu Windows Count: " + MenuWindowsCount.ToString)
+		          
+		          
 		          For J = 0 To CatalogCount
 		            Catalog(J) = Catalog(J).Trim
 		            If Catalog(J) = "ppGame" Then Catalog(J) = "Game" 'Some of my older items have ppGame instead of Game, this fixes that
 		            'GlennGlennGlenn - If not Catalogs then use StartMenuSourcePath - So Something is made
 		            If Catalog(J) <> "" Then ' Only do Valid Link Catalogs
-		              If MenuWindowsCount >= 1 Then
-		                For K = 0 To MenuWindowsCount -1
-		                  'If Debugging Then Debug (Catalog(J)+"=>"+ MenuWindows (K,0))
-		                  If Catalog(J) = MenuWindows (K,0) Then
-		                    If Debugging Then Debug ("* FOUND: "+ Catalog(J)+"=>"+ MenuWindows (K,0))
-		                    'DaBugs = DaBugs+ Catalog(J)+"=>"+ MenuWindows (K,0)+Chr(10)
+		              
+		              'Trying to use proper Catalog converted in Windows
+		              If StartMenuUsed >=0 Then
+		                For K = 0 To StartMenuLocationsCount(StartMenuUsed)
+		                  If Catalog(J) = StartMenuLocations(K, StartMenuUsed).Catalog Then
+		                    If Debugging Then Debug ("* FOUND NEW: "+ Catalog(J)+"=>"+ StartMenuLocations(K, StartMenuUsed).Path)
+		                    
+		                    
+		                    
 		                    If CatalogCount > 1 Then 'If more than one Category then Remove Games standalone
 		                      If J = 0 Then 
 		                        If Catalog(J) <> "Game" Or ItemLnk(I).Categories = "Game; ppGame;" Or  ItemLnk(I).Categories = "Game;" Or  ItemLnk(I).Categories = "ppGame;" Then ' Only the first one as that is only Game (set to first above), Unless has no other, then it goes to the root of /Games - WORKS
 		                          
-		                          LinkOutPath = StartPath+MenuWindows (K,1) 'StartPath is where Writable
+		                          LinkOutPath = StartPath+StartMenuLocations(K, StartMenuUsed).Path 'StartPath is where Writable
+		                          'Copy the desktop.ini from the built C:\windows\ssTek\Menu\ folders if exist, then it'll have nice icons.
+		                          'XCopyFile("C:\windows\ssTek\Menu\"+StartMenuLocations(K, StartMenuUsed).Path+"\desktop.ini")
+		                          
 		                          If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
 		                          MakeFolder(LinkOutPath)
+		                          
+		                          'Apply Start Menu Icon File if set;
+		                          MakePathIcon(StartPath+StartMenuLocations(K, StartMenuUsed).Path,StartMenuLocations(K, StartMenuUsed).IconFile, StartMenuLocations(K, StartMenuUsed).IconIndex)
+		                          'Apply Parent folder icon if required
+		                          If InStrRev(StartMenuLocations(K, StartMenuUsed).Path,"\") >= 1 Then
+		                            ParentPath = Left(StartMenuLocations(K, StartMenuUsed).Path, InStrRev(StartMenuLocations(K, StartMenuUsed).Path,"\")-1)
+		                            If Debugging Then Debug ("Start Parent Path: "+ ParentPath)
+		                            
+		                            For M = 0 To StartMenuLocationsCount(StartMenuUsed)
+		                              If StartMenuLocations(M, StartMenuUsed).Path = ParentPath Then
+		                                MakePathIcon(StartPath+StartMenuLocations(M, StartMenuUsed).Path,StartMenuLocations(M, StartMenuUsed).IconFile, StartMenuLocations(M, StartMenuUsed).IconIndex)
+		                                Exit 'Jump out of this M loop it's done
+		                              End If
+		                            Next
+		                          End If
+		                          
 		                          CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
 		                          'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
 		                          
@@ -3688,9 +3719,25 @@ Protected Module LLMod
 		                          Continue 'Use Continue not exit so it jumps out of a loop, it was quitting the whole routine
 		                        End If
 		                      Else 'All but the first Item
-		                        LinkOutPath = StartPath+MenuWindows (K,1) 'StartPath is where Writable
+		                        LinkOutPath = StartPath+StartMenuLocations(K, StartMenuUsed).Path 'StartPath is where Writable
 		                        If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
 		                        MakeFolder(LinkOutPath)
+		                        
+		                        'Apply Start Menu Icon File if set;
+		                        MakePathIcon(StartPath+StartMenuLocations(K, StartMenuUsed).Path,StartMenuLocations(K, StartMenuUsed).IconFile, StartMenuLocations(K, StartMenuUsed).IconIndex)
+		                        'Apply Parent folder icon if required
+		                        If InStrRev(StartMenuLocations(K, StartMenuUsed).Path,"\") >= 1 Then
+		                          ParentPath = Left(StartMenuLocations(K, StartMenuUsed).Path, InStrRev(StartMenuLocations(K, StartMenuUsed).Path,"\")-1)
+		                          If Debugging Then Debug ("Start Parent Path: "+ ParentPath)
+		                          For M = 0 To StartMenuLocationsCount(StartMenuUsed)
+		                            If StartMenuLocations(M, StartMenuUsed).Path = ParentPath Then
+		                              MakePathIcon(StartPath+StartMenuLocations(M, StartMenuUsed).Path,StartMenuLocations(M, StartMenuUsed).IconFile, StartMenuLocations(M, StartMenuUsed).IconIndex)
+		                              Exit 'Jump out of this M loop it's done
+		                            End If
+		                          Next
+		                        End If
+		                        
+		                        
 		                        CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
 		                        'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
 		                        
@@ -3699,9 +3746,25 @@ Protected Module LLMod
 		                      End If
 		                    Else 'All others that are single item but not Games
 		                      
-		                      LinkOutPath = StartPath+MenuWindows (K,1) 'StartPath is where Writable
+		                      LinkOutPath = StartPath+StartMenuLocations(K, StartMenuUsed).Path 'StartPath is where Writable
 		                      If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
 		                      MakeFolder(LinkOutPath)
+		                      
+		                      'Apply Start Menu Icon File if set;
+		                      MakePathIcon(StartPath+StartMenuLocations(K, StartMenuUsed).Path,StartMenuLocations(K, StartMenuUsed).IconFile, StartMenuLocations(K, StartMenuUsed).IconIndex)
+		                      'Apply Parent folder icon if required
+		                      If InStrRev(StartMenuLocations(K, StartMenuUsed).Path,"\") >= 1 Then
+		                        ParentPath = Left(StartMenuLocations(K, StartMenuUsed).Path, InStrRev(StartMenuLocations(K, StartMenuUsed).Path,"\")-1)
+		                        If Debugging Then Debug ("Start Parent Path: "+ ParentPath)
+		                        For M = 0 To StartMenuLocationsCount(StartMenuUsed)
+		                          If StartMenuLocations(M, StartMenuUsed).Path = ParentPath Then
+		                            MakePathIcon(StartPath+StartMenuLocations(M, StartMenuUsed).Path,StartMenuLocations(M, StartMenuUsed).IconFile, StartMenuLocations(M, StartMenuUsed).IconIndex)
+		                            Exit 'Jump out of this M loop it's done
+		                          End If
+		                        Next
+		                      End If
+		                      
+		                      
 		                      CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
 		                      'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
 		                      
@@ -3713,7 +3776,20 @@ Protected Module LLMod
 		                    Continue 'Use Continue not exit so it jumps out of a loop, it was quitting the whole routine
 		                  End If
 		                Next K
+		              Else 'No Menu Sorting set, do Unsorted
+		                If ItemLLItem.StartMenuSourcePath <> "" Then
+		                  LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'StartPath is where Writable
+		                  'If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
+		                  MakeFolder(LinkOutPath)
+		                  CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
+		                Else 'No Source Path set, Just use LastOS Menu sorting as a last resort
+		                  LinkOutPath = ItemLLItem.StartMenuLegacyPrimary 'StartPath is where Writable
+		                  If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
+		                  MakeFolder(LinkOutPath)
+		                  CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
+		                End If
 		              End If
+		              
 		            End If
 		          Next J
 		        End If
@@ -3848,6 +3924,7 @@ Protected Module LLMod
 		        SaveDataToFile(Data, DesktopINI)
 		        ShellFast.Execute("attrib "+Chr(34)+DesktopINI+Chr(34)+" +h +s") 'Ini is hidden and system
 		        ShellFast.Execute("attrib "+Chr(34)+FolderIn+Chr(34)+" +s") 'Folder is system, else no icons shown, can't give it a trailing slash or it fails
+		        If Debugging Then Debug("attrib "+Chr(34)+FolderIn+Chr(34)+" +s" + " = " + ShellFast.Result)
 		      End If
 		    End If
 		  Catch
@@ -7295,13 +7372,29 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue=""
 			Type="String"
-			EditorType=""
+			EditorType="MultiLineEditor"
 		#tag EndViewProperty
 		#tag ViewProperty
-			Name="StartMenuLocationsCount(5)"
+			Name="StartMenuName"
 			Visible=false
 			Group="Behavior"
 			InitialValue=""
+			Type="String"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="StartMenuStylesCount"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="StartMenuUsed"
+			Visible=false
+			Group="Behavior"
+			InitialValue="0"
 			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty
