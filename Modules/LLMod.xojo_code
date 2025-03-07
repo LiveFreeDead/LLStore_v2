@@ -3752,7 +3752,9 @@ Protected Module LLMod
 		                                    LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                                  End If
 		                                  If Debugging Then Debug ("Delete Start Menu 1: "+ LinkOutPath)
-		                                  Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                  If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                                    Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                  End If
 		                                End If
 		                              Next
 		                            Else 'Remove all sorting (plus unsorted) and only keep the Set Used Menu location
@@ -3780,17 +3782,23 @@ Protected Module LLMod
 		                                    LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                                  End If
 		                                  If Debugging Then Debug ("Delete Start Menu 2: "+ LinkOutPath)
-		                                  Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                  If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                                    Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                  End If
 		                                End If
 		                              Next
 		                              If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                                If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
 		                                If Debugging Then Debug ("Delete Start Menu 2.4: "+ LinkOutPath)
-		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                                  Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                End If
 		                              Else
 		                                If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                                If Debugging Then Debug ("Delete Start Menu 2.6: "+ LinkOutPath)
-		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                                  Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                End If
 		                              End If
 		                            End If
 		                          End If
@@ -3852,7 +3860,9 @@ Protected Module LLMod
 		                                  LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                                End If
 		                                If Debugging Then Debug ("Delete Start Menu 1: "+ LinkOutPath)
-		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                                  Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                End If
 		                              End If
 		                            Next
 		                          Else 'Remove all sorting (plus unsorted) and only keep the Set Used Menu location
@@ -3880,17 +3890,23 @@ Protected Module LLMod
 		                                  LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                                End If
 		                                If Debugging Then Debug ("Delete Start Menu 2: "+ LinkOutPath)
-		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                                  Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                End If
 		                              End If
 		                            Next
 		                            If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                              If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
 		                              If Debugging Then Debug ("Delete Start Menu 2.4: "+ LinkOutPath)
-		                              Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                              If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                              End If
 		                            Else
 		                              If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                              If Debugging Then Debug ("Delete Start Menu 2.6: "+ LinkOutPath)
-		                              Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                              If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                              End If
 		                            End If
 		                          End If
 		                        End If
@@ -3953,7 +3969,9 @@ Protected Module LLMod
 		                                LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                              End If
 		                              If Debugging Then Debug ("Delete Start Menu 1: "+ LinkOutPath)
-		                              Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                              If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                              End If
 		                            End If
 		                          Next
 		                        Else 'Remove all sorting (plus unsorted) and only keep the Set Used Menu location
@@ -3981,17 +3999,23 @@ Protected Module LLMod
 		                                LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                              End If
 		                              If Debugging Then Debug ("Delete Start Menu 2: "+ LinkOutPath)
-		                              Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                              If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                              End If
 		                            End If
 		                          Next
 		                          If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                            If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
 		                            If Debugging Then Debug ("Delete Start Menu 2.4: "+ LinkOutPath)
-		                            Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                            If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                              Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                            End If
 		                          Else
 		                            If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                            If Debugging Then Debug ("Delete Start Menu 2.6: "+ LinkOutPath)
-		                            Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                            If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                              Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                            End If
 		                          End If
 		                        End If
 		                      End If
@@ -4043,7 +4067,9 @@ Protected Module LLMod
 		                          LinkOutPath = LinkOutPath +"\"+ItemLnk(I).Title +".lnk" 'One Item
 		                        End If
 		                        If Debugging Then Debug ("Delete Start Menu 7: "+ LinkOutPath)
-		                        Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                        If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                          Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                        End If
 		                      End If
 		                    Next
 		                  End If
@@ -4079,7 +4105,9 @@ Protected Module LLMod
 		                          LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                        End If
 		                        If Debugging Then Debug ("Delete Start Menu 8: "+ LinkOutPath)
-		                        Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                        If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                          Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                        End If
 		                      End If
 		                    Next
 		                  End If
