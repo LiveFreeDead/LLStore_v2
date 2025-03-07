@@ -241,10 +241,13 @@ End
 		  'Set current set Menu Style
 		  If ComboMenuStyle.Text <> "" Then
 		    If ComboMenuStyle.Text = "UnSorted" Then
+		      Deltree ("C:\windows\ssTek\Definitions.ini") 'If not set, remove it
 		      Deltree ("C:\windows\SetupSMenu.ini") 'If not set, remove it
 		      Deltree ("C:\windows\ssTek\Menu")
+		      Deltree ("C:\windows\ssTek\Icons")
 		      MenuStyle = ComboMenuStyle.Text.Trim
 		      StartMenuUsed = -1
+		      SetMenuStyle.Text = MenuStyle 'Update GUI to how new menu style
 		    Else
 		      'Test it's valid
 		      Found = False

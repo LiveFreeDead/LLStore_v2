@@ -5588,7 +5588,7 @@ End
 		  
 		  
 		  'Main Window 2 - Links
-		  TextDefaultMenuPath.Text = ""
+		  TextDefaultMenuPath.Text = ItemLLItem.StartMenuSourcePath 'This is required to use Keep in Folder and also to have Unsorted ssApps/ppApps.
 		  TextKeepShortcuts.Text = ""
 		  CheckKeepFolder.Value = ItemLLItem.KeepInFolder
 		  CheckKeepAll.Value = ItemLLItem.KeepAll

@@ -3325,7 +3325,14 @@ Protected Module LLMod
 		  
 		  If Debugging Then Debug("--- Starting Make Links ---")
 		  
-		  Dim I, J, K, L, M As Integer
+		  Dim SkipCleanup As Boolean = False
+		  
+		  If ItemLLItem.StartMenuSourcePath = "" And ItemLLItem.KeepInFolder = True Then ' If Broken file then don't go deleting random stuff
+		    SkipCleanup = True ' If Broken file then don't go deleting random stuff
+		    If Debugging Then Debug ("* Error: No StartMenuSourcePath set and KeepInFolder given")
+		  End If
+		  
+		  Dim I, J, K, L, M, N, O As Integer
 		  Dim Target As String
 		  Dim DesktopFile, DesktopContent, DesktopOutPath As String
 		  Dim ParentPath As String
@@ -3338,6 +3345,7 @@ Protected Module LLMod
 		  Dim StartPath As String
 		  Dim ExecName As String
 		  Dim BT As String
+		  Dim Bugg As String
 		  
 		  Dim Sh As New Shell
 		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
@@ -3617,6 +3625,8 @@ Protected Module LLMod
 		    
 		    If TargetWindows Then 'Windows Only Shortcut Making section
 		      
+		      'Bugg = "StartMenuSourcePath: "+ItemLLItem.StartMenuSourcePath+Chr(10)
+		      
 		      If AdminEnabled Then 'If Admin apply to All users, else only has access to current user
 		        StartPath = StartPathAll 'All Users
 		      Else
@@ -3712,8 +3722,78 @@ Protected Module LLMod
 		                            Next
 		                          End If
 		                          
+		                          
+		                          If SkipCleanup = False Then
+		                            'Cleanup Other sorting style links
+		                            If StartMenuUsed = -1 Then 'If Unsorted remove all other sorting
+		                              For N = 0 To StartMenuStylesCount
+		                                For O = 0 To StartMenuLocationsCount(N)
+		                                  If Catalog(J) = StartMenuLocations(O, N).Catalog Then
+		                                    Exit 'O will be the Match
+		                                  End If
+		                                Next
+		                                
+		                                LinkOutPath = StartPath+StartMenuLocations(O, N).Path 'StartPath is where Writable
+		                                
+		                                If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                                  If ItemLLItem.StartMenuSourcePath <> "" Then 
+		                                    LinkOutPath = LinkOutPath+ItemLLItem.StartMenuSourcePath 'Remove sorted
+		                                  Else 
+		                                    LinkOutPath = ""
+		                                  End If
+		                                End If
+		                                
+		                                If N = StartMenuUsed Then LinkOutPath = "" 'Current Sorting style, don't remove it
+		                                If LinkOutPath <> "" Then
+		                                  If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                                    'LinkOutPath=LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'The Kept Folder ' Done Above
+		                                  Else
+		                                    LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
+		                                  End If
+		                                  If Debugging Then Debug ("Delete Start Menu 1: "+ LinkOutPath)
+		                                End If
+		                              Next
+		                            Else 'Remove all sorting (plus unsorted) and only keep the Set Used Menu location
+		                              For N = 0 To StartMenuStylesCount
+		                                For O = 0 To StartMenuLocationsCount(N)
+		                                  If Catalog(J) = StartMenuLocations(O, N).Catalog Then
+		                                    Exit 'O will be the Match
+		                                  End If
+		                                Next
+		                                LinkOutPath = StartPath+StartMenuLocations(O, N).Path 'StartPath is where Writable
+		                                
+		                                If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                                  If ItemLLItem.StartMenuSourcePath <> "" Then 
+		                                    LinkOutPath = LinkOutPath+ItemLLItem.StartMenuSourcePath 'Remove sorted
+		                                  Else 
+		                                    LinkOutPath = ""
+		                                  End If
+		                                End If
+		                                
+		                                If N = StartMenuUsed Then LinkOutPath = "" 'Current Sorting style, don't remove it
+		                                If LinkOutPath <> "" Then
+		                                  If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                                    'LinkOutPath=LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'The Kept Folder ' Done Above
+		                                  Else
+		                                    LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
+		                                  End If
+		                                  If Debugging Then Debug ("Delete Start Menu 2: "+ LinkOutPath)
+		                                End If
+		                              Next
+		                              If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                                If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
+		                                If Debugging Then Debug ("Delete Start Menu 2.4: "+ LinkOutPath)
+		                              Else
+		                                If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
+		                                If Debugging Then Debug ("Delete Start Menu 2.6: "+ LinkOutPath)
+		                              End If
+		                            End If
+		                          End If
+		                          
+		                          'Now Make Shortcut
 		                          CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
 		                          'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
+		                          
 		                          
 		                          'Exit 'Found and made, exit
 		                          Continue 'Use Continue not exit so it jumps out of a loop, it was quitting the whole routine
@@ -3738,8 +3818,78 @@ Protected Module LLMod
 		                        End If
 		                        
 		                        
+		                        
+		                        If SkipCleanup = False Then
+		                          'Cleanup Other sorting style links
+		                          If StartMenuUsed = -1 Then 'If Unsorted remove all other sorting
+		                            For N = 0 To StartMenuStylesCount
+		                              For O = 0 To StartMenuLocationsCount(N)
+		                                If Catalog(J) = StartMenuLocations(O, N).Catalog Then
+		                                  Exit 'O will be the Match
+		                                End If
+		                              Next
+		                              
+		                              LinkOutPath = StartPath+StartMenuLocations(O, N).Path 'StartPath is where Writable
+		                              
+		                              If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                                If ItemLLItem.StartMenuSourcePath <> "" Then 
+		                                  LinkOutPath = LinkOutPath+"/"+ItemLLItem.StartMenuSourcePath 'Remove sorted
+		                                Else 
+		                                  LinkOutPath = ""
+		                                End If
+		                              End If
+		                              
+		                              If N = StartMenuUsed Then LinkOutPath = "" 'Current Sorting style, don't remove it
+		                              If LinkOutPath <> "" Then
+		                                If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                                  'LinkOutPath=LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'The Kept Folder ' Done Above
+		                                Else
+		                                  LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
+		                                End If
+		                                If Debugging Then Debug ("Delete Start Menu 1: "+ LinkOutPath)
+		                              End If
+		                            Next
+		                          Else 'Remove all sorting (plus unsorted) and only keep the Set Used Menu location
+		                            For N = 0 To StartMenuStylesCount
+		                              For O = 0 To StartMenuLocationsCount(N)
+		                                If Catalog(J) = StartMenuLocations(O, N).Catalog Then
+		                                  Exit 'O will be the Match
+		                                End If
+		                              Next
+		                              LinkOutPath = StartPath+StartMenuLocations(O, N).Path 'StartPath is where Writable
+		                              
+		                              If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                                If ItemLLItem.StartMenuSourcePath <> "" Then 
+		                                  LinkOutPath = LinkOutPath+"/"+ItemLLItem.StartMenuSourcePath 'Remove sorted
+		                                Else 
+		                                  LinkOutPath = ""
+		                                End If
+		                              End If
+		                              
+		                              If N = StartMenuUsed Then LinkOutPath = "" 'Current Sorting style, don't remove it
+		                              If LinkOutPath <> "" Then
+		                                If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                                  'LinkOutPath=LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'The Kept Folder ' Done Above
+		                                Else
+		                                  LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
+		                                End If
+		                                If Debugging Then Debug ("Delete Start Menu 2: "+ LinkOutPath)
+		                              End If
+		                            Next
+		                            If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                              If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
+		                              If Debugging Then Debug ("Delete Start Menu 2.4: "+ LinkOutPath)
+		                            Else
+		                              If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
+		                              If Debugging Then Debug ("Delete Start Menu 2.6: "+ LinkOutPath)
+		                            End If
+		                          End If
+		                        End If
+		                        
+		                        'Now Make Shortcut
 		                        CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
 		                        'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
+		                        
 		                        
 		                        'Exit 'Found and made, exit
 		                        Continue 'Use Continue not exit so it jumps out of a loop, it was quitting the whole routine
@@ -3765,6 +3915,75 @@ Protected Module LLMod
 		                      End If
 		                      
 		                      
+		                      If SkipCleanup = False Then
+		                        'Cleanup Other sorting style links
+		                        If StartMenuUsed = -1 Then 'If Unsorted remove all other sorting
+		                          For N = 0 To StartMenuStylesCount
+		                            For O = 0 To StartMenuLocationsCount(N)
+		                              If Catalog(J) = StartMenuLocations(O, N).Catalog Then
+		                                Exit 'O will be the Match
+		                              End If
+		                            Next
+		                            
+		                            LinkOutPath = StartPath+StartMenuLocations(O, N).Path 'StartPath is where Writable
+		                            
+		                            If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                              If ItemLLItem.StartMenuSourcePath <> "" Then 
+		                                LinkOutPath = LinkOutPath+"/"+ItemLLItem.StartMenuSourcePath 'Remove sorted
+		                              Else 
+		                                LinkOutPath = ""
+		                              End If
+		                            End If
+		                            
+		                            If N = StartMenuUsed Then LinkOutPath = "" 'Current Sorting style, don't remove it
+		                            If LinkOutPath <> "" Then
+		                              If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                                'LinkOutPath=LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'The Kept Folder ' Done Above
+		                              Else
+		                                LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
+		                              End If
+		                              If Debugging Then Debug ("Delete Start Menu 1: "+ LinkOutPath)
+		                            End If
+		                          Next
+		                        Else 'Remove all sorting (plus unsorted) and only keep the Set Used Menu location
+		                          For N = 0 To StartMenuStylesCount
+		                            For O = 0 To StartMenuLocationsCount(N)
+		                              If Catalog(J) = StartMenuLocations(O, N).Catalog Then
+		                                Exit 'O will be the Match
+		                              End If
+		                            Next
+		                            LinkOutPath = StartPath+StartMenuLocations(O, N).Path 'StartPath is where Writable
+		                            
+		                            If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                              If ItemLLItem.StartMenuSourcePath <> "" Then 
+		                                LinkOutPath = LinkOutPath+"/"+ItemLLItem.StartMenuSourcePath 'Remove sorted
+		                              Else 
+		                                LinkOutPath = ""
+		                              End If
+		                            End If
+		                            
+		                            If N = StartMenuUsed Then LinkOutPath = "" 'Current Sorting style, don't remove it
+		                            If LinkOutPath <> "" Then
+		                              If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                                'LinkOutPath=LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'The Kept Folder ' Done Above
+		                              Else
+		                                LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
+		                              End If
+		                              If Debugging Then Debug ("Delete Start Menu 2: "+ LinkOutPath)
+		                            End If
+		                          Next
+		                          If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                            If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
+		                            If Debugging Then Debug ("Delete Start Menu 2.4: "+ LinkOutPath)
+		                          Else
+		                            If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
+		                            If Debugging Then Debug ("Delete Start Menu 2.6: "+ LinkOutPath)
+		                          End If
+		                        End If
+		                      End If
+		                      
+		                      
+		                      'Now make shortcut
 		                      CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
 		                      'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
 		                      
@@ -3781,11 +4000,74 @@ Protected Module LLMod
 		                  LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'StartPath is where Writable
 		                  'If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
 		                  MakeFolder(LinkOutPath)
+		                  
+		                  
+		                  'Cleanup Other Sort menu Styles
+		                  If SkipCleanup = False Then
+		                    For N = 0 To StartMenuStylesCount
+		                      For O = 0 To StartMenuLocationsCount(N)
+		                        If Catalog(J) = StartMenuLocations(O, N).Catalog Then
+		                          'Bugg = Bugg + Catalog(J) +" =6 "+StartMenuLocations(O, N).Catalog+Chr(10)
+		                          Exit 'O will be the Match
+		                        End If
+		                      Next
+		                      LinkOutPath = StartPath+StartMenuLocations(O, N).Path 'StartPath is where Writable
+		                      
+		                      If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                        If ItemLLItem.StartMenuSourcePath <> "" Then
+		                          LinkOutPath = LinkOutPath+"/"+ItemLLItem.StartMenuSourcePath 'Remove Sorted
+		                        Else
+		                          LinkOutPath = ""
+		                        End If
+		                      End If
+		                      
+		                      If N = StartMenuUsed Then LinkOutPath = "" 'Current Sorting style, don't remove it
+		                      If LinkOutPath <> "" Then
+		                        If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                          'LinkOutPath=LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'The Kept Folder ' Done Above
+		                        Else
+		                          LinkOutPath = LinkOutPath +"\"+ItemLnk(I).Title +".lnk" 'One Item
+		                        End If
+		                        If Debugging Then Debug ("Delete Start Menu 7: "+ LinkOutPath)
+		                      End If
+		                    Next
+		                  End If
+		                  
+		                  
 		                  CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
 		                Else 'No Source Path set, Just use LastOS Menu sorting as a last resort
 		                  LinkOutPath = ItemLLItem.StartMenuLegacyPrimary 'StartPath is where Writable
 		                  If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
 		                  MakeFolder(LinkOutPath)
+		                  
+		                  
+		                  'Cleanup Other Sort menu Styles
+		                  If SkipCleanup = False Then
+		                    For N = 0 To StartMenuStylesCount
+		                      For O = 0 To StartMenuLocationsCount(N)
+		                        If Catalog(J) = StartMenuLocations(O, N).Catalog Then
+		                          'Bugg = Bugg + Catalog(J) +" =7 "+StartMenuLocations(O, N).Catalog+Chr(10)
+		                          Exit 'O will be the Match
+		                        End If
+		                      Next
+		                      LinkOutPath = StartPath+StartMenuLocations(O, N).Path 'StartPath is where Writable
+		                      
+		                      If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                        If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
+		                      End If
+		                      
+		                      If N = StartMenuUsed Then LinkOutPath = "" 'Current Sorting style, don't remove it
+		                      If LinkOutPath <> "" Then
+		                        If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                          'LinkOutPath=LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'The Kept Folder ' Done Above
+		                        Else
+		                          LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
+		                        End If
+		                        If Debugging Then Debug ("Delete Start Menu 8: "+ LinkOutPath)
+		                      End If
+		                    Next
+		                  End If
+		                  
 		                  CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
 		                End If
 		              End If
@@ -3860,6 +4142,9 @@ Protected Module LLMod
 		      Next
 		    End If
 		  End If
+		  
+		  'Debugging, disable once working
+		  'SaveDataToFile(Bugg,"D:\Documents\Desktop\LLStore Debug-Logs\TestThis.txt")
 		End Sub
 	#tag EndMethod
 
