@@ -3339,7 +3339,7 @@ Protected Module LLMod
 		  Dim Catalog() As String
 		  Dim CatalogCount As Integer
 		  Dim TestLen As Integer
-		  Dim LinkOutPath As String
+		  Dim LinkOutPath, LinkOutPathSet As String
 		  Dim DaBugs As String
 		  Dim DeTest As String
 		  Dim StartPath As String
@@ -3722,6 +3722,7 @@ Protected Module LLMod
 		                            Next
 		                          End If
 		                          
+		                          LinkOutPathSet = LinkOutPath
 		                          
 		                          If SkipCleanup = False Then
 		                            'Cleanup Other sorting style links
@@ -3751,6 +3752,7 @@ Protected Module LLMod
 		                                    LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                                  End If
 		                                  If Debugging Then Debug ("Delete Start Menu 1: "+ LinkOutPath)
+		                                  Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                                End If
 		                              Next
 		                            Else 'Remove all sorting (plus unsorted) and only keep the Set Used Menu location
@@ -3778,20 +3780,23 @@ Protected Module LLMod
 		                                    LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                                  End If
 		                                  If Debugging Then Debug ("Delete Start Menu 2: "+ LinkOutPath)
+		                                  Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                                End If
 		                              Next
 		                              If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                                If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
 		                                If Debugging Then Debug ("Delete Start Menu 2.4: "+ LinkOutPath)
+		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                              Else
 		                                If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                                If Debugging Then Debug ("Delete Start Menu 2.6: "+ LinkOutPath)
+		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                              End If
 		                            End If
 		                          End If
 		                          
 		                          'Now Make Shortcut
-		                          CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
+		                          CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
 		                          'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
 		                          
 		                          
@@ -3818,7 +3823,7 @@ Protected Module LLMod
 		                        End If
 		                        
 		                        
-		                        
+		                        LinkOutPathSet = LinkOutPath
 		                        If SkipCleanup = False Then
 		                          'Cleanup Other sorting style links
 		                          If StartMenuUsed = -1 Then 'If Unsorted remove all other sorting
@@ -3847,6 +3852,7 @@ Protected Module LLMod
 		                                  LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                                End If
 		                                If Debugging Then Debug ("Delete Start Menu 1: "+ LinkOutPath)
+		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                              End If
 		                            Next
 		                          Else 'Remove all sorting (plus unsorted) and only keep the Set Used Menu location
@@ -3874,20 +3880,23 @@ Protected Module LLMod
 		                                  LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                                End If
 		                                If Debugging Then Debug ("Delete Start Menu 2: "+ LinkOutPath)
+		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                              End If
 		                            Next
 		                            If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                              If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
 		                              If Debugging Then Debug ("Delete Start Menu 2.4: "+ LinkOutPath)
+		                              Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                            Else
 		                              If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                              If Debugging Then Debug ("Delete Start Menu 2.6: "+ LinkOutPath)
+		                              Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                            End If
 		                          End If
 		                        End If
 		                        
 		                        'Now Make Shortcut
-		                        CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
+		                        CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
 		                        'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
 		                        
 		                        
@@ -3915,6 +3924,7 @@ Protected Module LLMod
 		                      End If
 		                      
 		                      
+		                      LinkOutPathSet = LinkOutPath
 		                      If SkipCleanup = False Then
 		                        'Cleanup Other sorting style links
 		                        If StartMenuUsed = -1 Then 'If Unsorted remove all other sorting
@@ -3943,6 +3953,7 @@ Protected Module LLMod
 		                                LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                              End If
 		                              If Debugging Then Debug ("Delete Start Menu 1: "+ LinkOutPath)
+		                              Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                            End If
 		                          Next
 		                        Else 'Remove all sorting (plus unsorted) and only keep the Set Used Menu location
@@ -3970,21 +3981,24 @@ Protected Module LLMod
 		                                LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                              End If
 		                              If Debugging Then Debug ("Delete Start Menu 2: "+ LinkOutPath)
+		                              Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                            End If
 		                          Next
 		                          If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                            If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
 		                            If Debugging Then Debug ("Delete Start Menu 2.4: "+ LinkOutPath)
+		                            Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                          Else
 		                            If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                            If Debugging Then Debug ("Delete Start Menu 2.6: "+ LinkOutPath)
+		                            Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                          End If
 		                        End If
 		                      End If
 		                      
 		                      
 		                      'Now make shortcut
-		                      CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
+		                      CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
 		                      'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
 		                      
 		                      'Exit 'Found and made, exit
@@ -4001,7 +4015,7 @@ Protected Module LLMod
 		                  'If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
 		                  MakeFolder(LinkOutPath)
 		                  
-		                  
+		                  LinkOutPathSet = LinkOutPath
 		                  'Cleanup Other Sort menu Styles
 		                  If SkipCleanup = False Then
 		                    For N = 0 To StartMenuStylesCount
@@ -4029,18 +4043,19 @@ Protected Module LLMod
 		                          LinkOutPath = LinkOutPath +"\"+ItemLnk(I).Title +".lnk" 'One Item
 		                        End If
 		                        If Debugging Then Debug ("Delete Start Menu 7: "+ LinkOutPath)
+		                        Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                      End If
 		                    Next
 		                  End If
 		                  
 		                  
-		                  CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
+		                  CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
 		                Else 'No Source Path set, Just use LastOS Menu sorting as a last resort
 		                  LinkOutPath = ItemLLItem.StartMenuLegacyPrimary 'StartPath is where Writable
 		                  If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
 		                  MakeFolder(LinkOutPath)
 		                  
-		                  
+		                  LinkOutPathSet = LinkOutPath
 		                  'Cleanup Other Sort menu Styles
 		                  If SkipCleanup = False Then
 		                    For N = 0 To StartMenuStylesCount
@@ -4064,11 +4079,12 @@ Protected Module LLMod
 		                          LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                        End If
 		                        If Debugging Then Debug ("Delete Start Menu 8: "+ LinkOutPath)
+		                        Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                      End If
 		                    Next
 		                  End If
 		                  
-		                  CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPath)))
+		                  CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
 		                End If
 		              End If
 		              
