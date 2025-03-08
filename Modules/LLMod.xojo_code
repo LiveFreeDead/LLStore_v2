@@ -391,6 +391,11 @@ Protected Module LLMod
 		      If scriptShell <> Nil then
 		        lnkObj = scriptShell.CreateShortcut(LinkFolder  + TitleName + ".lnk")
 		        If lnkObj <> Nil then
+		          
+		          'Delete if existing: (May not be true, need to delete user ones as they overwrite systemwide ones) GlennGlennGlenn
+		          'Deltree(LinkFolder  + TitleName + ".lnk") 'If you try to create when it exists it will not overwrite it
+		          
+		          
 		          lnkObj.Description = TitleName
 		          'lnkObj.TargetPath = scTarget.NativePath
 		          lnkObj.TargetPath = Target 'Target may also have some Arguments, so use text not folder item.
@@ -618,8 +623,19 @@ Protected Module LLMod
 		  If TargetWindows Then
 		    PathIn = PathIn.ReplaceAll("%USBDrive%", Left(AppPath,2)) 'Convert USB/DVD your running off  to correct Path
 		    PathIn = PathIn.ReplaceAll("%AppPath%", ItemLLItem.PathApp)
-		    PathIn = PathIn.ReplaceAll("%ppGames%", NoSlash(ppGames))
-		    PathIn = PathIn.ReplaceAll("%ppApps%", NoSlash(ppApps))
+		    
+		    'ToDo: - The %ppApps% and %ppGames% Converter needs to be moved to be changed by the LoadLLFile, so it points to the correct paths, if no path given then assume installing to Set path.
+		    
+		    If Regenerating = False Then 'If not installing then the path will be the AppPath/drive for links etc
+		      PathIn = PathIn.ReplaceAll("%ppGames%", NoSlash(ppGames))
+		      PathIn = PathIn.ReplaceAll("%ppApps%", NoSlash(ppApps))
+		    Else
+		      
+		      'PathIn = PathIn.ReplaceAll("%ppGames%", NoSlash(RegenPathIn)) 'The returned path has the internal path of the item included, due to not knowing depth use below path to get it out
+		      'PathIn = PathIn.ReplaceAll("%ppApps%", NoSlash(RegenPathIn))
+		      PathIn = PathIn.ReplaceAll("%ppGames%", Left(RegenPathIn,10)) 'As we are only regenning we can use absolute paths "c:\ppGames" 10 Characters
+		      PathIn = PathIn.ReplaceAll("%ppApps%", Left(RegenPathIn,9))
+		    End If
 		    
 		    PathIn = PathIn.ReplaceAll("%SourcePath%", ItemLLItem.PathINI)
 		    
@@ -660,8 +676,13 @@ Protected Module LLMod
 		    
 		    PathIn = PathIn.ReplaceAll("%LocalAppData%", FixPath(NoSlash(SpecialFolder.ApplicationData.Parent.NativePath)+"/Local"))
 		    
-		    PathIn = PathIn.ReplaceAll("%ppGamesDrive%", Left(ppGames,2))
-		    PathIn = PathIn.ReplaceAll("%ppAppsDrive%", Left(ppApps,2))
+		    If Regenerating = False Then 'If not installing then the path will be the AppPath/drive for links etc
+		      PathIn = PathIn.ReplaceAll("%ppGamesDrive%", Left(ppGames,2))
+		      PathIn = PathIn.ReplaceAll("%ppAppsDrive%", Left(ppApps,2))
+		    Else
+		      PathIn = PathIn.ReplaceAll("%ppGamesDrive%", Left(RegenPathIn,2))
+		      PathIn = PathIn.ReplaceAll("%ppAppsDrive%", Left(RegenPathIn,2))
+		    End If
 		    PathIn = PathIn.ReplaceAll("%Extract%", Win7z+" -mtc -aoa x ")
 		    
 		    PathIn = PathIn.ReplaceAll("%Desktop%",  FixPath(NoSlash(SpecialFolder.Desktop.NativePath)))
@@ -1717,6 +1738,20 @@ Protected Module LLMod
 		  If  Ret = "" Then Ret = InPath 'if it already was a long path, just return the in path
 		  
 		  Return Ret
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function GetParent(InFile As String) As String
+		  InFile = InFile.ReplaceAll("/","\")
+		  InFile = Left(InFile,InStrRev(InFile,"\")-1)
+		  
+		  If TargetWindows Then
+		  Else
+		    InFile = InFile.ReplaceAll("\","/") 'Linux needs the other Slash
+		  End If
+		  
+		  Return InFile
 		End Function
 	#tag EndMethod
 
@@ -3343,6 +3378,7 @@ Protected Module LLMod
 		  Dim DaBugs As String
 		  Dim DeTest As String
 		  Dim StartPath As String
+		  Dim StartPathAlt As String = ""
 		  Dim ExecName As String
 		  Dim BT As String
 		  Dim Bugg As String
@@ -3629,6 +3665,7 @@ Protected Module LLMod
 		      
 		      If AdminEnabled Then 'If Admin apply to All users, else only has access to current user
 		        StartPath = StartPathAll 'All Users
+		        StartPathAlt = StartPathUser ' Used to delete User Link if making System Wide Link
 		      Else
 		        StartPath = StartPathUser 'Current User
 		      End If
@@ -3805,6 +3842,8 @@ Protected Module LLMod
 		                          
 		                          'Now Make Shortcut
 		                          CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
+		                          If StartPathAlt <> "" Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link
+		                          
 		                          'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
 		                          
 		                          
@@ -3913,6 +3952,7 @@ Protected Module LLMod
 		                        
 		                        'Now Make Shortcut
 		                        CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
+		                        If StartPathAlt <> "" Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link
 		                        'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
 		                        
 		                        
@@ -4023,6 +4063,7 @@ Protected Module LLMod
 		                      
 		                      'Now make shortcut
 		                      CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
+		                      If StartPathAlt <> "" Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link
 		                      'SaveDataToFile (LinkOutPath+Chr(10)+"---"+Chr(10)+DaBugs ,Slash(FixPath(SpecialFolder.Desktop.NativePath))+"Test.txt")
 		                      
 		                      'Exit 'Found and made, exit
@@ -4076,6 +4117,7 @@ Protected Module LLMod
 		                  
 		                  
 		                  CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
+		                  If StartPathAlt <> "" Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link
 		                Else 'No Source Path set, Just use LastOS Menu sorting as a last resort
 		                  LinkOutPath = ItemLLItem.StartMenuLegacyPrimary 'StartPath is where Writable
 		                  If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
@@ -4113,6 +4155,7 @@ Protected Module LLMod
 		                  End If
 		                  
 		                  CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
+		                  If StartPathAlt <> "" Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link
 		                End If
 		              End If
 		              
@@ -5110,9 +5153,9 @@ Protected Module LLMod
 		        While Sh.IsRunning
 		          App.DoEvents(1)
 		        Wend
+		        Res = Sh.ReadAll
 		        If Debugging Then
 		          'Res = Sh.Result.Trim
-		          Res = Sh.ReadAll
 		          If Left (CmdIn,4) = "curl" Then Res = Left(Res,12) 'Shrink curl output
 		          Debug("RunCommandResults: -"+Chr(10)+Res+Chr(10))
 		        End If
@@ -5130,9 +5173,9 @@ Protected Module LLMod
 		      While Sh.IsRunning
 		        App.DoEvents(1)
 		      Wend
+		      Res = Sh.ReadAll
 		      If Debugging Then
 		        'Res = Sh.Result.Trim
-		        Res = Sh.ReadAll
 		        If Left (CmdIn,4) = "curl" Then Res = Left(Res,12) 'Shrink curl output
 		        Debug("RunCommandResults: -"+Chr(10)+Res+Chr(10))
 		      End If
@@ -5141,7 +5184,8 @@ Protected Module LLMod
 		    
 		    'For Both
 		    'Return Sh.Result
-		    Return Sh.ReadAll
+		    'Return Sh.ReadAll
+		    Return Res
 		  End If
 		  
 		  Return ""
@@ -6275,6 +6319,14 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		RedirectsGame(1024,2) As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		Regenerating As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		RegenPathIn As String
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -7709,7 +7761,7 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue=""
 			Type="String"
-			EditorType=""
+			EditorType="MultiLineEditor"
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="StartMenuStylesCount"

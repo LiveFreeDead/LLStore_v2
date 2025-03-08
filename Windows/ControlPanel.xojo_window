@@ -38,7 +38,7 @@ Begin DesktopWindow ControlPanel
       Index           =   -2147483648
       InitialValue    =   "ComboMenuStyle"
       Italic          =   False
-      Left            =   312
+      Left            =   342
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -50,7 +50,7 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   ""
-      Top             =   15
+      Top             =   12
       Transparent     =   False
       Underline       =   False
       Visible         =   True
@@ -69,7 +69,7 @@ Begin DesktopWindow ControlPanel
       Height          =   26
       Index           =   -2147483648
       Italic          =   False
-      Left            =   519
+      Left            =   550
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -81,7 +81,7 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "This applies to Windows only (not used by Linux)"
-      Top             =   15
+      Top             =   10
       Transparent     =   False
       Underline       =   False
       Visible         =   True
@@ -97,7 +97,7 @@ Begin DesktopWindow ControlPanel
       Height          =   24
       Index           =   -2147483648
       Italic          =   False
-      Left            =   51
+      Left            =   119
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -113,11 +113,11 @@ Begin DesktopWindow ControlPanel
       TextAlignment   =   3
       TextColor       =   &c000000
       Tooltip         =   ""
-      Top             =   15
+      Top             =   11
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   118
+      Width           =   88
    End
    Begin DesktopLabel SetMenuStyle
       AllowAutoDeactivate=   True
@@ -129,7 +129,7 @@ Begin DesktopWindow ControlPanel
       Height          =   24
       Index           =   -2147483648
       Italic          =   False
-      Left            =   181
+      Left            =   222
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -145,11 +145,40 @@ Begin DesktopWindow ControlPanel
       TextAlignment   =   1
       TextColor       =   &c000000
       Tooltip         =   ""
-      Top             =   15
+      Top             =   11
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   118
+      Width           =   99
+   End
+   Begin DesktopCheckBox CheckCleanUp
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Caption         =   "Clean Up"
+      Enabled         =   True
+      FontName        =   "System"
+      FontSize        =   0.0
+      FontUnit        =   0
+      Height          =   20
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   20
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      Scope           =   0
+      TabIndex        =   5
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "Removes Empty Folders"
+      Top             =   13
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      VisualState     =   1
+      Width           =   81
    End
 End
 #tag EndDesktopWindow
@@ -164,12 +193,90 @@ End
 
 
 	#tag Method, Flags = &h0
+		Sub CleanStartMenu()
+		  Dim I, J As Integer
+		  Dim StartUser, StartAll As String
+		  Dim Res As String
+		  Dim Sp(), Sp2() As String
+		  Dim Found As Boolean
+		  Dim DelCount As Integer
+		  Dim DelCommand As String
+		  
+		  StartAll = Slash(StartPathAll).ReplaceAll("/","\") 'All Users
+		  StartUser = Slash(StartPathUser).ReplaceAll("/","\") ' Used to delete User Link if making System Wide Link
+		  
+		  ShellFast.Execute("dir /s /a /b "+Chr(34)+StartAll+Chr(34)+"*.lnk")
+		  Res = ShellFast.Result
+		  ShellFast.Execute("dir /s /a /b "+Chr(34)+StartUser+Chr(34)+"*.lnk")
+		  Res = Res + ShellFast.Result
+		  Res = Res.ReplaceAll(Chr(10),Chr(13))
+		  Res = Res.ReplaceAll(Chr(13)+Chr(13),Chr(13)) 'Reduce Duplicated Line Ends
+		  
+		  Sp() = Res.Split(Chr(13))
+		  If Sp.Count >=1 Then
+		    For I = 0 To Sp.Count - 1
+		      If Sp(I) <> "" Then
+		        Sp(I) = GetParent(Sp(I))
+		        'MsgBox Sp(I)
+		      End If
+		    Next
+		  End If
+		  
+		  'dir /s /aD /b *
+		  
+		  ShellFast.Execute("dir /s /aD /b "+Chr(34)+StartAll+Chr(34)+"*")
+		  Res = ShellFast.Result
+		  ShellFast.Execute("dir /s /aD /b "+Chr(34)+StartUser+Chr(34)+"*")
+		  Res = Res + ShellFast.Result
+		  Res = Res.ReplaceAll(Chr(10),Chr(13))
+		  Res = Res.ReplaceAll(Chr(13)+Chr(13),Chr(13)) 'Reduce Duplicated Line Ends
+		  
+		  Sp2() = Res.Split(Chr(13))
+		  If Sp2.Count >=1 Then
+		    For I = 0 To Sp2.Count - 1
+		      If Sp2(I) <> "" Then
+		        Found = False
+		        For J = 0 To Sp.Count - 1
+		          If Sp(J) <> "" Then
+		            If Sp(J).IndexOf(Sp2(I)) >= 0 Then 'If the path to the Link is within the Scanned folders then keep it
+		              Found = True
+		              Exit
+		            End If
+		          End If
+		        Next
+		        If Found = False Then
+		          'Msgbox "Delete: "+ Sp2(I)
+		          
+		          DelCommand = DelCommand+"rmdir /q /s " + Chr(34)+Sp2(I)+Chr(34)+Chr(10)
+		          DelCount = DelCount + 1
+		        End If
+		      End If
+		    Next
+		  End If
+		  
+		  'MsgBox DelCount.ToString
+		  
+		  If DelCommand <> "" Then
+		    'MsgBox DelCommand
+		    RunCommand(DelCommand) 'Delete the lot at once
+		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub PopulateControlPanel()
 		  'Get current set Menu Style from C:\Windows\SetupSMenu.ini
 		  Dim I, G As Integer
 		  Dim MenuIn As String
 		  Dim MenuName As String
 		  Dim Sp() As String
+		  
+		  
+		  If Not TargetWindows Then 'Disable it all for Linux for now
+		    ButtonSetMenuStyle.Enabled = False
+		    ComboMenuStyle.Enabled = False
+		    CheckCleanUp.Enabled = False
+		  End If
 		  
 		  ComboMenuStyle.RemoveAllRows
 		  ComboMenuStyle.AddRow("UnSorted")
@@ -223,12 +330,96 @@ End
 		End Sub
 	#tag EndMethod
 
+	#tag Method, Flags = &h0
+		Sub RegenLinks(DirToCheck As String)
+		  RegenPathIn = ""
+		  Regenerating = True
+		  'MsgBox DirToCheck
+		  Dim D As Integer
+		  Dim Suc As Boolean
+		  Dim F As FolderItem
+		  Dim ItemToCheck As String
+		  Dim LLFile As String
+		  F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeShell) 'This fixes the issue, yes whenever windows does folder stuff, convert it back until it returns, or it will add a backslash after the forward slash
+		  
+		  If F.IsFolder And F.IsReadable Then
+		    If F.Count > 0 Then
+		      For D = 1 To F.Count
+		        RegenPathIn = ""
+		        If F.Item(D).Directory Then 'Look for Valid Items only
+		          RegenPathIn = F.Item(D).NativePath 'This is use by ExpPath to make sure the Link are pointing to the actual path, not the Set pp Drives etc
+		          LLFile = F.Item(D).NativePath+"ssApp.app"
+		          If Exist (LLFile) Then
+		            'MsgBox LLFile
+		            Suc = LoadLLFile(LLFile)
+		            If Suc = True Then MakeLinks 'This will make and remove links for loaded item
+		            Continue
+		          End If
+		          LLFile = F.Item(D).NativePath+"ppApp.app"
+		          If Exist (LLFile) Then
+		            'MsgBox LLFile
+		            Suc = LoadLLFile(LLFile)
+		            If Suc = True Then MakeLinks 'This will make and remove links for loaded item
+		            Continue
+		          End If
+		          LLFile = F.Item(D).NativePath+"ppGame.ppg"
+		          If Exist (LLFile) Then
+		            'MsgBox LLFile
+		            Suc = LoadLLFile(LLFile)
+		            If Suc = True Then MakeLinks 'This will make and remove links for loaded item
+		            Continue
+		          End If
+		        End If
+		      Next
+		    End If
+		  End If
+		  
+		  Regenerating = False
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub ResortStartMenu()
+		  Dim Let As Integer
+		  Dim I, D As Integer
+		  Dim F As FolderItem
+		  Dim DirToCheck As String
+		  If StartMenuUsed = -1 Then 'UnSorted
+		  Else 'Menu Style Used
+		    If TargetWindows Then
+		      'ppApps And ppGames on all drives
+		      Let = Asc("C")
+		      For I = 0 To 23
+		        Let = Asc("C") + I
+		        DirToCheck = Chr(Let)+":\" 'Windows Path
+		        
+		        If Exist(DirToCheck+"ppApps") Then
+		          RegenLinks (DirToCheck+"ppApps")
+		        End If
+		        If Exist(DirToCheck+"ppGames") Then
+		          RegenLinks (DirToCheck+"ppGames")
+		        End If
+		      Next
+		      'ssApps
+		      RegenLinks ("C:\Program Files")
+		      RegenLinks ("C:\Program Files (x86)")
+		    End If
+		  End If
+		End Sub
+	#tag EndMethod
+
 
 #tag EndWindowCode
 
 #tag Events ButtonSetMenuStyle
 	#tag Event
 		Sub Pressed()
+		  'Disable them until done
+		  ButtonSetMenuStyle.Enabled = False
+		  ComboMenuStyle.Enabled = False
+		  CheckCleanUp.Enabled = False
+		  
+		  
 		  Dim I As Integer
 		  'Dim OriginalMenuStyle As String
 		  'Dim Sp() As String
@@ -297,7 +488,21 @@ End
 		  
 		  
 		  'Resort/Clean Here
+		  If CheckCleanUp.Value = True Then
+		    ResortStartMenu() 'Disabled for now so I can test cleaner - re-enable (GlennGlennGlenn)
+		    CleanStartMenu()
+		  End If
 		  
+		  'Enable Them Again
+		  ButtonSetMenuStyle.Enabled = True
+		  ComboMenuStyle.Enabled = True
+		  CheckCleanUp.Enabled = True
+		  
+		  If CheckCleanUp.Value = False Then
+		    MsgBox "Done Sorting"
+		  Else
+		    MsgBox "Done Sorting and Cleaning"
+		  End If
 		  
 		  '------------------------------------------------------------------------------------------------------------
 		  
