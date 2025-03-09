@@ -176,6 +176,7 @@ Begin DesktopWindow ControlPanel
       Top             =   13
       Transparent     =   False
       Underline       =   False
+      Value           =   False
       Visible         =   True
       VisualState     =   1
       Width           =   81
@@ -246,9 +247,10 @@ End
 		        Next
 		        If Found = False Then
 		          'Msgbox "Delete: "+ Sp2(I)
-		          
-		          DelCommand = DelCommand+"rmdir /q /s " + Chr(34)+Sp2(I)+Chr(34)+Chr(10)
-		          DelCount = DelCount + 1
+		          If Sp2(I).IndexOf("StartUp")<0 Then 'Don't remove this folder, even if empty, it will be 0 or greater if so, making this false and not ran
+		            DelCommand = DelCommand+"rmdir /q /s " + Chr(34)+Sp2(I)+Chr(34)+Chr(10)
+		            DelCount = DelCount + 1
+		          End If
 		        End If
 		      End If
 		    Next
@@ -351,21 +353,21 @@ End
 		          LLFile = F.Item(D).NativePath+"ssApp.app"
 		          If Exist (LLFile) Then
 		            'MsgBox LLFile
-		            Suc = LoadLLFile(LLFile)
+		            Suc = LoadLLFile(LLFile, "",False,True) 'True Skips loading icons, screenshots etc
 		            If Suc = True Then MakeLinks 'This will make and remove links for loaded item
 		            Continue
 		          End If
 		          LLFile = F.Item(D).NativePath+"ppApp.app"
 		          If Exist (LLFile) Then
 		            'MsgBox LLFile
-		            Suc = LoadLLFile(LLFile)
+		            Suc = LoadLLFile(LLFile, "",False,True) 'True Skips loading icons, screenshots etc
 		            If Suc = True Then MakeLinks 'This will make and remove links for loaded item
 		            Continue
 		          End If
 		          LLFile = F.Item(D).NativePath+"ppGame.ppg"
 		          If Exist (LLFile) Then
 		            'MsgBox LLFile
-		            Suc = LoadLLFile(LLFile)
+		            Suc = LoadLLFile(LLFile, "",False,True) 'True Skips loading icons, screenshots etc
 		            If Suc = True Then MakeLinks 'This will make and remove links for loaded item
 		            Continue
 		          End If
@@ -384,27 +386,27 @@ End
 		  Dim I, D As Integer
 		  Dim F As FolderItem
 		  Dim DirToCheck As String
-		  If StartMenuUsed = -1 Then 'UnSorted
-		  Else 'Menu Style Used
-		    If TargetWindows Then
-		      'ppApps And ppGames on all drives
-		      Let = Asc("C")
-		      For I = 0 To 23
-		        Let = Asc("C") + I
-		        DirToCheck = Chr(Let)+":\" 'Windows Path
-		        
-		        If Exist(DirToCheck+"ppApps") Then
-		          RegenLinks (DirToCheck+"ppApps")
-		        End If
-		        If Exist(DirToCheck+"ppGames") Then
-		          RegenLinks (DirToCheck+"ppGames")
-		        End If
-		      Next
-		      'ssApps
-		      RegenLinks ("C:\Program Files")
-		      RegenLinks ("C:\Program Files (x86)")
-		    End If
+		  'If StartMenuUsed = -1 Then 'UnSorted
+		  'Else 'Menu Style Used
+		  If TargetWindows Then
+		    'ppApps And ppGames on all drives
+		    Let = Asc("C")
+		    For I = 0 To 23
+		      Let = Asc("C") + I
+		      DirToCheck = Chr(Let)+":\" 'Windows Path
+		      
+		      If Exist(DirToCheck+"ppApps") Then
+		        RegenLinks (DirToCheck+"ppApps")
+		      End If
+		      If Exist(DirToCheck+"ppGames") Then
+		        RegenLinks (DirToCheck+"ppGames")
+		      End If
+		    Next
+		    'ssApps
+		    RegenLinks ("C:\Program Files")
+		    RegenLinks ("C:\Program Files (x86)")
 		  End If
+		  'End If
 		End Sub
 	#tag EndMethod
 
@@ -489,7 +491,18 @@ End
 		  
 		  'Resort/Clean Here
 		  If CheckCleanUp.Value = True Then
+		    QueueDeltree = True
+		    QueueDeltreeMajor = True
+		    QueueDeltreeJobs = ""
+		    
 		    ResortStartMenu() 'Disabled for now so I can test cleaner - re-enable (GlennGlennGlenn)
+		    
+		    'Delete all items at once, MUCH faster
+		    QueueDeltree = False
+		    QueueDeltreeMajor = False ' Deltrees done
+		    RunCommand (QueueDeltreeJobs)
+		    QueueDeltreeJobs = ""
+		    
 		    CleanStartMenu()
 		  End If
 		  

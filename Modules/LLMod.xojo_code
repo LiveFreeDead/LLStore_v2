@@ -391,11 +391,6 @@ Protected Module LLMod
 		      If scriptShell <> Nil then
 		        lnkObj = scriptShell.CreateShortcut(LinkFolder  + TitleName + ".lnk")
 		        If lnkObj <> Nil then
-		          
-		          'Delete if existing: (May not be true, need to delete user ones as they overwrite systemwide ones) GlennGlennGlenn
-		          'Deltree(LinkFolder  + TitleName + ".lnk") 'If you try to create when it exists it will not overwrite it
-		          
-		          
 		          lnkObj.Description = TitleName
 		          'lnkObj.TargetPath = scTarget.NativePath
 		          lnkObj.TargetPath = Target 'Target may also have some Arguments, so use text not folder item.
@@ -466,28 +461,45 @@ Protected Module LLMod
 		  
 		  S = S.Trim
 		  
-		  If Debugging Then Debug("- Deltree: " + S)
-		  
-		  'Delete Folders
-		  If TargetWindows Then
-		    Sh.Execute ("rmdir /q /s " + Chr(34)+S+Chr(34)) 'Don't use RunCommand or it becomes recursive as it uses this routine to clean up
+		  If QueueDeltree Then
+		    'Delete Folders
+		    If TargetWindows Then
+		      QueueDeltreeJobs = QueueDeltreeJobs + ("rmdir /q /s " + Chr(34)+S+Chr(34)) +Chr(10) 'Don't use RunCommand or it becomes recursive as it uses this routine to clean up
+		    Else
+		      QueueDeltreeJobs = QueueDeltreeJobs + ("rm -rf " + Chr(34)+S+Chr(34)) +Chr(10)
+		    End If
+		    
+		    'Delete File
+		    If TargetWindows Then
+		      QueueDeltreeJobs = QueueDeltreeJobs + ("del /f /q " + Chr(34)+S+Chr(34)) +Chr(10) 'Don't use RunCommand or it becomes recursive as it uses this routine to clean up
+		    Else
+		      QueueDeltreeJobs = QueueDeltreeJobs + ("rm -f " + Chr(34)+S+Chr(34)) +Chr(10)
+		    End If
+		    
 		  Else
-		    Sh.Execute ("rm -rf " + Chr(34)+S+Chr(34))
+		    If Debugging Then Debug("- Deltree: " + S)
+		    
+		    'Delete Folders
+		    If TargetWindows Then
+		      Sh.Execute ("rmdir /q /s " + Chr(34)+S+Chr(34)) 'Don't use RunCommand or it becomes recursive as it uses this routine to clean up
+		    Else
+		      Sh.Execute ("rm -rf " + Chr(34)+S+Chr(34))
+		    End If
+		    
+		    While Sh.IsRunning
+		      App.DoEvents(4)
+		    Wend
+		    
+		    'Delete File
+		    If TargetWindows Then
+		      Sh.Execute ("del /f /q " + Chr(34)+S+Chr(34)) 'Don't use RunCommand or it becomes recursive as it uses this routine to clean up
+		    Else
+		      Sh.Execute ("rm -f " + Chr(34)+S+Chr(34))
+		    End If
+		    While Sh.IsRunning
+		      App.DoEvents(4)
+		    Wend
 		  End If
-		  
-		  While Sh.IsRunning
-		    App.DoEvents(4)
-		  Wend
-		  
-		  'Delete File
-		  If TargetWindows Then
-		    Sh.Execute ("del /f /q " + Chr(34)+S+Chr(34)) 'Don't use RunCommand or it becomes recursive as it uses this routine to clean up
-		  Else
-		    Sh.Execute ("rm -f " + Chr(34)+S+Chr(34))
-		  End If
-		  While Sh.IsRunning
-		    App.DoEvents(4)
-		  Wend
 		End Sub
 	#tag EndMethod
 
@@ -579,6 +591,7 @@ Protected Module LLMod
 	#tag Method, Flags = &h0
 		Function Exist(FileIn As String) As Boolean
 		  Dim F As FolderItem
+		  FileIn = NoSlash(FileIn) ' Just so path with slashes return correctly
 		  FileIn = FileIn.Trim
 		  If FileIn = "" Then Return False
 		  #Pragma BreakOnExceptions Off
@@ -1475,6 +1488,7 @@ Protected Module LLMod
 		  CatIn = CatIn.ReplaceAll("|", "; ")
 		  CatIn = CatIn.Trim
 		  If Right (CatIn,1) <>";" Then CatIn=CatIn+";"
+		  
 		  CatIn = CatIn.ReplaceAll("Games;", "Game;")
 		  If Left(CatIn, 6) = "Game; " Then CatIn = Right (CatIn, Len(CatIn) -6) 'Remove Game; from the start so looks nicer in the MetaData fields, Gets Added to end below too
 		  If Left(CatIn, 5) = "Game " Then CatIn = Right (CatIn, Len(CatIn) -5) 'Remove Game  from the start of some cats (Not sure what adds them, but take them out)
@@ -1488,7 +1502,6 @@ Protected Module LLMod
 		  CatIn = CatIn.ReplaceAll("Racing-Driving", "Racing; Driving")
 		  CatIn = CatIn.ReplaceAll("Tower Defense", "TowerDefense")
 		  CatIn = CatIn.ReplaceAll("Farming & Crafting", "Farming; Crafting")
-		  
 		  Return CatIn
 		End Function
 	#tag EndMethod
@@ -2549,7 +2562,7 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Function LoadLLFile(ItemInn As String, InnTmp As String = "", InstallItem As Boolean = False) As Boolean
+		Function LoadLLFile(ItemInn As String, InnTmp As String = "", InstallItem As Boolean = False, RegenOnly As Boolean = False) As Boolean
 		  App.DoEvents(1)
 		  
 		  EditingLnk = 0
@@ -2828,44 +2841,7 @@ Protected Module LLMod
 		          Continue 'Only need to process this line and then move to the next
 		        Case "flags"
 		          ItemLLItem.Flags = LineData.Lowercase
-		          If ItemLLItem.Flags.IndexOf("alwayshide") >=0 Then
-		            'MessageBox(ItemLLItem.Flags)
-		            ItemLLItem.Hidden = True
-		            ItemLLItem.HiddenAlways = True
-		          End If
-		          If ItemLLItem.Flags.IndexOf("hidden") >=0 Then
-		            ItemLLItem.Hidden = True
-		            'ItemLLItem.HiddenAlways = True
-		          End If
-		          
-		          If ItemLLItem.Flags.IndexOf("showsetuponly") >=0 Then
-		            ItemLLItem.ShowSetupOnly = True
-		            If StoreMode <> 0 Then 'Only hide if not Setup/install mode
-		              ItemLLItem.Hidden = True
-		            End If
-		          End If
-		          If ItemLLItem.Flags.IndexOf("internetrequired") >=0 Then 
-		            ItemLLItem.InternetRequired = True
-		          End If
-		          If ItemLLItem.Flags.IndexOf("noinstall") >=0 Then
-		            ItemLLItem.NoInstall = True
-		          End If
-		          
-		          If ItemLLItem.Flags.IndexOf("keepall") >=0 Then
-		            ItemLLItem.KeepAll = True
-		          End If
-		          
-		          If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
-		            ItemLLItem.KeepInFolder = True
-		          End If
-		          
-		          If ItemLLItem.Flags.IndexOf("sendto") >=0 Then
-		            ItemLLItem.SendTo = True
-		          End If
-		          If ItemLLItem.Flags.IndexOf("forcederefresh") >=0 Then
-		            ItemLLItem.ForceDERefresh = True
-		            ForceDERefresh = True 'If ANY of the loaded items are set to true then make this true, wont hurt to do it here
-		          End If
+		          ProcessFlags(ItemLLItem, LineData)
 		          
 		          Continue 'Once used Data no need to process the rest, The other lines will cause the lower things to be tested per line
 		        Case "priority"
@@ -3033,6 +3009,9 @@ Protected Module LLMod
 		  'Set Unique Name to check for alternative screenshots and icons
 		  UniqueName = ItemLLItem.TitleName.Lowercase + ItemLLItem.BuildType.Lowercase
 		  UniqueName= UniqueName.ReplaceAll(" ","")
+		  
+		  
+		  If RegenOnly = True Then Return True 'No need to load graphics in
 		  
 		  'Load Items Screenshot and Fader
 		  'Screenshot
@@ -3360,6 +3339,12 @@ Protected Module LLMod
 		  
 		  If Debugging Then Debug("--- Starting Make Links ---")
 		  
+		  If QueueDeltreeMajor = False Then 'If configured to delete all of them, don't clear the existing list
+		    QueueDeltree = True
+		    QueueDeltreeJobs = ""
+		  End If
+		  
+		  
 		  Dim SkipCleanup As Boolean = False
 		  
 		  If ItemLLItem.StartMenuSourcePath = "" And ItemLLItem.KeepInFolder = True Then ' If Broken file then don't go deleting random stuff
@@ -3382,6 +3367,8 @@ Protected Module LLMod
 		  Dim ExecName As String
 		  Dim BT As String
 		  Dim Bugg As String
+		  Dim GameCatFound As Boolean
+		  Dim GameCat As String
 		  
 		  Dim Sh As New Shell
 		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
@@ -3425,63 +3412,67 @@ Protected Module LLMod
 		  If ItemLLItem.Catalog <> "" Then
 		    Catalog = ItemLLItem.Catalog.Split("|")
 		    CatalogCount = Catalog.Count - 1
-		    For I = 0 To CatalogCount
-		      Catalog(I) = Catalog(I).Trim
-		      IF RedirectAppCount >= 1 Then
-		        'Select Case ItemLLItem.BuildType
-		        'Case "ssApp","ppApp"
-		        For J = 0 To RedirectAppCount -1
-		          If Catalog(I)  = RedirectsApp (J,0) Then
-		            ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(RedirectsApp (J,0),RedirectsApp (J,1))'Replace with new App Catalog
-		            'Exit 'Found item to replace, get out of here
-		          End If
-		        Next J
-		        'Case Else 'Game
-		        For J = 0 To RedirectGameCount -1
-		          If Catalog(I)  = RedirectsGame (J,0) Then
-		            ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(RedirectsGame (J,0),RedirectsGame (J,1))'Replace with new Game Catalog
-		            'Exit 'Found item to replace, get out of here
-		          End If
-		        Next J
-		        'End Select
-		      End If
-		    Next I
+		    If Not TargetWindows Then 'MainItem, Only Redirect Linux, Windows uses the Menu Databases to redirect the menu style
+		      For I = 0 To CatalogCount
+		        Catalog(I) = Catalog(I).Trim
+		        IF RedirectAppCount >= 1 Then
+		          'Select Case ItemLLItem.BuildType
+		          'Case "ssApp","ppApp"
+		          For J = 0 To RedirectAppCount -1
+		            If Catalog(I)  = RedirectsApp (J,0) Then
+		              ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(RedirectsApp (J,0),RedirectsApp (J,1))'Replace with new App Catalog
+		              'Exit 'Found item to replace, get out of here
+		            End If
+		          Next J
+		          'Case Else 'Game
+		          For J = 0 To RedirectGameCount -1
+		            If Catalog(I)  = RedirectsGame (J,0) Then
+		              ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(RedirectsGame (J,0),RedirectsGame (J,1))'Replace with new Game Catalog
+		              'Exit 'Found item to replace, get out of here
+		            End If
+		          Next J
+		          'End Select
+		        End If
+		      Next I
+		    End If
 		  End If
 		  'End If
 		  
 		  'Do Link Catalog
 		  If LnkCount > 0 Then
-		    For L = 1 To LnkCount
-		      If  ItemLnk(L).Categories <> "" Then
-		        Catalog = ItemLnk(L).Categories.Split(";")
-		        CatalogCount = Catalog.Count - 1
-		        IF RedirectGameCount >= 1 Then
-		          For I = 0 To CatalogCount
-		            Catalog(I) = Catalog(I).Trim
-		            'Select Case ItemLLItem.BuildType
-		            'Case "ssApp","ppApp"
-		            For J = 0 To RedirectAppCount -1
-		              If Catalog(I)  = RedirectsApp (J,0) Then
-		                ItemLnk(L).Categories = ItemLnk(L).Categories.ReplaceAll(RedirectsApp (J,0),RedirectsApp (J,1)) 'Replace with new App Catalog
-		                'Exit 'Found item to replace, get out of here
-		              End If
-		            Next J
-		            'Case Else 'Game
-		            For J = 0 To RedirectGameCount -1
-		              If Catalog(I) = RedirectsGame (J,0) Then
-		                ItemLnk(L).Categories = ItemLnk(L).Categories.ReplaceAll(RedirectsGame (J,0),RedirectsGame (J,1)) 'Replace with new Game Catalog
-		                Exit 'Found item to replace, get out of here
-		              End If
-		            Next J
-		            'End Select
-		          Next I
-		          'Replace Game to start of Catalog
-		          If Len( ItemLnk(L).Categories) > Len( ItemLnk(L).Categories.ReplaceAll("; Game;",";")) Then ' Drop the Game back to start
-		            ItemLnk(L).Categories = "Game; " + ItemLnk(L).Categories.ReplaceAll("; Game;",";")
+		    If Not TargetWindows Then 'LnkItems, Only Redirect Linux, Windows uses the Menu Databases to redirect the menu style
+		      For L = 1 To LnkCount
+		        If  ItemLnk(L).Categories <> "" Then
+		          Catalog = ItemLnk(L).Categories.Split(";")
+		          CatalogCount = Catalog.Count - 1
+		          IF RedirectGameCount >= 1 Then
+		            For I = 0 To CatalogCount
+		              Catalog(I) = Catalog(I).Trim
+		              'Select Case ItemLLItem.BuildType
+		              'Case "ssApp","ppApp"
+		              For J = 0 To RedirectAppCount -1
+		                If Catalog(I)  = RedirectsApp (J,0) Then
+		                  ItemLnk(L).Categories = ItemLnk(L).Categories.ReplaceAll(RedirectsApp (J,0),RedirectsApp (J,1)) 'Replace with new App Catalog
+		                  'Exit 'Found item to replace, get out of here
+		                End If
+		              Next J
+		              'Case Else 'Game
+		              For J = 0 To RedirectGameCount -1
+		                If Catalog(I) = RedirectsGame (J,0) Then
+		                  ItemLnk(L).Categories = ItemLnk(L).Categories.ReplaceAll(RedirectsGame (J,0),RedirectsGame (J,1)) 'Replace with new Game Catalog
+		                  Exit 'Found item to replace, get out of here
+		                End If
+		              Next J
+		              'End Select
+		            Next I
+		            'Replace Game to start of Catalog
+		            If Len( ItemLnk(L).Categories) > Len( ItemLnk(L).Categories.ReplaceAll("; Game;",";")) Then ' Drop the Game back to start
+		              ItemLnk(L).Categories = "Game; " + ItemLnk(L).Categories.ReplaceAll("; Game;",";")
+		            End If
 		          End If
 		        End If
-		      End If
-		    Next L
+		      Next L
+		    End If
 		  End If
 		  
 		  
@@ -3708,6 +3699,16 @@ Protected Module LLMod
 		        'Do Link Catalog
 		        
 		        StartDestTemp = ItemLnk(I).Categories
+		        
+		        If ItemLLItem.BuildType = "ppGame" Then 'Remove Game from Catalog if a ppGame and more than one catalog set
+		          StartDestTemp = StartDestTemp.ReplaceAll("ppGame", "Game") ' Fix this here
+		          If StartDestTemp.ReplaceAll("Game;", "").Trim = "" Then
+		          Else
+		            StartDestTemp = StartDestTemp.ReplaceAll("Game;", "").Trim 'If more Catalogs set
+		          End If
+		        End If
+		        
+		        
 		        If StartDestTemp = "" Then StartDestTemp = "Other"
 		        
 		        If Debugging Then Debug ("Item Link Categories: " + StartDestTemp)
@@ -3721,6 +3722,7 @@ Protected Module LLMod
 		          
 		          For J = 0 To CatalogCount
 		            Catalog(J) = Catalog(J).Trim
+		            GameCat = "Game " + Catalog(J) 'This is how games get detected
 		            If Catalog(J) = "ppGame" Then Catalog(J) = "Game" 'Some of my older items have ppGame instead of Game, this fixes that
 		            'GlennGlennGlenn - If not Catalogs then use StartMenuSourcePath - So Something is made
 		            If Catalog(J) <> "" Then ' Only do Valid Link Catalogs
@@ -3728,13 +3730,25 @@ Protected Module LLMod
 		              'Trying to use proper Catalog converted in Windows
 		              If StartMenuUsed >=0 Then
 		                For K = 0 To StartMenuLocationsCount(StartMenuUsed)
-		                  If Catalog(J) = StartMenuLocations(K, StartMenuUsed).Catalog Then
+		                  'If Debugging Then Debug("Does: "+Catalog(J) +"="+ StartMenuLocations(K, StartMenuUsed).Catalog)
+		                  'GameCatFound = False
+		                  If ItemLLItem.BuildType = "ppGame" Then 'The lines below fixed the Game Categories
+		                    If GameCat = StartMenuLocations(K, StartMenuUsed).Catalog Then Catalog(J) = GameCat 'This will ensure the correct Category is used for ppGames
+		                    'If Debugging Then Debug("Does: "+Catalog(J) +"="+ StartMenuLocations(K, StartMenuUsed).Catalog)
+		                    'If "Game "+Catalog(J) = StartMenuLocations(K, StartMenuUsed).Catalog Then GameCatFound = True 'Keep "Game " 'Windows Categories have "Game " before them, so put it back and see if found
+		                    'If Debugging Then Debug("Does: "+"Game "+Catalog(J) +"="+ StartMenuLocations(K, StartMenuUsed).Catalog)
+		                    'Try Adding it to the Catalog so it removes from other menu styles correctly
+		                    'Catalog(J) = "Game "+Catalog(J) 'Can remove the Or GameCatFound as it'll exist now :)
+		                  End If
+		                  
+		                  If Catalog(J) = StartMenuLocations(K, StartMenuUsed).Catalog Then 'Or GameCatFound = True <-No longer needed
 		                    If Debugging Then Debug ("* FOUND NEW: "+ Catalog(J)+"=>"+ StartMenuLocations(K, StartMenuUsed).Path)
 		                    
 		                    
 		                    
 		                    If CatalogCount > 1 Then 'If more than one Category then Remove Games standalone
 		                      If J = 0 Then 
+		                        If Debugging Then Debug ("Checking First Item ~~~ Checkpoint")
 		                        If Catalog(J) <> "Game" Or ItemLnk(I).Categories = "Game; ppGame;" Or  ItemLnk(I).Categories = "Game;" Or  ItemLnk(I).Categories = "ppGame;" Then ' Only the first one as that is only Game (set to first above), Unless has no other, then it goes to the root of /Games - WORKS
 		                          
 		                          LinkOutPath = StartPath+StartMenuLocations(K, StartMenuUsed).Path 'StartPath is where Writable
@@ -3760,7 +3774,6 @@ Protected Module LLMod
 		                          End If
 		                          
 		                          LinkOutPathSet = LinkOutPath
-		                          
 		                          If SkipCleanup = False Then
 		                            'Cleanup Other sorting style links
 		                            If StartMenuUsed = -1 Then 'If Unsorted remove all other sorting
@@ -3775,7 +3788,7 @@ Protected Module LLMod
 		                                
 		                                If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                                  If ItemLLItem.StartMenuSourcePath <> "" Then 
-		                                    LinkOutPath = LinkOutPath+ItemLLItem.StartMenuSourcePath 'Remove sorted
+		                                    LinkOutPath = LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'Remove sorted
 		                                  Else 
 		                                    LinkOutPath = ""
 		                                  End If
@@ -3790,8 +3803,13 @@ Protected Module LLMod
 		                                  End If
 		                                  If Debugging Then Debug ("Delete Start Menu 1: "+ LinkOutPath)
 		                                  If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
-		                                    Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                    If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                                  End If
+		                                  If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                                    If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                                  End If
+		                                  If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                                  If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
 		                                End If
 		                              Next
 		                            Else 'Remove all sorting (plus unsorted) and only keep the Set Used Menu location
@@ -3805,7 +3823,7 @@ Protected Module LLMod
 		                                
 		                                If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                                  If ItemLLItem.StartMenuSourcePath <> "" Then 
-		                                    LinkOutPath = LinkOutPath+ItemLLItem.StartMenuSourcePath 'Remove sorted
+		                                    LinkOutPath = LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'Remove sorted
 		                                  Else 
 		                                    LinkOutPath = ""
 		                                  End If
@@ -3820,22 +3838,37 @@ Protected Module LLMod
 		                                  End If
 		                                  If Debugging Then Debug ("Delete Start Menu 2: "+ LinkOutPath)
 		                                  If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
-		                                    Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                    If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                                  End If
+		                                  If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                                    If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                                  End If
+		                                  If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                                  If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
 		                                End If
 		                              Next
 		                              If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                                If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
-		                                If Debugging Then Debug ("Delete Start Menu 2.4: "+ LinkOutPath)
+		                                If Debugging Then Debug ("Delete Start Menu 3: "+ LinkOutPath)
 		                                If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
-		                                  Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                  If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                                End If
+		                                If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                                  If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                                End If
+		                                If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                                If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
 		                              Else
 		                                If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
-		                                If Debugging Then Debug ("Delete Start Menu 2.6: "+ LinkOutPath)
+		                                If Debugging Then Debug ("Delete Start Menu 4: "+ LinkOutPath)
 		                                If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
-		                                  Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                  If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                                End If
+		                                If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                                  If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                                End If
+		                                If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                                If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
 		                              End If
 		                            End If
 		                          End If
@@ -3851,6 +3884,8 @@ Protected Module LLMod
 		                          Continue 'Use Continue not exit so it jumps out of a loop, it was quitting the whole routine
 		                        End If
 		                      Else 'All but the first Item
+		                        If Debugging Then Debug ("All But the First Item ~~~ Checkpoint")
+		                        
 		                        LinkOutPath = StartPath+StartMenuLocations(K, StartMenuUsed).Path 'StartPath is where Writable
 		                        If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
 		                        MakeFolder(LinkOutPath)
@@ -3885,7 +3920,7 @@ Protected Module LLMod
 		                              
 		                              If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                                If ItemLLItem.StartMenuSourcePath <> "" Then 
-		                                  LinkOutPath = LinkOutPath+"/"+ItemLLItem.StartMenuSourcePath 'Remove sorted
+		                                  LinkOutPath = LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'Remove sorted
 		                                Else 
 		                                  LinkOutPath = ""
 		                                End If
@@ -3898,10 +3933,15 @@ Protected Module LLMod
 		                                Else
 		                                  LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                                End If
-		                                If Debugging Then Debug ("Delete Start Menu 1: "+ LinkOutPath)
+		                                If Debugging Then Debug ("Delete Start Menu 5: "+ LinkOutPath)
 		                                If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
-		                                  Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                  If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                                End If
+		                                If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                                  If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                                End If
+		                                If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                                If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
 		                              End If
 		                            Next
 		                          Else 'Remove all sorting (plus unsorted) and only keep the Set Used Menu location
@@ -3915,7 +3955,7 @@ Protected Module LLMod
 		                              
 		                              If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                                If ItemLLItem.StartMenuSourcePath <> "" Then 
-		                                  LinkOutPath = LinkOutPath+"/"+ItemLLItem.StartMenuSourcePath 'Remove sorted
+		                                  LinkOutPath = LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'Remove sorted
 		                                Else 
 		                                  LinkOutPath = ""
 		                                End If
@@ -3928,24 +3968,39 @@ Protected Module LLMod
 		                                Else
 		                                  LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                                End If
-		                                If Debugging Then Debug ("Delete Start Menu 2: "+ LinkOutPath)
+		                                If Debugging Then Debug ("Delete Start Menu 6: "+ LinkOutPath)
 		                                If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
-		                                  Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                  If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                                End If
+		                                If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                                  If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                                End If
+		                                If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                                If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
 		                              End If
 		                            Next
 		                            If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                              If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
-		                              If Debugging Then Debug ("Delete Start Menu 2.4: "+ LinkOutPath)
+		                              If Debugging Then Debug ("Delete Start Menu 7: "+ LinkOutPath)
 		                              If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
-		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                              End If
+		                              If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                                If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                              End If
+		                              If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                              If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
 		                            Else
 		                              If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
-		                              If Debugging Then Debug ("Delete Start Menu 2.6: "+ LinkOutPath)
+		                              If Debugging Then Debug ("Delete Start Menu 8: "+ LinkOutPath)
 		                              If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
-		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                              End If
+		                              If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                                If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                              End If
+		                              If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                              If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
 		                            End If
 		                          End If
 		                        End If
@@ -3960,6 +4015,8 @@ Protected Module LLMod
 		                        Continue 'Use Continue not exit so it jumps out of a loop, it was quitting the whole routine
 		                      End If
 		                    Else 'All others that are single item but not Games
+		                      
+		                      If Debugging Then Debug ("Single Items ~~~ Not Games")
 		                      
 		                      LinkOutPath = StartPath+StartMenuLocations(K, StartMenuUsed).Path 'StartPath is where Writable
 		                      If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
@@ -3995,7 +4052,7 @@ Protected Module LLMod
 		                            
 		                            If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                              If ItemLLItem.StartMenuSourcePath <> "" Then 
-		                                LinkOutPath = LinkOutPath+"/"+ItemLLItem.StartMenuSourcePath 'Remove sorted
+		                                LinkOutPath = LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'Remove sorted
 		                              Else 
 		                                LinkOutPath = ""
 		                              End If
@@ -4008,10 +4065,15 @@ Protected Module LLMod
 		                              Else
 		                                LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                              End If
-		                              If Debugging Then Debug ("Delete Start Menu 1: "+ LinkOutPath)
+		                              If Debugging Then Debug ("Delete Start Menu 9: "+ LinkOutPath)
 		                              If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
-		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                              End If
+		                              If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                                If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                              End If
+		                              If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                              If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
 		                            End If
 		                          Next
 		                        Else 'Remove all sorting (plus unsorted) and only keep the Set Used Menu location
@@ -4025,7 +4087,7 @@ Protected Module LLMod
 		                            
 		                            If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                              If ItemLLItem.StartMenuSourcePath <> "" Then 
-		                                LinkOutPath = LinkOutPath+"/"+ItemLLItem.StartMenuSourcePath 'Remove sorted
+		                                LinkOutPath = LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'Remove sorted
 		                              Else 
 		                                LinkOutPath = ""
 		                              End If
@@ -4038,28 +4100,42 @@ Protected Module LLMod
 		                              Else
 		                                LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
 		                              End If
-		                              If Debugging Then Debug ("Delete Start Menu 2: "+ LinkOutPath)
+		                              If Debugging Then Debug ("Delete Start Menu 10: "+ LinkOutPath)
 		                              If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
-		                                Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                                If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                              End If
+		                              If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                                If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                              End If
+		                              If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                              If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
 		                            End If
 		                          Next
 		                          If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
 		                            If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
-		                            If Debugging Then Debug ("Delete Start Menu 2.4: "+ LinkOutPath)
+		                            If Debugging Then Debug ("Delete Start Menu 11: "+ LinkOutPath)
 		                            If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
-		                              Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                              If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                            End If
+		                            If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                              If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                            End If
+		                            If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                            If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
 		                          Else
 		                            If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
-		                            If Debugging Then Debug ("Delete Start Menu 2.6: "+ LinkOutPath)
+		                            If Debugging Then Debug ("Delete Start Menu 12: "+ LinkOutPath)
 		                            If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
-		                              Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                              If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                            End If
+		                            If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                              If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                            End If
+		                            If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                            If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
 		                          End If
 		                        End If
 		                      End If
-		                      
 		                      
 		                      'Now make shortcut
 		                      CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
@@ -4075,87 +4151,169 @@ Protected Module LLMod
 		                  End If
 		                Next K
 		              Else 'No Menu Sorting set, do Unsorted
+		                If Debugging Then Debug ("No Menu Sorting Set ~~~ Doing Unsorted")
 		                If ItemLLItem.StartMenuSourcePath <> "" Then
-		                  LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'StartPath is where Writable
-		                  'If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
+		                  If ItemLLItem.BuildType = "ppGame" Then 'Games are still sorted
+		                    LinkOutPath = StartPath + "Games" ' StartPath is where Writable
+		                  Else
+		                    LinkOutPath = StartPath + ItemLLItem.StartMenuSourcePath ' StartPath is where Writable
+		                  End If
 		                  MakeFolder(LinkOutPath)
 		                  
 		                  LinkOutPathSet = LinkOutPath
-		                  'Cleanup Other Sort menu Styles
 		                  If SkipCleanup = False Then
-		                    For N = 0 To StartMenuStylesCount
-		                      For O = 0 To StartMenuLocationsCount(N)
-		                        If Catalog(J) = StartMenuLocations(O, N).Catalog Then
-		                          'Bugg = Bugg + Catalog(J) +" =6 "+StartMenuLocations(O, N).Catalog+Chr(10)
-		                          Exit 'O will be the Match
+		                    'Cleanup Other sorting style links
+		                    If StartMenuUsed = -1 Then 'If Unsorted remove all other sorting
+		                      For N = 0 To StartMenuStylesCount
+		                        For O = 0 To StartMenuLocationsCount(N)
+		                          If Catalog(J) = StartMenuLocations(O, N).Catalog Then
+		                            Exit 'O will be the Match
+		                          End If
+		                        Next
+		                        
+		                        LinkOutPath = StartPath+StartMenuLocations(O, N).Path 'StartPath is where Writable
+		                        
+		                        If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                          If ItemLLItem.StartMenuSourcePath <> "" Then 
+		                            LinkOutPath = LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'Remove sorted
+		                          Else 
+		                            LinkOutPath = ""
+		                          End If
+		                        End If
+		                        
+		                        If N = StartMenuUsed Then LinkOutPath = "" 'Current Sorting style, don't remove it
+		                        If LinkOutPath <> "" Then
+		                          If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                            'LinkOutPath=LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'The Kept Folder ' Done Above
+		                          Else
+		                            LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
+		                          End If
+		                          If Debugging Then Debug ("Delete Start Menu 13: "+ LinkOutPath)
+		                          If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                            If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                          End If
+		                          If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                            If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                          End If
+		                          If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                          '''If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
 		                        End If
 		                      Next
-		                      LinkOutPath = StartPath+StartMenuLocations(O, N).Path 'StartPath is where Writable
-		                      
-		                      If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
-		                        If ItemLLItem.StartMenuSourcePath <> "" Then
-		                          LinkOutPath = LinkOutPath+"/"+ItemLLItem.StartMenuSourcePath 'Remove Sorted
-		                        Else
-		                          LinkOutPath = ""
-		                        End If
-		                      End If
-		                      
-		                      If N = StartMenuUsed Then LinkOutPath = "" 'Current Sorting style, don't remove it
-		                      If LinkOutPath <> "" Then
+		                    Else 'Remove all sorting (plus unsorted) and only keep the Set Used Menu location
+		                      For N = 0 To StartMenuStylesCount
+		                        For O = 0 To StartMenuLocationsCount(N)
+		                          If Catalog(J) = StartMenuLocations(O, N).Catalog Then
+		                            Exit 'O will be the Match
+		                          End If
+		                        Next
+		                        LinkOutPath = StartPath+StartMenuLocations(O, N).Path 'StartPath is where Writable
+		                        
 		                        If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
-		                          'LinkOutPath=LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'The Kept Folder ' Done Above
-		                        Else
-		                          LinkOutPath = LinkOutPath +"\"+ItemLnk(I).Title +".lnk" 'One Item
+		                          If ItemLLItem.StartMenuSourcePath <> "" Then 
+		                            LinkOutPath = LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'Remove sorted
+		                          Else 
+		                            LinkOutPath = ""
+		                          End If
 		                        End If
-		                        If Debugging Then Debug ("Delete Start Menu 7: "+ LinkOutPath)
+		                        
+		                        If N = StartMenuUsed Then LinkOutPath = "" 'Current Sorting style, don't remove it
+		                        If LinkOutPath <> "" Then
+		                          If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                            'LinkOutPath=LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'The Kept Folder ' Done Above
+		                          Else
+		                            LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
+		                          End If
+		                          If Debugging Then Debug ("Delete Start Menu 14: "+ LinkOutPath)
+		                          If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                            If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                          End If
+		                          If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                            If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                          End If
+		                          If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                          If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
+		                        End If
+		                      Next
+		                      If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
+		                        If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
+		                        If Debugging Then Debug ("Delete Start Menu 15: "+ LinkOutPath)
 		                        If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
-		                          Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                          If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
 		                        End If
+		                        If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                          If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                        End If
+		                        If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                        If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
+		                      Else
+		                        If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
+		                        If Debugging Then Debug ("Delete Start Menu 16: "+ LinkOutPath)
+		                        If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
+		                          If Exist(LinkOutPath) Then Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                        End If
+		                        If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                          If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                        End If
+		                        If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                        If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
 		                      End If
-		                    Next
+		                    End If
 		                  End If
 		                  
-		                  
+		                  'Now Make Shortcut
 		                  CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
 		                  If StartPathAlt <> "" Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link
 		                Else 'No Source Path set, Just use LastOS Menu sorting as a last resort
-		                  LinkOutPath = ItemLLItem.StartMenuLegacyPrimary 'StartPath is where Writable
-		                  If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
+		                  If Debugging Then Debug ("No Sourcepath Set Set ~~~ Doing LastOS Style")
+		                  LinkOutPath = Slash(StartPath) '+ItemLLItem.StartMenuLegacyPrimary ' StartPath is where Writable 'Nah just use the Title Name as a folder
+		                  If ItemLLItem.Flags.IndexOf("keepinfolder") >= 0 Then 
+		                    LinkOutPath = Slash(LinkOutPath) + ItemLLItem.TitleName'ItemLLItem.StartMenuSourcePath ' Put in Subfolder if Chosen
+		                  End If
 		                  MakeFolder(LinkOutPath)
 		                  
 		                  LinkOutPathSet = LinkOutPath
-		                  'Cleanup Other Sort menu Styles
-		                  If SkipCleanup = False Then
+		                  
+		                  ' Cleanup Other Sort menu Styles
+		                  If Not SkipCleanup Then
 		                    For N = 0 To StartMenuStylesCount
 		                      For O = 0 To StartMenuLocationsCount(N)
-		                        If Catalog(J) = StartMenuLocations(O, N).Catalog Then
-		                          'Bugg = Bugg + Catalog(J) +" =7 "+StartMenuLocations(O, N).Catalog+Chr(10)
-		                          Exit 'O will be the Match
-		                        End If
+		                        If Catalog(J) = StartMenuLocations(O, N).Catalog Then Exit ' O will be the match
 		                      Next
-		                      LinkOutPath = StartPath+StartMenuLocations(O, N).Path 'StartPath is where Writable
 		                      
-		                      If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
-		                        If ItemLLItem.StartMenuSourcePath <> "" Then LinkOutPath = StartPath+ItemLLItem.StartMenuSourcePath 'Remove Unsorted
+		                      LinkOutPath = StartPath + StartMenuLocations(O, N).Path ' StartPath is where Writable
+		                      
+		                      If ItemLLItem.Flags.IndexOf("keepinfolder") >= 0 Then 
+		                        LinkOutPath = Slash(StartPath) + ItemLLItem.TitleName ' Remove Unsorted
 		                      End If
 		                      
-		                      If N = StartMenuUsed Then LinkOutPath = "" 'Current Sorting style, don't remove it
+		                      If N = StartMenuUsed Then LinkOutPath = "" ' Don't remove current sorting style
+		                      
 		                      If LinkOutPath <> "" Then
-		                        If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
-		                          'LinkOutPath=LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'The Kept Folder ' Done Above
-		                        Else
-		                          LinkOutPath = LinkOutPath +"\"+ ItemLnk(I).Title +".lnk" 'One Item
+		                        If ItemLLItem.Flags.IndexOf("keepinfolder") < 0 Then
+		                          LinkOutPath = LinkOutPath + "\" + ItemLnk(I).Title + ".lnk" ' One Item
 		                        End If
-		                        If Debugging Then Debug ("Delete Start Menu 8: "+ LinkOutPath)
-		                        If Not Exist("C:\windows\ssTek\Menu\"+LinkOutPath.ReplaceAll(StartPath,"")) Then 'Don't delete if part of the main tree
-		                          Deltree (LinkOutPath) 'Delete Old Link Sorting
+		                        
+		                        If Debugging Then Debug("Delete Start Menu 17: " + LinkOutPath)
+		                        
+		                        ' Don't delete if part of the main tree
+		                        If Not Exist("C:\windows\ssTek\Menu\" + LinkOutPath.ReplaceAll(StartPath, "")) Then 
+		                          If Exist(LinkOutPath) Then Deltree(LinkOutPath) ' Delete Old Link Sorting
 		                        End If
+		                        If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
+		                          If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		                        End If
+		                        'If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
 		                      End If
 		                    Next
 		                  End If
 		                  
 		                  CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
-		                  If StartPathAlt <> "" Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link
+		                  
+		                  If StartPathAlt <> "" Then
+		                    If Exist(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt) + ItemLnk(I).Title + ".lnk") Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt) + ItemLnk(I).Title + ".lnk") ' Remove the user link
+		                  End If
+		                  'If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		                  
 		                End If
 		              End If
 		              
@@ -4229,6 +4387,14 @@ Protected Module LLMod
 		      Next
 		    End If
 		  End If
+		  
+		  'Delete all items at once, MUCH faster
+		  If QueueDeltreeMajor = False Then
+		    QueueDeltree = False
+		    RunCommand (QueueDeltreeJobs)
+		    QueueDeltreeJobs = ""
+		  End If
+		  
 		  
 		  'Debugging, disable once working
 		  'SaveDataToFile(Bugg,"D:\Documents\Desktop\LLStore Debug-Logs\TestThis.txt")
@@ -4803,6 +4969,30 @@ Protected Module LLMod
 		  
 		  'Clean Up Temp
 		  CleanTemp
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub ProcessFlags(Item As LLItem, Flags As String)
+		  Flags = Flags.Lowercase
+		  If Flags.IndexOf("alwayshide") >= 0 Then
+		    Item.Hidden = True
+		    Item.HiddenAlways = True
+		  End If
+		  If Flags.IndexOf("hidden") >= 0 Then Item.Hidden = True
+		  If Flags.IndexOf("showsetuponly") >= 0 Then
+		    Item.ShowSetupOnly = True
+		    If StoreMode <> 0 Then Item.Hidden = True
+		  End If
+		  If Flags.IndexOf("internetrequired") >= 0 Then Item.InternetRequired = True
+		  If Flags.IndexOf("noinstall") >= 0 Then Item.NoInstall = True
+		  If Flags.IndexOf("keepall") >= 0 Then Item.KeepAll = True
+		  If Flags.IndexOf("keepinfolder") >= 0 Then Item.KeepInFolder = True
+		  If Flags.IndexOf("sendto") >= 0 Then Item.SendTo = True
+		  If Flags.IndexOf("forcederefresh") >= 0 Then
+		    Item.ForceDERefresh = True
+		    ForceDERefresh = True
+		  End If
 		End Sub
 	#tag EndMethod
 
@@ -6294,6 +6484,18 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		QueueDeltree As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		QueueDeltreeJobs As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		QueueDeltreeMajor As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		QuitInstaller As Boolean
 	#tag EndProperty
 
@@ -7777,6 +7979,46 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue="0"
 			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="Regenerating"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="RegenPathIn"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
+			EditorType="MultiLineEditor"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="QueueDeltree"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="QueueDeltreeJobs"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="QueueDeltreeMajor"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Boolean"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
