@@ -342,6 +342,8 @@ End
 		  Dim F As FolderItem
 		  Dim ItemToCheck As String
 		  Dim LLFile As String
+		  
+		  
 		  F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeShell) 'This fixes the issue, yes whenever windows does folder stuff, convert it back until it returns, or it will add a backslash after the forward slash
 		  
 		  If F.IsFolder And F.IsReadable Then
@@ -354,21 +356,21 @@ End
 		          If Exist (LLFile) Then
 		            'MsgBox LLFile
 		            Suc = LoadLLFile(LLFile, "",False,True) 'True Skips loading icons, screenshots etc
-		            If Suc = True Then MakeLinks 'This will make and remove links for loaded item
+		            If Suc = True Then MakeLinks (True) 'This will make and remove links for loaded item
 		            Continue
 		          End If
 		          LLFile = F.Item(D).NativePath+"ppApp.app"
 		          If Exist (LLFile) Then
 		            'MsgBox LLFile
 		            Suc = LoadLLFile(LLFile, "",False,True) 'True Skips loading icons, screenshots etc
-		            If Suc = True Then MakeLinks 'This will make and remove links for loaded item
+		            If Suc = True Then MakeLinks (True) 'This will make and remove links for loaded item
 		            Continue
 		          End If
 		          LLFile = F.Item(D).NativePath+"ppGame.ppg"
 		          If Exist (LLFile) Then
 		            'MsgBox LLFile
 		            Suc = LoadLLFile(LLFile, "",False,True) 'True Skips loading icons, screenshots etc
-		            If Suc = True Then MakeLinks 'This will make and remove links for loaded item
+		            If Suc = True Then MakeLinks (True) 'This will make and remove links for loaded item
 		            Continue
 		          End If
 		        End If
@@ -389,6 +391,7 @@ End
 		  'If StartMenuUsed = -1 Then 'UnSorted
 		  'Else 'Menu Style Used
 		  If TargetWindows Then
+		    MakeFolderAttribBatch = ""
 		    'ppApps And ppGames on all drives
 		    Let = Asc("C")
 		    For I = 0 To 23
@@ -405,6 +408,13 @@ End
 		    'ssApps
 		    RegenLinks ("C:\Program Files")
 		    RegenLinks ("C:\Program Files (x86)")
+		    
+		    'Attrib ALL Folders and desktop.ini files at once
+		    If MakeFolderAttribBatch <> "" Then
+		      If Debugging Then Debug ("attrib ALL Folders and desktop.ini files")
+		      RunCommand(MakeFolderAttribBatch)
+		    End If
+		    
 		  End If
 		  'End If
 		End Sub
@@ -430,6 +440,16 @@ End
 		  Dim MenuPath As String
 		  Dim Suc As Boolean
 		  Dim Res As String
+		  
+		  
+		  'TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
+		  
+		  StartTimeStamp = System.Microseconds/1000000
+		  
+		  Dim Tims As Double
+		  
+		  Tims = (System.Microseconds/1000000)-StartTimeStamp
+		  If Debugging Then Debug("* Starting Timer "+Tims.ToString)
 		  
 		  'Set current set Menu Style
 		  If ComboMenuStyle.Text <> "" Then
@@ -488,6 +508,8 @@ End
 		    End If
 		  End If
 		  
+		  Tims = (System.Microseconds/1000000)-StartTimeStamp
+		  If Debugging Then Debug("* (Build Menu Folder Done) Time Since Start "+Tims.ToString)
 		  
 		  'Resort/Clean Here
 		  If CheckCleanUp.Value = True Then
@@ -497,13 +519,23 @@ End
 		    
 		    ResortStartMenu() 'Disabled for now so I can test cleaner - re-enable (GlennGlennGlenn)
 		    
+		    Tims = (System.Microseconds/1000000)-StartTimeStamp
+		    If Debugging Then Debug("* (Resort Job Done) Time Since Start "+Tims.ToString)
+		    
 		    'Delete all items at once, MUCH faster
 		    QueueDeltree = False
 		    QueueDeltreeMajor = False ' Deltrees done
 		    RunCommand (QueueDeltreeJobs)
 		    QueueDeltreeJobs = ""
 		    
+		    Tims = (System.Microseconds/1000000)-StartTimeStamp
+		    If Debugging Then Debug("* (DelJob Done) Time Since Start "+Tims.ToString)
+		    
 		    CleanStartMenu()
+		    
+		    Tims = (System.Microseconds/1000000)-StartTimeStamp
+		    If Debugging Then Debug("* (Clean Start Job Done) Time Since Start "+Tims.ToString)
+		    
 		  End If
 		  
 		  'Enable Them Again
