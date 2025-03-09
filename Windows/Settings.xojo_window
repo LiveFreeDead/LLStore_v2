@@ -829,6 +829,12 @@ End
 
 #tag WindowCode
 	#tag Event
+		Sub Activated()
+		  SettingsChanged = True
+		End Sub
+	#tag EndEvent
+
+	#tag Event
 		Function CancelClosing(appQuitting As Boolean) As Boolean
 		  If ForceQuit = False Then
 		    Me.Hide

@@ -5807,6 +5807,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		ForceOffline As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		ForcePostQuit As Boolean
 	#tag EndProperty
 
@@ -6100,6 +6104,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		ScreenShotCurrent As Picture
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		SettingsChanged As Boolean = False
 	#tag EndProperty
 
 	#tag Property, Flags = &h0

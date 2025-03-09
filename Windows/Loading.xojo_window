@@ -1992,6 +1992,7 @@ End
 		      End If
 		    Case "useonlinerepositiories"
 		      If LineData <> "" Then Settings.SetUseOnlineRepos.Value = IsTrue(LineData)
+		      If ForceOffline Then Settings.SetUseOnlineRepos.Value = False 'Force not to use Online Repo's
 		    Case "debugenabled"
 		      If LineData <> "" Then Settings.SetDebugEnabled.Value = IsTrue(LineData)
 		      If DebugFileOk = True Then
@@ -2514,6 +2515,7 @@ End
 		Sub SaveSettings()
 		  If Debugging Then Debug("--- Starting Save Settings ---")
 		  If SettingsLoaded = False Then Return
+		  If SettingsChanged = False Then Return 'Don't save if not edited them (so Switches don't get saved)
 		  
 		  Dim RL As String
 		  
@@ -3561,6 +3563,8 @@ End
 		      ForcePostQuit = True
 		    Case "-debug"
 		      Debugging = True 'This forces it to Debug
+		    Case "-offline"
+		      ForceOffline = True
 		    Case Else
 		      CommandLineFile = CommandLineFile + ArgsSP(I) + " "
 		    End Select
