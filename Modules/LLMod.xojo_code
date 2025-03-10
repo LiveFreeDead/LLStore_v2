@@ -3337,8 +3337,6 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Sub MakeLinks(QueueAttribs As Boolean = False)
-		  'Glenn - Maybe ReWrite this section - it's everywhere
-		  
 		  If Debugging Then Debug("--- Starting Make Links ---")
 		  
 		  If QueueDeltreeMajor = False Then 'If configured to delete all of them, don't clear the existing list
@@ -3650,6 +3648,8 @@ Protected Module LLMod
 		    End If
 		    
 		    '------------------------------------------------------------------- Windows Links ------------------------------------------------------------------
+		    Dim OrigStartSourceMenu As String
+		    OrigStartSourceMenu = ItemLLItem.StartMenuSourcePath
 		    
 		    If TargetWindows Then 'Windows Only Shortcut Making section
 		      
@@ -3666,6 +3666,10 @@ Protected Module LLMod
 		      Dim FirstLinkDone As Boolean = False
 		      
 		      For I = 1 To LnkCount
+		        
+		        If ItemLnk(I).StartSourceMenu <> "" Then ItemLLItem.StartMenuSourcePath = ItemLnk(I).StartSourceMenu ' This is currently only used by Default Links sorting
+		        
+		        
 		        If ItemLnk(I).Flags.IndexOf(0, "Is_x64") < 0 And ItemLnk(I).Title.IndexOf(1, "{#1}") >= 1 Then Continue ' Only skip replacing items if the items isn't the x64 one
 		        If ItemLnk(I).Flags.IndexOf(0, "Is_x64") < 0 And ItemLnk(I).Title.IndexOf(1, "{#2}") >= 1 Then Continue ' Only skip replacing items if the 2nd items isn't the x64 one
 		        
@@ -3690,6 +3694,9 @@ Protected Module LLMod
 		        Target = ExpPath(ItemLnk(I).Exec)
 		        
 		        If Not Exist(Target) Then Target = ExpPath(Slash(ItemLnk(I).RunPath) + ItemLnk(I).Exec) 'Target needs to be full path, so if above isn't found it will use the RunPath, BUT if it has Arguments it may fail and still point to the wrong place.
+		        
+		        'If Still doesn't exist, just drop back to default input and try our luck
+		        If Not Exist(Target) Then Target = ExpPath(ItemLnk(I).Exec)
 		        
 		        'Do Link Catalog
 		        StartDestTemp = ItemLnk(I).Categories
@@ -3812,7 +3819,8 @@ Protected Module LLMod
 		        End If
 		        
 		      Next
-		    End If
+		      ItemLLItem.StartMenuSourcePath = OrigStartSourceMenu
+		    End If 'End of Windows Section
 		  End If
 		  
 		  'Delete all items at once, MUCH faster
@@ -5919,6 +5927,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		LoadedDefaults As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		LoadedMain As Boolean = False
 	#tag EndProperty
 
@@ -6127,6 +6139,14 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		StartMenuDefaults(512) As StartMenuDefaultsStruct
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		StartMenuDefaultsCount As Integer = 0
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		StartMenuLocations(1024,5) As StartMenuLocation
 	#tag EndProperty
 
@@ -6266,6 +6286,20 @@ Protected Module LLMod
 		WritableAppPath As Boolean = True
 	#tag EndProperty
 
+
+	#tag Structure, Name = StartMenuDefaultsStruct, Flags = &h0
+		Name As String * 128
+		  Target As String * 256
+		  Arguments As String * 64
+		  WorkingDir As String * 256
+		  Description As String * 512
+		  Icon As String * 256
+		  Index As Integer
+		  Default As String * 256
+		  Catalog As String * 128
+		  Shortcut As String * 128
+		HotKey As String * 8
+	#tag EndStructure
 
 	#tag Structure, Name = StartMenuLocation, Flags = &h0
 		Catalog As String * 128

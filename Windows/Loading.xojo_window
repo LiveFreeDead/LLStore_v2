@@ -3388,7 +3388,7 @@ End
 		  'Get MenuStyle
 		  ControlPanel.PopulateControlPanel()
 		  
-		  'Get Startmenu Paths, GlennGlennGlenn
+		  'Get Startmenu Paths
 		  BuildStartMenuLocations()
 		  
 		  

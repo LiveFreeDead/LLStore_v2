@@ -266,6 +266,40 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function ExpDefaults(Data As String) As String
+		  Dim StartPath As String
+		  
+		  'StartPathAll = Slash(FixPath(SpecialFolder.SharedApplicationData.NativePath)) + "Microsoft/Windows/Start Menu/Programs/" 'All Users
+		  'StartPathUser = Slash(FixPath(SpecialFolder.ApplicationData.NativePath)) + "Microsoft/Windows/Start Menu/Programs/" 'Current User
+		  
+		  StartPath = Slash(FixPath(SpecialFolder.SharedApplicationData.NativePath)) + "Microsoft/Windows/Start Menu/Programs" 'All Users
+		  StartPath = StartPath.ReplaceAll("/","\")
+		  
+		  'Data = Data.ReplaceAll("","")
+		  Data = Data.ReplaceAll("%%WinDir%","C:\windows")
+		  Data = Data.ReplaceAll("%WinDir%","C:\windows")
+		  Data = Data.ReplaceAll("%Programs%",StartPath)
+		  Data = Data.ReplaceAll("%ProgramsCommon%",StartPath)
+		  Data = Data.ReplaceAll("%StartmenuCommon%",StartPath)
+		  Data = Data.ReplaceAll("%HOMEDRIVE%%HOMEPATH%",NoSlash(SpecialFolder.UserHome.NativePath).ReplaceAll("/","\"))
+		  Data = Data.ReplaceAll("%ProgramFiles%",NoSlash(SpecialFolder.Applications.NativePath).ReplaceAll("/","\"))
+		  Data = Data.ReplaceAll("%ProgramFiles(x86)%",NoSlash(SpecialFolder.Applications.NativePath).ReplaceAll("/","\")+" (x86)")
+		  Data = Data.ReplaceAll("%CommonProgramFiles%",NoSlash(SpecialFolder.Applications.NativePath).ReplaceAll("/","\")+"\Common Files")
+		  
+		  Data = Data.ReplaceAll("%mydocuments%",NoSlash(SpecialFolder.UserHome.NativePath).ReplaceAll("/","\"))
+		  
+		  
+		  
+		  Data = Data.ReplaceAll("%COMSPEC%",System.EnvironmentVariable("COMSPEC"))
+		  
+		  '%StartmenuCommon% <_ Skipped, not used in 10
+		  
+		  
+		  Return Data
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub PopulateControlPanel()
 		  'Get current set Menu Style from C:\Windows\SetupSMenu.ini
 		  Dim I, G As Integer
@@ -329,6 +363,8 @@ End
 		  SetMenuStyle.Text = MenuStyle
 		  
 		  ComboMenuStyle.Text = MenuStyle
+		  
+		  
 		End Sub
 	#tag EndMethod
 
@@ -440,6 +476,14 @@ End
 		  Dim MenuPath As String
 		  Dim Suc As Boolean
 		  Dim Res As String
+		  Dim LineIn As String
+		  Dim ID As String
+		  Dim Sp() As String
+		  Dim ReadMode As Integer
+		  Dim StartPath As String
+		  
+		  StartPath = Slash(FixPath(SpecialFolder.SharedApplicationData.NativePath)) + "Microsoft/Windows/Start Menu/Programs" 'All Users
+		  StartPath = StartPath.ReplaceAll("/","\")
 		  
 		  
 		  'TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
@@ -496,8 +540,9 @@ End
 		          XCopyFile(MenuPath+"Definitions.ini", "C:\windows\ssTek\")
 		          Suc = Extract(MenuPath+"Icons.7z", "C:\windows\ssTek\Icons\", "")
 		          
-		          BuildStartMenuLocations()
-		          BuildMenuStyleFolder()
+		          'GlennGlennGlenn - ReEnabled Below 2 after testing
+		          'BuildStartMenuLocations()
+		          'BuildMenuStyleFolder()
 		          
 		          SetMenuStyle.Text = MenuStyle 'Update GUI to how new menu style
 		        Else
@@ -507,6 +552,158 @@ End
 		      End If
 		    End If
 		  End If
+		  
+		  'Load In Defaults (If Not already in)
+		  
+		  'Load In Menu Default Items
+		  If LoadedDefaults = False Then
+		    Dim FirstBit As String
+		    Dim IDClean As String
+		    Dim Valid As Boolean
+		    LoadedDefaults = True
+		    If Exist(Slash(ToolPath)+"MenuDefaults.ini") Then
+		      LineIn = LoadDataFromFile(Slash(ToolPath)+"MenuDefaults.ini")
+		      LineIn = LineIn.ReplaceAll(Chr(13),Chr(10))
+		      LineIn = LineIn.ReplaceAll(Chr(10)+Chr(10),Chr(10))
+		      Sp()=LineIn.Split(Chr(10))
+		      StartMenuDefaultsCount = 0 ' Clear Styles Count
+		      If Sp.Count >= 1 Then
+		        For I = 1 To Sp.Count -1
+		          Data = Right(Sp(I), Len(Sp(I))-InStr(Sp(I),"="))
+		          If Sp(I).IndexOf("=") >=1 Then
+		            ID = Left(Sp(I), Sp(I).IndexOf("="))
+		          Else
+		            Id = Sp(I).Trim
+		          End If
+		          
+		          FirstBit = Left(ID,1)
+		          
+		          Select Case FirstBit
+		          Case ";" 'Do Nothing
+		          Case "[" 'Item Header, add new item
+		            Valid = False
+		            IDClean = ID.ReplaceAll("[","").ReplaceAll("]","") 'Remove Square Brackets
+		            ID = IDClean 'Keep without Square Brackets to compare if blocked
+		            IDClean = IDClean.ReplaceAll(".WIN_8","") 'Remove This
+		            IDClean = IDClean.ReplaceAll(".WIN_7","") 'Remove This
+		            IDClean = IDClean.ReplaceAll(".WIN_2008R2","") 'Remove This
+		            IDClean = IDClean.ReplaceAll(".WIN_2008","") 'Remove This
+		            IDClean = IDClean.ReplaceAll(".WIN_VISTA","") 'Remove This
+		            IDClean = IDClean.ReplaceAll(".WIN_2003","") 'Remove This
+		            IDClean = IDClean.ReplaceAll(".WIN_XPe","") 'Remove This
+		            IDClean = IDClean.ReplaceAll(".WIN_XP","") 'Remove This
+		            IDClean = IDClean.ReplaceAll(".WIN_2000","") 'Remove This
+		            IDClean = IDClean.ReplaceAll(".OSARCH_x86","") 'Remove This
+		            IDClean = IDClean.ReplaceAll(".OSARCH_x64","") 'Remove This
+		            IDClean = IDClean.ReplaceAll(".WIN_None","") 'Remove This
+		            
+		            If ID = IDClean Then Valid = True
+		            
+		            'Clean the rest out
+		            IDClean = IDClean.ReplaceAll(".lnk","") 'Remove This
+		            IDClean = IDClean.ReplaceAll(".WIN_10","") 'Remove This
+		            
+		            ID = IDClean
+		            
+		            If Valid = True Then
+		              StartMenuDefaultsCount = StartMenuDefaultsCount + 1 ' Not 0 Based
+		              StartMenuDefaults(StartMenuDefaultsCount).Name = ID
+		              StartMenuDefaults(StartMenuDefaultsCount).Catalog = "Other" 'Set a default, in case it tried to use blank catalog
+		              StartMenuDefaults(StartMenuDefaultsCount).WorkingDir = "C:\" 'Set a default, in case it tried to use blank Working Dir
+		            End If
+		          Case Else 'Most Likely a data line or blank
+		            If Valid Then ' Only Process Valid Items
+		              Select Case ID
+		              Case "Target"
+		                StartMenuDefaults(StartMenuDefaultsCount).Target = ExpDefaults(Data)
+		              Case "Arguments"
+		                StartMenuDefaults(StartMenuDefaultsCount).Arguments = ExpDefaults(Data)
+		              Case "WorkingDir"
+		                StartMenuDefaults(StartMenuDefaultsCount).WorkingDir = ExpDefaults(Data)
+		              Case "Icon"
+		                StartMenuDefaults(StartMenuDefaultsCount).Icon = ExpDefaults(Data)
+		              Case "Index"
+		                StartMenuDefaults(StartMenuDefaultsCount).Index = Data.ToInteger
+		              Case "Description"
+		                StartMenuDefaults(StartMenuDefaultsCount).Description = Data
+		              Case "Default"
+		                StartMenuDefaults(StartMenuDefaultsCount).Default = ExpDefaults(Data)
+		              Case "Catalog"
+		                StartMenuDefaults(StartMenuDefaultsCount).Catalog = Data.ReplaceAll("|",";") '+";" 'Trying to split items so they dual sort instead
+		              Case "Shortcut"
+		                StartMenuDefaults(StartMenuDefaultsCount).Shortcut = Data
+		              Case "HotKey"
+		                StartMenuDefaults(StartMenuDefaultsCount).HotKey = Data
+		              End Select
+		            End If
+		            
+		          End Select
+		          'MsgBox "ID: "+ID+" Data: "+ Data
+		        Next
+		        'StartMenuDefaultsCount = StartMenuDefaultsCount - 1 'It's no 0 Based - it's 1 based, if = 0 then error
+		      End If
+		    End If
+		  End If
+		  
+		  
+		  'If Found Defaults process them
+		  If StartMenuDefaultsCount >= 1 Then
+		    LnkCount = 0
+		    For I = 1 To StartMenuDefaultsCount
+		      
+		      'Make ItemLLItem contain the link data so can use MakeLinks routine to do the task of cleaning from other menu styles etc
+		      If StartMenuDefaults(I).Shortcut = "" Then
+		        ItemLLItem.TitleName = StartMenuDefaults(I).Name
+		      Else
+		        ItemLLItem.TitleName = StartMenuDefaults(I).Shortcut 'Use Shortcut Name instead of Title (Maybe?) May cause non sorts?
+		      End If
+		      
+		      ItemLLItem.StartMenuSourcePath = StartMenuDefaults(I).Default.ReplaceAll(StartPath+"\","") 'Added "\" To See if Helps make folders
+		      
+		      ItemLLItem.Catalog = StartMenuDefaults(I).Catalog
+		      ItemLLItem.FileIcon = StartMenuDefaults(I).Icon
+		      
+		      If Exist(StartMenuDefaults(I).Target) Then
+		        If Debugging Then Debug("Default Found: "+ItemLLItem.TitleName+" Target: "+StartMenuDefaults(I).Target + Chr(10)+"StartMenuSorcePath: "+ItemLLItem.StartMenuSourcePath)
+		        LnkCount = LnkCount + 1
+		        ItemLnk(LnkCount).Title = ItemLLItem.TitleName 'Not 0 Based?
+		        ItemLnk(LnkCount).Description = StartMenuDefaults(I).Description
+		        ItemLnk(LnkCount).Exec = StartMenuDefaults(I).Target
+		        ItemLnk(LnkCount).Arguments = StartMenuDefaults(I).Arguments
+		        ItemLnk(LnkCount).RunPath = StartMenuDefaults(I).WorkingDir
+		        ItemLnk(LnkCount).Icon = StartMenuDefaults(I).Icon
+		        ItemLnk(LnkCount).IconIndex = StartMenuDefaults(I).Index
+		        ItemLnk(LnkCount).Categories = StartMenuDefaults(I).Catalog
+		        ItemLnk(LnkCount).StartSourceMenu = ItemLLItem.StartMenuSourcePath
+		      Else
+		        If Debugging Then Debug("Default Not Found: "+ItemLLItem.TitleName+" Target: "+StartMenuDefaults(I).Target + Chr(10)+"StartMenuSorcePath: "+ItemLLItem.StartMenuSourcePath)
+		      End If
+		      'CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
+		      
+		    Next
+		    If LnkCount >= 1 Then MakeLinks 'Do All Links at once, to speed it up
+		  End If
+		  
+		  'Data = ""
+		  'If StartMenuDefaultsCount >= 1 Then
+		  'For I = 0 To StartMenuDefaultsCount
+		  'Data = Data + StartMenuDefaults(I).Name +" "+ StartMenuDefaults(I).Target + Chr(10)
+		  'Next
+		  'If Data <> "" Then MsgBox Data
+		  'End If
+		  
+		  
+		  
+		  ''Enable Them Again
+		  'ButtonSetMenuStyle.Enabled = True
+		  'ComboMenuStyle.Enabled = True
+		  'CheckCleanUp.Enabled = True
+		  'MsgBox "Done Creating Defaults"
+		  'Return 'GlennGlennGlenn - Quit For now, to test only making the Defaults.
+		  
+		  
+		  
+		  
 		  
 		  Tims = (System.Microseconds/1000000)-StartTimeStamp
 		  If Debugging Then Debug("* (Build Menu Folder Done) Time Since Start "+Tims.ToString)

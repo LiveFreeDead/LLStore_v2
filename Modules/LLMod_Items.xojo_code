@@ -25,7 +25,7 @@ Protected Module LLMod_Items
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
-		ItemLnk(128) As LLLnk
+		ItemLnk(512) As LLLnk
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -117,7 +117,9 @@ Protected Module LLMod_Items
 		  LnkDECompatible As String * 1024
 		  LnkPMCompatible As String * 1024
 		  LnkArchCompatible As String * 32
-		LnkSendTo As Boolean
+		  LnkSendTo As Boolean
+		  IconIndex As Integer
+		StartSourceMenu As String * 1024
 	#tag EndStructure
 
 
