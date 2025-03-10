@@ -371,7 +371,7 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub CreateShortcut(TitleName As String, Target As String, WorkingDir As String, LinkFolder As String, Args As String = "", IconFile As String = "")
+		Sub CreateShortcut(TitleName As String, Target As String, WorkingDir As String, LinkFolder As String, Args As String = "", IconFile As String = "", IconIndex As Integer = 0)
 		  'Return ' Disabled for speed test GlennGlennGlenn Rem line once tested -  About 20 seconds saved, not worth optimizing to do as a batch
 		  
 		  If Debugging Then Debug("--- Starting Create Shortcuts ---")
@@ -401,6 +401,7 @@ Protected Module LLMod
 		          lnkObj.WorkingDirectory = Slash(FixPath(scWorkingDir.NativePath))
 		          
 		          If IconFile <> "" Then lnkObj.IconLocation = IconFile 'If Icon (.ico) Provided it can be used/set
+		          lnkObj.IconIndex = IconIndex
 		          
 		          'Save Lnk file
 		          lnkObj.Save
@@ -3774,7 +3775,11 @@ Protected Module LLMod
 		                    If Not SkipCleanup Then MakeLinksCleanOtherStyles(Catalog(J), StartPath, LinkOutPath, I, StartPathAlt)
 		                    
 		                    'Now Make Shortcut
-		                    CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
+		                    If ItemLnk(I).IconIndex <> 0 Then
+		                      CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)),"",ItemLnk(I).Icon,ItemLnk(I).IconIndex) ' Need to change ,"" to Args
+		                    Else
+		                      CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
+		                    End If
 		                    If StartPathAlt <> "" Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link
 		                    Continue 'Use Continue not exit so it jumps out of a loop, it was quitting the whole routine
 		                  End If
@@ -3798,7 +3803,11 @@ Protected Module LLMod
 		                If Not SkipCleanup Then MakeLinksCleanOtherStyles(Catalog(J), StartPath, LinkOutPath, I, StartPathAlt)
 		                
 		                'Now Make Shortcut
-		                CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
+		                If ItemLnk(I).IconIndex <> 0 Then
+		                  CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)),"",ItemLnk(I).Icon,ItemLnk(I).IconIndex) ' Need to change ,"" to Args
+		                Else
+		                  CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
+		                End If
 		                
 		              End If
 		              
