@@ -119,7 +119,7 @@ Protected Module LLMod
 		      
 		      If Sp.Count >=1 Then 'If Valid, do it
 		        For I = 0 To Sp.Count -1
-		          
+		          Sp(I) = Sp(I).Trim
 		          If Sp(I).IndexOf("=") >=0 Then 'Only do Valid converstions for all lines - regardless of mode
 		            SpLine() = Sp(I).Split("=") 'Split to 0 as Catalog and 1 as Start Path Used, or IconFile/IconIndex and values
 		            SpLine(0)=SpLine(0).Trim 'Catalog, IconFile/IconIndex
@@ -178,7 +178,7 @@ Protected Module LLMod
 		              Next J
 		              If DetectedItem <=0 Then 'Add new Item as root folder option
 		                StartMenuLocationsCount(K) = StartMenuLocationsCount(K) + 1 'Don't make it 0 Based, Start at 1
-		                StartMenuLocations(StartMenuLocationsCount(K), K).Catalog = StartMenuPath
+		                StartMenuLocations(StartMenuLocationsCount(K), K).Catalog = StartMenuPath 'GlennGlennGlenn - I think this should be the Catalog name, NOT the start path???
 		                StartMenuLocations(StartMenuLocationsCount(K), K).Path = StartMenuPath
 		                DetectedItem = StartMenuLocationsCount(K) 'Newly added item
 		              End If
@@ -187,10 +187,46 @@ Protected Module LLMod
 		          End If
 		          If Sp(I).Trim = "[Catalog]" Then CatMode = True
 		        Next
+		        
+		        'Redo loop to get redirects
+		        For I = 0 To Sp.Count -1
+		          
+		          If Left(Sp(I),1)="!" Then
+		            
+		            If Sp(I).IndexOf("=") >=0 Then 'Only do Valid converstions for all lines - regardless of mode
+		              SpLine() = Sp(I).Split("=") 'Split to 0 as Catalog and 1 as Start Path Used, or IconFile/IconIndex and values
+		              SpLine(0)=Right(SpLine(0).Trim, Len(SpLine(0).Trim)-1) 'Catalog, IconFile/IconIndex, remove ! from start
+		              SpLine(1)=SpLine(1).Trim 'Start Path, Value
+		            End If
+		            
+		            'MsgBox SpLine(0)+"="+SpLine(1)
+		            
+		            'Redirect Category to existing path/icon
+		            DetectedItem = -1
+		            For J = 1 To StartMenuLocationsCount(K)
+		              If SpLine(1) = StartMenuLocations(J, K).Catalog Then 'SpLine(1) Is the Corrected Category, so if that matches then it should be the right one to use
+		                'If StartMenuLocations(I, K).Catalog = StartMenuLocations(J, K).Catalog Then
+		                DetectedItem = J
+		                Exit 'Found item, no need to re add it or keep looking
+		              End If
+		            Next J
+		            If DetectedItem >=1 Then 'Add new Item as root folder option
+		              
+		              StartMenuLocations(StartMenuLocationsCount(K),K).Catalog = SpLine(0)'StartMenuLocations(DetectedItem, K).Catalog
+		              StartMenuLocations(StartMenuLocationsCount(K),K).Path = StartMenuLocations(DetectedItem, K).Path
+		              StartMenuLocations(StartMenuLocationsCount(K),K).IconFile = StartMenuLocations(DetectedItem, K).IconFile
+		              StartMenuLocations(StartMenuLocationsCount(K),K).IconIndex = StartMenuLocations(DetectedItem, K).IconIndex
+		              StartMenuLocationsCount(K) = StartMenuLocationsCount(K) + 1
+		              
+		            End If
+		            
+		          End If
+		        Next I
+		        
 		        StartMenuLocationsCount(K) = StartMenuLocationsCount(K) - 1 'One Less as it's empty for last item
 		      End If
 		    End If
-		  Next
+		  Next K
 		  
 		  'Next
 		End Sub
@@ -2991,7 +3027,7 @@ Protected Module LLMod
 		          Continue 'Only need to process this line and then move to the next
 		        Case "icon"
 		          ItemLnk(LnkEditing).Link.IconLocation = Trim(LineData)
-		          If ItemLnk(LnkEditing).Link.IconLocation = "" Then ItemLnk(LnkEditing).Link.IconLocation = Slash(ItemLLItem.PathApp) + ItemLLItem.BuildType + ".png"
+		          '''''''If ItemLnk(LnkEditing).Link.IconLocation = "" Then ItemLnk(LnkEditing).Link.IconLocation = Slash(ItemLLItem.PathApp) + ItemLLItem.BuildType + ".png" ' No If empty it uses the .exe one which is correct
 		          Continue 'Only need to process this line and then move to the next
 		        Case "categories"
 		          ItemLnk(LnkEditing).Categories = FixGameCats(LineData)
@@ -3570,6 +3606,7 @@ Protected Module LLMod
 		        DesktopFile = ItemLnk(I).Title.ReplaceAll(" ", ".") + ".desktop" 'Remove Spaces and add .desktop back to file name
 		        
 		        ItemLnk(I).Link.IconLocation = ExpPath(ItemLnk(I).Link.IconLocation)
+		        'If TargetLinux Then 'Only Linux .desktop files need the png, Windows MakeLinks works fine with no Icon File given :) - It's already checked for Linux, the Windows Section has it's own
 		        If Not Exist(ItemLnk(I).Link.IconLocation) Then ItemLnk(I).Link.IconLocation = "" 'Remove Dodgy Icon and use something
 		        If ItemLnk(I).Link.IconLocation = "" Then
 		          If Exist(InstallToPath + "ppGame.png") Then ItemLnk(I).Link.IconLocation = InstallToPath + "ppGame.png"
@@ -3578,6 +3615,7 @@ Protected Module LLMod
 		          If Exist(InstallToPath + "LLGame.png") Then ItemLnk(I).Link.IconLocation = InstallToPath + "LLGame.png"
 		          If Exist(InstallToPath + "LLApp.png") Then ItemLnk(I).Link.IconLocation = InstallToPath + "LLApp.png"
 		        End If
+		        'End If
 		        
 		        'If in Linux check if run-1080p is available and if not remove it from the Exe being called.
 		        If TargetLinux Then
@@ -3718,14 +3756,15 @@ Protected Module LLMod
 		        ItemLnk(I).Title = ItemLnk(I).Title.ReplaceAll("{#1}", "") 'Remove Dual Arch leftovers
 		        
 		        ItemLnk(I).Link.IconLocation = ExpPath(ItemLnk(I).Link.IconLocation)
+		        'Windows does NOT use .png's for icons at ALL, a blank one is prefered
 		        ''''''If Not Exist(ItemLnk(I).Link.IconLocation) Then ItemLnk(I).Link.IconLocation = "" 'Remove Dodgy Icon and use something ' NO, Uses the default icon from the .exe pointed at if nothing supplied, all good
-		        If ItemLnk(I).Link.IconLocation = "" Then
-		          If Exist(InstallToPath + "ppGame.png") Then ItemLnk(I).Link.IconLocation = InstallToPath + "ppGame.png"
-		          If Exist(InstallToPath + "ppApp.png") Then ItemLnk(I).Link.IconLocation = InstallToPath + "ppApp.png"
-		          If Exist(InstallToPath + "ssApp.png") Then ItemLnk(I).Link.IconLocation = InstallToPath + "ssApp.png"
-		          If Exist(InstallToPath + "LLGame.png") Then ItemLnk(I).Link.IconLocation = InstallToPath + "LLGame.png"
-		          If Exist(InstallToPath + "LLApp.png") Then ItemLnk(I).Link.IconLocation = InstallToPath + "LLApp.png"
-		        End If
+		        '''''If ItemLnk(I).Link.IconLocation = "" Then
+		        '''''If Exist(InstallToPath + "ppGame.png") Then ItemLnk(I).Link.IconLocation = InstallToPath + "ppGame.png"
+		        '''''If Exist(InstallToPath + "ppApp.png") Then ItemLnk(I).Link.IconLocation = InstallToPath + "ppApp.png"
+		        '''''If Exist(InstallToPath + "ssApp.png") Then ItemLnk(I).Link.IconLocation = InstallToPath + "ssApp.png"
+		        '''''If Exist(InstallToPath + "LLGame.png") Then ItemLnk(I).Link.IconLocation = InstallToPath + "LLGame.png"
+		        '''''If Exist(InstallToPath + "LLApp.png") Then ItemLnk(I).Link.IconLocation = InstallToPath + "LLApp.png"
+		        '''''End If
 		        
 		        ItemLnk(I).Link.WorkingDirectory = ExpPath(ItemLnk(I).Link.WorkingDirectory)
 		        If ItemLnk(I).Link.WorkingDirectory = "" Then

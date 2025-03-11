@@ -2667,7 +2667,7 @@ End
 		    
 		    If Settings.SetCheckForUpdates.Value = True And RunningInIDE = False And WritableAppPath = True Then
 		      CheckingForUpdates = True
-		      Loading.Status.Text = "Check For Store Updates..."
+		      Loading.Status.Text = "Check For Store Updates: "
 		      Loading.Refresh
 		      App.DoEvents(1)
 		      CheckForLLStoreUpdates
