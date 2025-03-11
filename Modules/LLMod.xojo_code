@@ -1853,7 +1853,10 @@ Protected Module LLMod
 		    End If
 		  End If
 		  
+		  If Debugging Then Debug("No Install: "+ ItemLLItem.NoInstall.ToString) 'This is for debugging items trying to install to a folder instead of running in place
+		  
 		  If ItemLLItem.NoInstall = False Then 'Has a Destination Path
+		    
 		    
 		    InstallToPath = Slash(ExpPath(ItemLLItem.PathApp))
 		    
@@ -2748,6 +2751,8 @@ Protected Module LLMod
 		  InstallFromIni = ActualIni
 		  '''''If Right(ActualIni,9) = "ssApp.app" Then CurrentssAppFile = ActualIni 'This is used by the MoveLinks to generate the new ssApp.app file for installed items
 		  
+		  If Debugging Then Debug("Load LLFile: "+ ActualIni)
+		  
 		  'Load in whole file at once (Fastest Method)
 		  inputStream = TextInputStream.Open(F)
 		  
@@ -2760,6 +2765,9 @@ Protected Module LLMod
 		  RL = RL.ReplaceAll(Chr(13), Chr(10))
 		  Sp()=RL.Split(Chr(10))
 		  If Sp.Count <= 0 Then Return False ' Empty File or no header
+		  
+		  If Debugging Then Debug("LLFile Not Empty")
+		  
 		  Lin = Sp(0).Trim.Lowercase
 		  If Lin = "[llfile]" Or Lin = "[setups]" Then 'Only work with files that are really our files
 		    ItemLLItem.BuildType = "LLApp" 'Default to LLApps
@@ -2795,6 +2803,7 @@ Protected Module LLMod
 		        Case "title"
 		          If LineData = "" Then Return False
 		          ItemLLItem.TitleName = LineData
+		          If Debugging Then Debug("Title To Install: "+LineData)
 		          Continue 'Once used Data no need to process the rest
 		        Case "version"
 		          ItemLLItem.Version = LineData
@@ -2853,8 +2862,24 @@ Protected Module LLMod
 		          Continue 'Only need to process this line and then move to the next
 		        Case "flags"
 		          ItemLLItem.Flags = LineData.Lowercase
-		          ProcessFlags(ItemLLItem, LineData)
-		          
+		          If ItemLLItem.Flags.IndexOf("alwayshide") >= 0 Then
+		            ItemLLItem.Hidden = True
+		            ItemLLItem.HiddenAlways = True
+		          End If
+		          If ItemLLItem.Flags.IndexOf("hidden") >= 0 Then ItemLLItem.Hidden = True
+		          If ItemLLItem.Flags.IndexOf("showsetuponly") >= 0 Then
+		            ItemLLItem.ShowSetupOnly = True
+		            If StoreMode <> 0 Then ItemLLItem.Hidden = True
+		          End If
+		          If ItemLLItem.Flags.IndexOf("internetrequired") >= 0 Then ItemLLItem.InternetRequired = True
+		          If ItemLLItem.Flags.IndexOf("noinstall") >= 0 Then ItemLLItem.NoInstall = True
+		          If ItemLLItem.Flags.IndexOf("keepall") >= 0 Then ItemLLItem.KeepAll = True
+		          If ItemLLItem.Flags.IndexOf("keepinfolder") >= 0 Then ItemLLItem.KeepInFolder = True
+		          If ItemLLItem.Flags.IndexOf("sendto") >= 0 Then ItemLLItem.SendTo = True
+		          If ItemLLItem.Flags.IndexOf("forcederefresh") >= 0 Then
+		            ItemLLItem.ForceDERefresh = True
+		            ForceDERefresh = True
+		          End If
 		          Continue 'Once used Data no need to process the rest, The other lines will cause the lower things to be tested per line
 		        Case "priority"
 		          ItemLLItem.Priority = Val(LineData)
@@ -4359,25 +4384,7 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Sub ProcessFlags(Item As LLItem, Flags As String)
-		  Flags = Flags.Lowercase
-		  If Flags.IndexOf("alwayshide") >= 0 Then
-		    Item.Hidden = True
-		    Item.HiddenAlways = True
-		  End If
-		  If Flags.IndexOf("hidden") >= 0 Then Item.Hidden = True
-		  If Flags.IndexOf("showsetuponly") >= 0 Then
-		    Item.ShowSetupOnly = True
-		    If StoreMode <> 0 Then Item.Hidden = True
-		  End If
-		  If Flags.IndexOf("internetrequired") >= 0 Then Item.InternetRequired = True
-		  If Flags.IndexOf("noinstall") >= 0 Then Item.NoInstall = True
-		  If Flags.IndexOf("keepall") >= 0 Then Item.KeepAll = True
-		  If Flags.IndexOf("keepinfolder") >= 0 Then Item.KeepInFolder = True
-		  If Flags.IndexOf("sendto") >= 0 Then Item.SendTo = True
-		  If Flags.IndexOf("forcederefresh") >= 0 Then
-		    Item.ForceDERefresh = True
-		    ForceDERefresh = True
-		  End If
+		  
 		End Sub
 	#tag EndMethod
 
