@@ -888,18 +888,18 @@ End
 		      Case "LnkTitle"
 		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Title
 		      Case "LnkComment"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Comment
+		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Link.Description
 		      Case "LnkDescription"
 		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Description
 		      Case "LnkCategories"
 		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Categories
 		      Case "LnkRunPath"
-		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(1).RunPath)
+		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(1).Link.WorkingDirectory)
 		        If Data.Items.CellTextAt(ItemCount,I) = "" Then Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLLItem.PathApp) 'Make sure it has some kind of path, so it has somewhere to be
 		      Case "LnkExec"
-		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(1).Exec)
+		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(1).Link.TargetPath)
 		      Case "LnkArguments"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Arguments
+		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Link.Arguments
 		      Case "LnkFlags"
 		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Flags
 		      Case "LnkAssociations"
@@ -907,7 +907,7 @@ End
 		      Case "LnkTerminal"
 		        Data.Items.CellTextAt(ItemCount,I) = Left(Str(ItemLnk(1).Terminal),1)
 		      Case "LnkIcon"
-		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(1).Icon)
+		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(1).Link.IconLocation)
 		        
 		      Case "LnkOSCompatible"
 		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).LnkOSCompatible
@@ -949,7 +949,7 @@ End
 		      For J = 1 To LnkCount
 		        ItemCount =  Data.Items.RowCount
 		        Data.Items.AddRow(Str(Data.Items.RowCount))
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Icon
+		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Link.IconLocation
 		        For I = 1 To Data.Items.ColumnCount
 		          Data.Items.CellTextAt(ItemCount,I) = Data.Items.CellTextAt(MainItem,I)
 		          Select Case  Data.Items.HeaderAt(I)
@@ -965,30 +965,30 @@ End
 		          Case "TitleName"
 		            Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Title
 		          Case "LnkComment"
-		            Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Comment
+		            Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Link.Description
 		          Case "LnkDescription"
 		            If ItemLnk(J).Description <> "" Then
 		              Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Description
 		            Else
-		              If ItemLnk(J).Comment <> "" Then Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Comment
+		              If ItemLnk(J).Link.Description <> "" Then Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Link.Description
 		            End If
 		          Case "Description"
 		            If ItemLnk(J).Description <> "" Then
 		              Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Description
 		            Else
-		              If ItemLnk(J).Comment <> "" Then Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Comment
+		              If ItemLnk(J).Link.Description <> "" Then Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Link.Description
 		            End If
 		          Case "LnkCategories"
 		            Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Categories
 		          Case "Categories"
 		            Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Categories
 		          Case "LnkRunPath"
-		            Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(J).RunPath)
+		            Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(J).Link.WorkingDirectory)
 		            If Data.Items.CellTextAt(ItemCount,I) = "" Then Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLLItem.PathApp) 'Make sure it has some kind of path, so it has somewhere to be
 		          Case "LnkExec"
-		            Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(J).Exec)
+		            Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(J).Link.TargetPath)
 		          Case "LnkArguments"
-		            Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Arguments
+		            Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Link.Arguments
 		          Case "LnkFlags"
 		            Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).Flags
 		          Case "LnkAssociations"
@@ -996,7 +996,7 @@ End
 		          Case "LnkTerminal"
 		            Data.Items.CellTextAt(ItemCount,I) = Left(Str(ItemLnk(J).Terminal),1)
 		          Case "LnkIcon"
-		            Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(J).Icon)
+		            Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(J).Link.IconLocation)
 		            
 		          Case "LnkOSCompatible"
 		            Data.Items.CellTextAt(ItemCount,I) = ItemLnk(J).LnkOSCompatible
@@ -3206,6 +3206,13 @@ End
 		  
 		  'Test Code here
 		  'MakeFolderIcon("D:\Documents\Desktop\New folder","D:\Documents\Desktop\New folder\ppApp.ico")
+		  '
+		  'CreateShortcut ("Notepad",Chr(34)+"C:\windows\notepad.exe"+Chr(34),"C:\windows","D:\Documents\Desktop")
+		  '
+		  'Dim MyLink As Shortcut
+		  '
+		  'MyLink = GetShortcut("C:\Users\Public\Desktop\LL Store.lnk")
+		  'MsgBox MyLink.TargetPath
 		  'Quit
 		  
 		  'Sudo Shell Loop waits forever to run Sudo Tasks without needing to type password constantly

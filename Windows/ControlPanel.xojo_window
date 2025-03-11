@@ -668,17 +668,16 @@ End
 		        LnkCount = LnkCount + 1
 		        ItemLnk(LnkCount).Title = ItemLLItem.TitleName 'Not 0 Based?
 		        ItemLnk(LnkCount).Description = StartMenuDefaults(I).Description
-		        ItemLnk(LnkCount).Exec = StartMenuDefaults(I).Target
-		        ItemLnk(LnkCount).Arguments = StartMenuDefaults(I).Arguments
-		        ItemLnk(LnkCount).RunPath = StartMenuDefaults(I).WorkingDir
-		        ItemLnk(LnkCount).Icon = StartMenuDefaults(I).Icon
-		        ItemLnk(LnkCount).IconIndex = StartMenuDefaults(I).Index
+		        ItemLnk(LnkCount).Link.TargetPath = StartMenuDefaults(I).Target
+		        ItemLnk(LnkCount).Link.Arguments = StartMenuDefaults(I).Arguments
+		        ItemLnk(LnkCount).Link.WorkingDirectory = StartMenuDefaults(I).WorkingDir
+		        ItemLnk(LnkCount).Link.IconLocation = StartMenuDefaults(I).Icon
 		        ItemLnk(LnkCount).Categories = StartMenuDefaults(I).Catalog
 		        ItemLnk(LnkCount).StartSourceMenu = ItemLLItem.StartMenuSourcePath
 		      Else
 		        If Debugging Then Debug("Default Not Found: "+ItemLLItem.TitleName+" Target: "+StartMenuDefaults(I).Target + Chr(10)+"StartMenuSorcePath: "+ItemLLItem.StartMenuSourcePath)
 		      End If
-		      'CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).RunPath)), Slash(FixPath(LinkOutPathSet)))
+		      'CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).Link.WorkingDirectory)), Slash(FixPath(LinkOutPathSet)))
 		      
 		    Next
 		    If LnkCount >= 1 Then MakeLinks 'Do All Links at once, to speed it up

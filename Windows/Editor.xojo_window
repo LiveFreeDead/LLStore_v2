@@ -6387,10 +6387,10 @@ End
 		  EditingCBLnk = ComboShortcut.SelectedRowIndex
 		  EditingLnk = ComboShortcut.RowTagAt(EditingCBLnk)
 		  
-		  TextComment.Text = ItemLnk(EditingLnk).Comment '+1 because it's 0 based
-		  TextExecute.Text = ItemLnk(EditingLnk).Exec
-		  TextRunInPath.Text = ItemLnk(EditingLnk).RunPath
-		  TextIcon.Text = ItemLnk(EditingLnk).Icon
+		  TextComment.Text = ItemLnk(EditingLnk).Link.Description '+1 because it's 0 based
+		  TextExecute.Text = ItemLnk(EditingLnk).Link.TargetPath
+		  TextRunInPath.Text = ItemLnk(EditingLnk).Link.WorkingDirectory
+		  TextIcon.Text = ItemLnk(EditingLnk).Link.IconLocation
 		  TextFileTypes.Text = ItemLnk(EditingLnk).Associations
 		  TextDescriptionLink.Text = ItemLnk(EditingLnk).Description.ReplaceAll(Chr(30), Chr(13)) '13 instead of 10 for Text Areas
 		  CheckRunInTerminal.Value = ItemLnk(EditingLnk).Terminal
@@ -6409,7 +6409,7 @@ End
 		Sub TextChanged()
 		  If ComboShortcut.RowCount >= 1 Then 'Only allow it to Save Changes if it's Got Link Items added
 		    If EditingLnk <= LnkCount And EditingLnk >= 0 Then ' Just a precaution
-		      ItemLnk(EditingLnk).Comment = Me.Text.Trim
+		      ItemLnk(EditingLnk).Link.Description = Me.Text.Trim
 		    End If
 		  End If
 		End Sub
@@ -6420,7 +6420,7 @@ End
 		Sub TextChanged()
 		  If ComboShortcut.RowCount >= 1 Then 'Only allow it to Save Changes if it's Got Link Items added
 		    If EditingLnk <= LnkCount  And EditingLnk >= 0 Then ' Just a precaution
-		      ItemLnk(EditingLnk).Exec = Me.Text.Trim
+		      ItemLnk(EditingLnk).Link.TargetPath = Me.Text.Trim
 		    End If
 		  End If
 		End Sub
@@ -6431,7 +6431,7 @@ End
 		Sub TextChanged()
 		  If ComboShortcut.RowCount >= 1 Then 'Only allow it to Save Changes if it's Got Link Items added
 		    If EditingLnk <= LnkCount And EditingLnk >= 0  Then ' Just a precaution
-		      ItemLnk(EditingLnk).RunPath = Me.Text.Trim
+		      ItemLnk(EditingLnk).Link.WorkingDirectory = Me.Text.Trim
 		    End If
 		  End If
 		End Sub
@@ -6442,7 +6442,7 @@ End
 		Sub TextChanged()
 		  If ComboShortcut.RowCount >= 1 Then 'Only allow it to Save Changes if it's Got Link Items added
 		    If EditingLnk <= LnkCount And EditingLnk >= 0  Then ' Just a precaution
-		      ItemLnk(EditingLnk).Icon = Me.Text.Trim
+		      ItemLnk(EditingLnk).Link.IconLocation = Me.Text.Trim
 		    End If
 		  End If
 		End Sub

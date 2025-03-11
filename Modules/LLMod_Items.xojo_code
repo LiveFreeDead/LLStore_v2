@@ -98,18 +98,13 @@ Protected Module LLMod_Items
 	#tag Structure, Name = LLLnk, Flags = &h0
 		Active As Boolean
 		  Title As String * 1024
-		  Comment As String * 512
 		  Description As String * 8192
 		  Categories As String * 1024
-		  RunPath As String * 2048
-		  Exec As String * 2048
-		  Arguments As String * 1024
 		  Flags As String * 1024
 		  Associations As String * 512
 		  Terminal As Boolean
 		  Multiple As Boolean
 		  ParentRef As Integer
-		  Icon As String * 2048
 		  Desktop As Boolean
 		  Panel As Boolean
 		  Favorite As Boolean
@@ -118,8 +113,8 @@ Protected Module LLMod_Items
 		  LnkPMCompatible As String * 1024
 		  LnkArchCompatible As String * 32
 		  LnkSendTo As Boolean
-		  IconIndex As Integer
-		StartSourceMenu As String * 1024
+		  StartSourceMenu As String * 1024
+		Link As Shortcut
 	#tag EndStructure
 
 
