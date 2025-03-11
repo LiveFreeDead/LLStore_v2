@@ -3205,6 +3205,16 @@ End
 		  ShellFast.TimeOut = -1 'Give it All the time it needs
 		  
 		  'Test Code here
+		  
+		  'If Exist ("C:\Budda Bing") Then Msgbox "Found 1"
+		  'If Exist ("C:/Budda Bing") Then Msgbox "Found 2"
+		  'If Exist ("C:\Budda Bing\") Then Msgbox "Found 3"
+		  'If Exist ("C:/Budda Bing/") Then Msgbox "Found 4"
+		  'If Exist ("C:\Budda Bing\Test.lnk") Then Msgbox "Found 5"
+		  'If Exist ("C:/Budda Bing/Test.lnk") Then Msgbox "Found 6"
+		  
+		  'Quit
+		  
 		  'MakeFolderIcon("D:\Documents\Desktop\New folder","D:\Documents\Desktop\New folder\ppApp.ico")
 		  '
 		  'CreateShortcut ("Notepad",Chr(34)+"C:\windows\notepad.exe"+Chr(34),"C:\windows","D:\Documents\Desktop")

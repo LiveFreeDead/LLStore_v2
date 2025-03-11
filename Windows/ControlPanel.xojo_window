@@ -712,6 +712,7 @@ End
 		    QueueDeltree = True
 		    QueueDeltreeMajor = True
 		    QueueDeltreeJobs = ""
+		    DelJobsList.RemoveAll
 		    
 		    ResortStartMenu() 'Disabled for now so I can test cleaner - re-enable (GlennGlennGlenn)
 		    

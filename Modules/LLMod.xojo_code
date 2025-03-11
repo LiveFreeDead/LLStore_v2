@@ -461,6 +461,7 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Sub Deltree(S As String)
+		  
 		  Dim Sh As New Shell
 		  Sh.TimeOut = -1
 		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
@@ -473,19 +474,34 @@ Protected Module LLMod
 		  
 		  If QueueDeltree Then
 		    'Delete Folders
-		    If TargetWindows Then
-		      QueueDeltreeJobs = QueueDeltreeJobs + ("rmdir /q /s " + Chr(34)+S+Chr(34)) +Chr(10) 'Don't use RunCommand or it becomes recursive as it uses this routine to clean up
-		    Else
-		      QueueDeltreeJobs = QueueDeltreeJobs + ("rm -rf " + Chr(34)+S+Chr(34)) +Chr(10)
-		    End If
+		    Dim I As Integer
+		    Dim NewJob As String
+		    Dim Found As Boolean
 		    
-		    'Delete File
-		    If TargetWindows Then
-		      QueueDeltreeJobs = QueueDeltreeJobs + ("del /f /q " + Chr(34)+S+Chr(34)) +Chr(10) 'Don't use RunCommand or it becomes recursive as it uses this routine to clean up
-		    Else
-		      QueueDeltreeJobs = QueueDeltreeJobs + ("rm -f " + Chr(34)+S+Chr(34)) +Chr(10)
+		    NewJob = S
+		    If DelJobsList.Count >= 1 Then
+		      For I = 0 To DelJobsList.Count - 1
+		        If S = DelJobsList(I) Then
+		          Found = True
+		          Exit
+		        End If
+		      Next I
 		    End If
-		    
+		    If Found = False Then 'Only Add New Jobs
+		      DelJobsList.Add(S) 'Add to Queue List so Only happens once
+		      If TargetWindows Then
+		        QueueDeltreeJobs = QueueDeltreeJobs + ("rmdir /q /s " + Chr(34)+S+Chr(34)) +Chr(10) 'Don't use RunCommand or it becomes recursive as it uses this routine to clean up
+		      Else
+		        QueueDeltreeJobs = QueueDeltreeJobs + ("rm -rf " + Chr(34)+S+Chr(34)) +Chr(10)
+		      End If
+		      
+		      'Delete File
+		      If TargetWindows Then
+		        QueueDeltreeJobs = QueueDeltreeJobs + ("del /f /q " + Chr(34)+S+Chr(34)) +Chr(10) 'Don't use RunCommand or it becomes recursive as it uses this routine to clean up
+		      Else
+		        QueueDeltreeJobs = QueueDeltreeJobs + ("rm -f " + Chr(34)+S+Chr(34)) +Chr(10)
+		      End If
+		    End If
 		  Else
 		    If Debugging Then Debug("- Deltree: " + S)
 		    
@@ -609,7 +625,7 @@ Protected Module LLMod
 		    F = GetFolderItem(FileIn, FolderItem.PathTypeShell)
 		    If F <> Nil Then
 		      'If Debugging Then Debug("Exist: "+FileIn +" = True")  'Too many calls to log it really
-		      If F.Exists Then Return True
+		      If F.Exists = True Then Return True
 		    End If
 		    'If Debugging Then Debug("Exist: "+FileIn +" = False") 'Too many calls to log it really
 		    Return False
@@ -1450,16 +1466,15 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Function FileExistsDisabled(InTXT As String) As Boolean
-		  'Dont use, seems dodgy!!!
-		  
-		  'Returns a True or False of if a File or Folder exists, only in Windows
-		  
-		  If InTXT <> "" Then
-		    Declare Function GetFileAttributes Lib "kernel32" Alias "GetFileAttributesA" (lpFileName As CString) As Integer
-		    
-		    If GetFileAttributes (InTXT) <> -1 Then
-		      Return True
+		Function FileExistsDUD(InTXT As String) As Boolean
+		  'Returns a True or False of if a File or Folder exists
+		  If TargetWindows Then
+		    If InTXT <> "" Then
+		      Declare Function GetFileAttributes Lib "kernel32" Alias "GetFileAttributesA" (lpFileName As CString) As Integer
+		      
+		      If GetFileAttributes (InTXT) <> -1 Then
+		        Return True
+		      End If
 		    End If
 		  End If
 		  Return False 'Return False if Empty file given or Not found
@@ -3337,6 +3352,7 @@ Protected Module LLMod
 		  If QueueDeltreeMajor = False Then 'If configured to delete all of them, don't clear the existing list
 		    QueueDeltree = True
 		    QueueDeltreeJobs = ""
+		    DelJobsList.RemoveAll
 		  End If
 		  
 		  
@@ -3745,8 +3761,7 @@ Protected Module LLMod
 		                  If Catalog(J) = StartMenuLocations(K, StartMenuUsed).Catalog Then 'Or GameCatFound = True <-No longer needed
 		                    If Debugging Then Debug ("Found New Catalog: "+ Catalog(J)+"=>"+ StartMenuLocations(K, StartMenuUsed).Path)
 		                    
-		                    
-		                    If Debugging Then Debug ("Not First Item ~~~ Checkpoint")
+		                    'If Debugging Then Debug ("Not First Item ~~~ Checkpoint")
 		                    
 		                    LinkOutPath = StartPath+StartMenuLocations(K, StartMenuUsed).Path 'StartPath is where Writable
 		                    If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
@@ -3776,7 +3791,9 @@ Protected Module LLMod
 		                    'Now Make Shortcut
 		                    CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).Link.WorkingDirectory)), Slash(FixPath(LinkOutPathSet)),ItemLnk(I).Link.Arguments,ItemLnk(I).Link.IconLocation, ItemLnk(I).Link.Hotkey)
 		                    
-		                    If StartPathAlt <> "" Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link
+		                    If StartPathAlt <> "" Then
+		                      If Exist(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link
+		                    End If
 		                    Continue 'Use Continue not exit so it jumps out of a loop, it was quitting the whole routine
 		                  End If
 		                Next K
@@ -3827,6 +3844,7 @@ Protected Module LLMod
 		  'Delete all items at once, MUCH faster
 		  If QueueDeltreeMajor = False Then
 		    QueueDeltree = False
+		    If Debugging Then Debug("--- Make Links Major Delete Job ---")
 		    RunCommand (QueueDeltreeJobs)
 		    QueueDeltreeJobs = ""
 		  End If
@@ -3835,6 +3853,8 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Sub MakeLinksCleanOtherStyles(Catalog As String, StartPath As String, LinkOutPath As String, I As Integer, StartPathAlt As String)
+		  If Debugging Then Debug ("--- Clean Other Menu Styles ---")
+		  
 		  Dim N, O As Integer
 		  
 		  Dim LinkOutPathSet As String = LinkOutPath
@@ -3865,21 +3885,33 @@ Protected Module LLMod
 		      
 		      ' Don't delete if part of the main tree
 		      If Not Exist("C:\windows\ssTek\Menu\" + LinkOutPath.ReplaceAll(StartPath, "")) Then 
-		        If Exist(LinkOutPath) Then Deltree(LinkOutPath) ' Delete Old Link Sorting
+		        'If Exist(LinkOutPath) Then Deltree(LinkOutPath) ' Delete Old Link Sorting
+		        If Exist(LinkOutPath) = True Then Deltree(LinkOutPath)
 		      End If
-		      If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) Then 
-		        If StartPathAlt <> "" Then Deltree (LinkOutPath.Replace(StartPath, StartPathUser)) 'Delete Old Link Sorting
+		      
+		      If StartPathAlt <> "" Then 
+		        If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) = True Then Deltree(LinkOutPath.Replace(StartPath, StartPathUser))
 		      End If
 		      If MenuStyle <> "UnSorted" Then
-		        If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
-		        If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
+		        'If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		        If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") = True Then Deltree(StartPath + "Games\"+ItemLnk(I).Title +".lnk")
+		        
+		        'If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
+		        If Exist(StartPath + ItemLLItem.TitleName) = True Then Deltree(StartPath + ItemLLItem.TitleName)
+		        
 		        If ItemLLItem.StartMenuSourcePath <> "" Then
-		          If Exist (StartPath + ItemLLItem.StartMenuSourcePath) Then Deltree (StartPath + ItemLLItem.StartMenuSourcePath) 'Delete Unsorted Apps Folders
+		          'If Exist (StartPath + ItemLLItem.StartMenuSourcePath) Then Deltree (StartPath + ItemLLItem.StartMenuSourcePath) 'Delete Unsorted Apps Folders
+		          If Exist(StartPath + ItemLLItem.StartMenuSourcePath) = True Then Deltree(StartPath + ItemLLItem.StartMenuSourcePath)
+		          
 		        End If
 		      End If
 		    End If
 		    
-		    If StartPathAlt <> "" Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link if in Admin Mode to remake it
+		    If StartPathAlt <> "" Then
+		      'Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link if in Admin Mode to remake it
+		      If Exist(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") = True Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk")
+		    End If
+		    
 		    
 		  Next
 		End Sub
@@ -4134,7 +4166,7 @@ Protected Module LLMod
 		      
 		      If Debugging Then Debug("* Trying MoveLink Job: " + Sp(M)+".lnk")
 		      If Exist (Slash(TmpPath)+"LLShorts/"+Sp(M)+".lnk") Then
-		        If Debugging Then Debug("* Starting MoveLink Job: " + Sp(M)+".lnk")
+		        If Debugging Then Debug("Starting MoveLink Job: " + Sp(M)+".lnk")
 		        
 		        'Get all the Link File Details
 		        Link = GetShortcut(Slash(TmpPath)+"LLShorts/"+Sp(M)+".lnk")
@@ -4172,459 +4204,6 @@ Protected Module LLMod
 		    
 		    'Finally Rewrite the ssApp.ini if Data changed so can resort menu styles
 		    If Data <> "" Then
-		      If Debugging Then Debug ("Saving Data to file: "+CurrentssAppFile)
-		      SaveDataToFile (Data,CurrentssAppFile)
-		    End If
-		  End If
-		End Sub
-	#tag EndMethod
-
-	#tag Method, Flags = &h0
-		Sub MoveLinksOld()
-		  'Glenn - This needs a Rewrite to add in all the missing methods for working with the Links, would work out better to do what freezer did and make my own updated LLFile with the lnk info
-		  
-		  If Debugging Then Debug("--- Starting Move Links ---")
-		  Dim DaBugs As String
-		  
-		  Dim Suc As Boolean
-		  
-		  Dim Debugger As String
-		  
-		  Dim DestStartPath As String
-		  Dim DestStartPathTemp As String
-		  
-		  Dim StartDestTemp As String
-		  Dim GameCat As String
-		  Dim StartPath As String
-		  Dim StartPathAlt As String
-		  Dim LinkOutPath As String
-		  Dim ParentPath As String
-		  
-		  Dim UsedShortcut As Boolean
-		  
-		  Dim Catalog() As String
-		  Dim CatalogCount As Integer
-		  Dim I,J, K, R As Integer
-		  Dim M As Integer
-		  Dim Sp() As String
-		  Dim F As FolderItem
-		  
-		  Dim Data As String
-		  Dim Title As String 
-		  Dim Target As String 
-		  
-		  
-		  If Not TargetWindows Then 'Linux and Mac
-		    'Clean up Temp LLShorts Folder
-		    Deltree (Slash(TmpPath)+"LLShorts")
-		    MakeFolder (Slash(TmpPath)+"LLShorts")
-		    
-		    If ItemLLItem.Flags.IndexOf("desktop") < 0 Then 'Not found, so Move it to the destination folder or delete it if exist
-		      Sp() = ItemLLItem.ShortCutNamesKeep.Split("|")
-		      For M = 0 To Sp.Count-1
-		        Move (Slash(FixPath(SpecialFolder.Desktop.NativePath)) + Sp(M).Trim +".desktop", Slash(TmpPath)+"LLShorts/") 'Current User
-		        'Move (Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + Sp(M).Trim +".desktop", Slash(TmpPath)+"LLShorts/") 'No Shared Desktop in Linux
-		      Next M
-		    End If
-		  End If
-		  
-		  If TargetWindows Then
-		    
-		    'Clean up Temp LLShorts Folder
-		    Deltree (Slash(TmpPath)+"LLShorts")
-		    MakeFolder (Slash(TmpPath)+"LLShorts")
-		    
-		    
-		    'This also isn't needed for the new menu style sorting
-		    If 1 = 2 Then
-		      'Removed Select Case as some ppApps and ssApps use Games paths (they are game tools)
-		      'Get the StartMenu Stuff for ssApps and then for ppApps/Games
-		      If ItemLLItem.Catalog <> "" Then
-		        Catalog = ItemLLItem.Catalog.Split(";")
-		        CatalogCount = Catalog.Count - 1
-		        For I = 0 To CatalogCount
-		          Catalog(I) = Catalog(I).Trim
-		          IF RedirectAppCount >= 1 Then
-		            'Select Case ItemLLItem.BuildType
-		            'Case "ssApp","ppApp"
-		            For J = 0 To RedirectAppCount -1
-		              
-		              If Catalog(I) = RedirectsApp (J,0) Then
-		                If Debugging Then Debug("Redir App: "+Catalog(I)+" >"+ RedirectsApp (J,0)+" >>"+RedirectsApp (J,1))
-		                ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(RedirectsApp (J,0),RedirectsApp (J,1))'Replace with new App Catalog
-		                Exit 'Found, no need to continue
-		              End If
-		            Next J
-		            'Case Else 'Game
-		            For J = 0 To RedirectGameCount -1
-		              If Catalog(I) = RedirectsGame (J,0) Then
-		                If Debugging Then Debug("Redir Game: "+Catalog(I)+" >"+ RedirectsGame (J,0)+" >>"+RedirectsGame (J,1))
-		                ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(RedirectsGame (J,0),RedirectsGame (J,1))'Replace with new Game Catalog
-		              End If
-		            Next J
-		            'End Select
-		          End If
-		        Next I
-		      End If
-		    End If
-		    
-		    'This Sorts as Linux Original Menu, NOT the MenuStyles, so Disable it
-		    If 1 = 2 Then ' Disable it
-		      If ItemLLItem.Catalog <> "" Then
-		        Catalog = ItemLLItem.Catalog.Split(";")
-		        CatalogCount = Catalog.Count - 1
-		        For J = 0 To CatalogCount
-		          Catalog(J) = Catalog(J).Trim
-		          If Catalog(J) <> "" Then ' Only do Valid Link Catalogs
-		            If MenuWindowsCount >= 1 Then
-		              For K = 0 To MenuWindowsCount -1
-		                'If Debugging Then Debug("Comparing as: "+ Catalog(J)+" >"+ MenuWindows (K,0)+" >>"+MenuWindows (K,1))
-		                If Catalog(J) = MenuWindows (K,0) Then
-		                  DestStartPath = MenuWindows (K,1)
-		                  If Debugging Then Debug("Dest Start Path: "+ MenuWindows (K,1))
-		                  Exit 'Found it, get out of here
-		                End If
-		              Next
-		            End If
-		          End If
-		        Next
-		      End If
-		    End If
-		    
-		    
-		    '**************************************************************************************************************************************
-		    
-		    'New Sorting
-		    
-		    If AdminEnabled Then 'If Admin apply to All users, else only has access to current user
-		      StartPath = StartPathAll 'All Users
-		      StartPathAlt = StartPathUser ' Used to delete User Link if making System Wide Link
-		    Else
-		      StartPath = StartPathUser 'Current User
-		    End If
-		    
-		    DestStartPath = "Other" 'Set this just incase none are found
-		    
-		    If ItemLLItem.Catalog <> "" Then
-		      Catalog = ItemLLItem.Catalog.Split(";")
-		      CatalogCount = Catalog.Count - 1
-		      
-		      If Catalog(0) = "" Then 'Error Protection on Dud-ish items
-		        Catalog(0) = "Other" 'No Catalog set, just put it in Other
-		      End If
-		      
-		      For J = 0 To CatalogCount
-		        Catalog(J) = Catalog(J).Trim
-		        GameCat = "Game " + Catalog(J) 'This is how games get detected
-		        If Catalog(J) = "ppGame" Then Catalog(J) = "Game" 'Some of my older items have ppGame instead of Game, this fixes that
-		        
-		        If Catalog(J) <> "" Then ' Only do Valid Link Catalogs
-		          
-		          
-		          
-		          
-		          
-		          
-		          
-		          
-		          If StartMenuUsed >=0 Then '*************************************************** StartMenu Used ************************************
-		            For K = 0 To StartMenuLocationsCount(StartMenuUsed)
-		              If ItemLLItem.BuildType = "ppGame" Then 'The lines below fixed the Game Categories
-		                If GameCat = StartMenuLocations(K, StartMenuUsed).Catalog Then Catalog(J) = GameCat 'This will ensure the correct Category is used for ppGames
-		              End If
-		              
-		              If Catalog(J) = StartMenuLocations(K, StartMenuUsed).Catalog Then 
-		                If Debugging Then Debug ("Found New Catalog: "+ Catalog(J)+"=>"+ StartMenuLocations(K, StartMenuUsed).Path)
-		                DestStartPath = StartMenuLocations(K, StartMenuUsed).Path
-		                If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
-		                  If ItemLLItem.StartMenuSourcePath <> "" Then
-		                    DestStartPath = Slash(StartMenuLocations(K, StartMenuUsed).Path) + ItemLLItem.StartMenuSourcePath
-		                  Else
-		                    DestStartPath = Slash(StartMenuLocations(K, StartMenuUsed).Path) + ItemLLItem.TitleName
-		                  End If
-		                End If
-		                
-		                If Debugging Then Debug ("Make New Output Folder ~~~ Checkpoint")
-		                
-		                LinkOutPath = StartPath+StartMenuLocations(K, StartMenuUsed).Path 'StartPath is where Writable
-		                If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then LinkOutPath=Slash(LinkOutPath)+ItemLLItem.StartMenuSourcePath 'Put in Subfolder if Chosen
-		                MakeFolder(LinkOutPath)
-		                'MakeFolderAttribBatch = MakeFolderAttribBatch + CommandReturned 'Global Command to run Attribs all at once
-		                
-		                'Apply Start Menu Icon File if set;
-		                MakePathIcon(StartPath+StartMenuLocations(K, StartMenuUsed).Path,StartMenuLocations(K, StartMenuUsed).IconFile, StartMenuLocations(K, StartMenuUsed).IconIndex)
-		                'MakeFolderAttribBatch = MakeFolderAttribBatch + CommandReturned 'Global Command to run Attribs all at once
-		                'Apply Parent folder icon if required
-		                If InStrRev(StartMenuLocations(K, StartMenuUsed).Path,"\") >= 1 Then
-		                  ParentPath = Left(StartMenuLocations(K, StartMenuUsed).Path, InStrRev(StartMenuLocations(K, StartMenuUsed).Path,"\")-1)
-		                  If Debugging Then Debug ("Start Parent Path: "+ ParentPath)
-		                  For M = 0 To StartMenuLocationsCount(StartMenuUsed)
-		                    If StartMenuLocations(M, StartMenuUsed).Path = ParentPath Then
-		                      MakePathIcon(StartPath+StartMenuLocations(M, StartMenuUsed).Path,StartMenuLocations(M, StartMenuUsed).IconFile, StartMenuLocations(M, StartMenuUsed).IconIndex)
-		                      ''''''''''MakeFolderAttribBatch = MakeFolderAttribBatch + CommandReturned 'Global Command to run Attribs all at once
-		                      Exit 'Jump out of this M loop it's done
-		                    End If
-		                    
-		                  Next
-		                End If
-		                
-		                ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''LinkOutPathSet = LinkOutPath
-		                ' Cleanup Other Sort menu Styles
-		                'MakeLinksCleanOtherStyles(Catalog(J), StartPath, LinkOutPath, I, StartPathAlt)
-		                
-		                
-		                
-		              End If
-		            Next
-		          End If
-		          
-		          
-		        End If
-		        
-		        
-		        
-		        
-		        
-		        
-		        
-		        'Done above now
-		        'DestStartPath = LinkOutPath
-		        
-		        
-		        'Do Desktop First
-		        If ItemLLItem.Flags.IndexOf("desktop") < 0 Then 'Not found as flag so Move it to the destination folder or delete it if exist
-		          Sp() = ItemLLItem.ShortCutNamesKeep.Split("|")
-		          For M = 0 To Sp.Count-1
-		            'Check Desktop
-		            If Exist(Slash(FixPath(SpecialFolder.Desktop.NativePath)) + Sp(M).Trim +".lnk") Then Move (Slash(FixPath(SpecialFolder.Desktop.NativePath)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
-		            If Exist(Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + Sp(M).Trim +".lnk") Then Move (Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
-		            
-		            'Check items default start menu too:
-		            If Exist(Slash(Slash(FixPath(StartPathAll))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(FixPath(StartPathAll))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
-		            If Exist(Slash(Slash(FixPath(StartPathUser))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(FixPath(StartPathUser))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
-		            
-		            'Check root of start menu too: 'This deletes it off the desktop too using Move
-		            If Exist(Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk") Then Move (Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
-		            If Exist(Slash(FixPath(StartPathUser)) + Sp(M).Trim +".lnk") Then Move (Slash(FixPath(StartPathUser)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
-		            
-		            DestStartPathTemp = DestStartPath
-		            
-		            If DestStartPathTemp = "" Then DestStartPathTemp = "Other"
-		            
-		            If AdminEnabled Then
-		              'Copy From LLShorts folder if exist (All Users)
-		              If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathAll+DestStartPathTemp)) 'Place Kept Shortcut in the destination folder
-		            Else
-		              'Copy From LLShorts folder if exist (User)
-		              If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathUser+DestStartPathTemp)) 'Place Kept Shortcut in the destination folder
-		            End If
-		            
-		          Next M
-		        Else 'Keep on Desktop, but do a copy to LLShorts for Start Menu Sorting of it
-		          Sp() = ItemLLItem.ShortCutNamesKeep.Split("|")
-		          For M = 0 To Sp.Count-1
-		            'Check Desktop
-		            If Exist(Slash(FixPath(SpecialFolder.Desktop.NativePath)) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(FixPath(SpecialFolder.Desktop.NativePath)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
-		            If Exist(Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
-		            
-		            'Check items default start menu too:
-		            If Exist(Slash(Slash(FixPath(StartPathAll))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(FixPath(StartPathAll))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
-		            If Exist(Slash(Slash(FixPath(StartPathUser))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(FixPath(StartPathUser))+ItemLLItem.StartMenuSourcePath) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
-		            
-		            'Check root of start menu too:
-		            If Exist(Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(FixPath(StartPathAll)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'All Users
-		            If Exist(Slash(FixPath(StartPathUser)) + Sp(M).Trim +".lnk") Then XCopyFile (Slash(FixPath(StartPathUser)) + Sp(M).Trim +".lnk", Slash(TmpPath)+"LLShorts/") 'Current User
-		            
-		            DestStartPathTemp = DestStartPath
-		            
-		            If DestStartPathTemp = "" Then DestStartPathTemp = "Other"
-		            
-		            If AdminEnabled Then 'This does the start menu from ShortcutsKeep - LLShorts folder, just incase it never makes the start Links
-		              'Copy From LLShorts folder if exist (All Users)
-		              If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathAll+DestStartPath)) 'Place Kept Shortcut in the destination folder
-		              
-		            Else
-		              'Copy From LLShorts folder if exist (User)
-		              If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathUser+DestStartPath)) 'Place Kept Shortcut in the destination folder
-		            End If
-		            
-		          Next M
-		        End If
-		        
-		        
-		        'Now Do Start Menu
-		        If ItemLLItem.Flags.IndexOf("keepinfolder") >=0 Then
-		          
-		          DestStartPathTemp = DestStartPath
-		          If DestStartPathTemp = "" Then DestStartPathTemp = "Other"
-		          
-		          '
-		          If AdminEnabled Then
-		            Move (StartPathAll+ItemLLItem.StartMenuSourcePath, StartPathAll+DestStartPathTemp) 'Remove it, clean up
-		            Move (StartPathUser+ItemLLItem.StartMenuSourcePath, StartPathAll+DestStartPathTemp) 'Remove it, clean up
-		          Else
-		            Move (StartPathAll+ItemLLItem.StartMenuSourcePath, StartPathUser+DestStartPathTemp) 'Remove it, clean up
-		            Move (StartPathUser+ItemLLItem.StartMenuSourcePath, StartPathUser+DestStartPathTemp) 'Remove it, clean up
-		          End If
-		          
-		        Else 'Just keep some and delete folder
-		          Sp() = ItemLLItem.ShortCutNamesKeep.Split("|")
-		          
-		          DestStartPathTemp = DestStartPath
-		          If DestStartPathTemp = "" Then DestStartPathTemp = "Other"
-		          
-		          For M = 0 To Sp.Count-1
-		            If AdminEnabled Then
-		              If Exist(StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPathTemp) 'Place item
-		              If Exist(StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPathTemp) 'Place item
-		              
-		              If Exist(StartPathAll+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathAll+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPathTemp) 'Place from root
-		              If Exist(StartPathUser+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+"/"+ Sp(M).Trim +".lnk", StartPathAll+DestStartPathTemp) 'Place from root
-		              
-		            Else
-		              If Exist(StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim+".lnk") Then Move (StartPathAll+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim+".lnk", StartPathUser+DestStartPathTemp) 'Place item
-		              If Exist(StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+ItemLLItem.StartMenuSourcePath+"/"+ Sp(M).Trim +".lnk", StartPathUser+DestStartPathTemp) 'Place item
-		              
-		              If Exist(StartPathAll+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathAll+"/"+ Sp(M).Trim +".lnk", StartPathUser+DestStartPathTemp) 'Place from root
-		              If Exist(StartPathUser+"/"+ Sp(M).Trim +".lnk") Then Move (StartPathUser+"/"+ Sp(M).Trim +".lnk", StartPathUser+DestStartPathTemp) 'Place from root
-		              
-		            End If
-		            
-		            'M = 0 Below means only the Very first link is used
-		            'Make sure Desktop Link is in the right place
-		            
-		            'Desktop
-		            If M = 0 And ItemLLItem.Flags.IndexOf ("desktop") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
-		              'CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(FixPath(StartPath)))
-		              If AdminEnabled Then
-		                'Copy From LLShorts folder if exist (All Users)
-		                If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then
-		                  XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(FixPath(SpecialFolder.SharedDesktop.NativePath))) 'Place Kept Shortcut in the destination folder
-		                  Deltree(Slash(FixPath(SpecialFolder.Desktop.NativePath))+Sp(M).Trim +".lnk") 'Delete off the User desktop if it's created on the All Users one (else you'll have 2 icons for the one app)
-		                End If
-		                
-		              Else
-		                'Copy From LLShorts folder if exist (User)
-		                If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then 
-		                  'Only make a link if it doesn't already exist on the All Users desktop
-		                  If Not Exist(Slash(FixPath(SpecialFolder.SharedDesktop.NativePath))+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(FixPath(SpecialFolder.Desktop.NativePath))) 'Place Kept Shortcut in the destination folder
-		                End If
-		              End If
-		            End If
-		            
-		            
-		            'Make SendTo Shortcut if flagged
-		            If M = 0 And ItemLLItem.Flags.IndexOf ("sendto") >=0 Then 'M = 0 is the first item only, we only want the one Send To item made for multi link windows (Like SetupS)
-		              'Copy From LLShorts folder if exist (User)
-		              If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Windows/SendTo/") 'Place Kept Shortcut in the destination folder
-		            End If
-		            
-		            'Programs
-		            If M = 0 And ItemLLItem.Flags.IndexOf ("programs") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
-		              'CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(FixPath(StartPath)))
-		              If AdminEnabled Then
-		                'Copy From LLShorts folder if exist (All Users)
-		                If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", StartPathAll) 'Place Kept Shortcut in the destination folder
-		                
-		              Else
-		                'Copy From LLShorts folder if exist (User)
-		                If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", StartPathUser) 'Place Kept Shortcut in the destination folder
-		              End If
-		            End If
-		            
-		            'Root
-		            If M = 0 And ItemLLItem.Flags.IndexOf ("root") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
-		              'CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(FixPath(StartPath)))
-		              If AdminEnabled Then
-		                'Copy From LLShorts folder if exist (All Users)
-		                If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", StartPathAll) 'Place Kept Shortcut in the destination folder
-		                
-		              Else
-		                'Copy From LLShorts folder if exist (User)
-		                If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", StartPathUser) 'Place Kept Shortcut in the destination folder
-		              End If
-		            End If
-		            
-		            'Startup
-		            If M = 0 And ItemLLItem.Flags.IndexOf ("startup") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
-		              'CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(Slash(FixPath(StartPath))+"Startup"))
-		              'CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(FixPath(StartPath)))
-		              If AdminEnabled Then
-		                'Copy From LLShorts folder if exist (All Users)
-		                If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathAll)+"Startup") 'Place Kept Shortcut in the destination folder
-		                
-		              Else
-		                'Copy From LLShorts folder if exist (User)
-		                If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(StartPathUser)+"Startup") 'Place Kept Shortcut in the destination folder
-		              End If
-		            End If
-		            
-		            'QuickLaunch
-		            If M = 0 And ItemLLItem.Flags.IndexOf ("quicklaunch") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
-		              If Exist(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk") Then XCopyFile (Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Internet Explorer/Quick Launch/") 'Place Kept Shortcut in the destination folder
-		            End If
-		            
-		            
-		            
-		            
-		          Next M
-		          
-		          'Below is needed to clear the empty or dregs
-		          If ItemLLItem.StartMenuSourcePath <> "" Then ' Careful deleting folders from start menu ' May need a 2nd look, works ok for now, no losses
-		            Deltree (StartPathAll+ItemLLItem.StartMenuSourcePath) 'Remove it, clean up
-		            Deltree (StartPathUser+ItemLLItem.StartMenuSourcePath) 'Remove it, clean up
-		          End If
-		        End If
-		        
-		        
-		      Next J
-		      
-		    End If
-		    
-		    
-		    
-		    'Do The Link Rewrite seperate to evey kept Link that I find
-		    CurrentssAppFile = CurrentssAppFile.ReplaceAll("/","\")
-		    If Debugging Then Debug ("--- Attempting to update ssApp.app: "+ CurrentssAppFile)
-		    
-		    ''Put ALL lnk files into temp path to use (Not Needed, done above)
-		    'For M = 0 To Sp.Count-1
-		    ''Copy To LLShorts folder if exist (User then Admin)
-		    'XCopyFile (Slash(StartPathUser+DestStartPath)+Sp(M).Trim +".lnk", Slash(Slash(TmpPath)+"LLShorts") ) 'Place Kept Shortcut in the Temp Folder
-		    'XCopyFile (Slash(StartPathAll+DestStartPath)+Sp(M).Trim +".lnk", Slash(Slash(TmpPath)+"LLShorts") ) 'Place Kept Shortcut in the Temp Folder
-		    'Next
-		    
-		    If Exist(CurrentssAppFile) Then 'Has to exist to load and re-write it
-		      If Debugging Then Debug ("Attempting to update ssApp.app with KeepShortcutCount: "+ Str(Sp.Count))
-		      Data = LoadDataFromFile (CurrentssAppFile)
-		      Data = Data.Trim
-		      Data = Data + Chr(10) 'Make sure it starts on a new line.
-		      
-		      For M = 0 To Sp.Count-1
-		        'Build The Links Section to Add to the ssApp.app
-		        F = GetFolderItem(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk", FolderItem.PathTypeShell)
-		        If F <> Nil Then
-		          If F.Exists Then 'Need to have access to the .lnk and it's destination file for it to work
-		            If Debugging Then Debug ("Found: "+Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk")
-		            Title = "["+Sp(M).Trim+".lnk"+"]"
-		            Target = "Target="
-		            
-		            'F = GetFolderItem(Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk")
-		            'If F <> Nil Then
-		            'If F.Exists THen
-		            Target = Target + Chr(34)+F.NativePath+Chr(34) 'This should be right - check 'Trying in Quotes, it'll never have Args
-		            
-		            If Debugging Then Debug ("Adding Data: "+Title+Chr(10)+Target+Chr(10))
-		            
-		            Data = Data + Title + Chr(10)
-		            Data = Data + Target + Chr(10)
-		            
-		            'End If
-		          End If
-		        Else
-		          If Debugging Then Debug ("NOT Found: "+Slash(Slash(TmpPath)+"LLShorts")+Sp(M).Trim +".lnk's target")
-		        End If
-		      Next M
 		      If Debugging Then Debug ("Saving Data to file: "+CurrentssAppFile)
 		      SaveDataToFile (Data,CurrentssAppFile)
 		    End If
@@ -6028,6 +5607,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		DefaultStartButtonHover As Picture
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		DelJobsList() As String
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
