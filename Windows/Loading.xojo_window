@@ -3713,8 +3713,42 @@ End
 		  
 		  'Check if Online
 		  IsOnline = True
-		  ShellFast.Execute("curl -fsS http://google.com > /dev/null")
-		  If  ShellFast.Result.Trim <> "" Then IsOnline = False
+		  'ShellFast.Execute("curl -fsS http://google.com > /dev/null" )
+		  Dim Test As String
+		  'If TargetWindows Then
+		  ShellFast.Execute("curl --head --silent --fail " + Chr(34) + "http://www.google.com" + Chr(34))
+		  'Else
+		  'ShellFast.Execute("curl --head --silent " + Chr(34) + "http://www.google.com" + Chr(34)) '+" > /dev/null")
+		  'End If
+		  Test = Left(ShellFast.Result.Trim, 30)
+		  'MsgBox Test
+		  If Test.IndexOf("200 ") >=0 Then
+		    'MsgBox ("Online")
+		    IsOnline = True
+		  ElseIf Test.IndexOf("201 ") >=0 Then
+		    'MsgBox ("Online")
+		    IsOnline = True
+		  ElseIf Test.IndexOf("202 ") >=0 Then
+		    'MsgBox ("Online")
+		    IsOnline = True
+		  ElseIf Test.IndexOf("203 ") >=0 Then
+		    'MsgBox ("Online")
+		    IsOnline = True
+		  ElseIf Test.IndexOf("204 ") >=0 Then
+		    'MsgBox ("Online")
+		    IsOnline = True
+		  ElseIf Test.IndexOf("205 ") >=0 Then
+		    'MsgBox ("Online")
+		    IsOnline = True
+		  ElseIf Test.IndexOf("206 ") >=0 Then
+		    'MsgBox ("Online")
+		    IsOnline = True
+		  Else
+		    'MsgBox ("Offline")
+		    IsOnline = False
+		  End If
+		  'If  ShellFast.Result.Trim <> "" Then IsOnline = False
+		  'If Test.Trim = "" Then IsOnline = False
 		  
 		  If Debugging Then Debug("--- Debugging Starts Here ---")
 		  If Debugging Then Debug("Store Mode: "+StoreMode.ToString)
