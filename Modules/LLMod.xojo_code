@@ -418,7 +418,7 @@ Protected Module LLMod
 		  IconFile = IconFile.ReplaceAll("/","\")
 		  
 		  'If Debugging Then Debug("* HERE HERE ")
-		  If Debugging Then Debug("TitleName: "+TitleName+Chr(10)+"Target:- "+Chr(10)+Target+Chr(10)+"Working:- "+Chr(10)+WorkingDir+Chr(10)+"LinkFolder:- "+Chr(10)+LinkFolder +Chr(10)+"IconLocation: "+ IconFile)
+		  'If Debugging Then Debug("TitleName: "+TitleName+Chr(10)+"Target:- "+Chr(10)+Target+Chr(10)+"Working:- "+Chr(10)+WorkingDir+Chr(10)+"LinkFolder:- "+Chr(10)+LinkFolder +Chr(10)+"IconLocation: "+ IconFile)
 		  
 		  Dim scWorkingDir As FolderItem
 		  
@@ -426,10 +426,19 @@ Protected Module LLMod
 		  'scTarget = GetFolderItem(Target, FolderItem.PathTypeShell)
 		  scWorkingDir = GetFolderItem(WorkingDir, FolderItem.PathTypeShell)
 		  
+		  'If Not Exist(LinkFolder) Then
+		  'MakeFolder (LinkFolder) 'Make 100% Sure it's there
+		  
+		  
 		  'Making Links fails if no folder made for it, we don't want it to crash a store when a shortcut fails.
 		  #Pragma BreakOnExceptions Off
 		  Try
 		    If TargetWindows Then
+		      If Debugging Then Debug("Making Link: "+LinkFolder  + TitleName + ".lnk")
+		      If Debugging Then Debug("Target: "+Target)
+		      If Debugging Then Debug("Args: "+Args)
+		      If Debugging Then Debug("IconFile: "+IconFile)
+		      If Debugging Then Debug("Hotkey: "+HotKeys)
 		      Dim lnkObj As OLEObject
 		      Dim scriptShell As New OLEObject("{F935DC22-1CF0-11D0-ADB9-00C04FD58A0B}")
 		      
@@ -452,6 +461,7 @@ Protected Module LLMod
 		      End If
 		    End If
 		  Catch
+		    If Debugging Then Debug("* Failed Making Link: "+LinkFolder  + TitleName + ".lnk")
 		  End Try
 		  
 		  #Pragma BreakOnExceptions On
@@ -3907,7 +3917,7 @@ Protected Module LLMod
 		                If Not SkipCleanup Then MakeLinksCleanOtherStyles(Catalog(J), StartPath, LinkOutPath, I, StartPathAlt)
 		                
 		                'Now Make Shortcut
-		                CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).Link.WorkingDirectory)), Slash(FixPath(LinkOutPathSet)),"",ItemLnk(I).Link.IconLocation) ' Need to change ,"" to Args
+		                CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).Link.WorkingDirectory)), Slash(FixPath(LinkOutPathSet)),ItemLnk(I).Link.Arguments,ItemLnk(I).Link.IconLocation, ItemLnk(I).Link.Hotkey)
 		                
 		              End If
 		              
@@ -3970,9 +3980,16 @@ Protected Module LLMod
 		    
 		    If ItemLLItem.Flags.IndexOf("keepinfolder") >= 0 Then
 		      If ItemLLItem.StartMenuSourcePath <> "" Then 
-		        LinkOutPath = LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'Remove sorted Keep Folder
+		         If MenuStyle = "UnSorted" Then
+		          If ItemLLItem.StartMenuSourcePath <> ItemLLItem.TitleName Then LinkOutPath = LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'Remove sorted Keep Folder if not the same as unsorted will be
+		        Else
+		          LinkOutPath = LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'Remove sorted Keep Folder
+		        End If
 		      Else
-		        LinkOutPath = Slash(StartPath) + ItemLLItem.TitleName ' Remove Unsorted Keep Folder
+		        If MenuStyle <> "UnSorted" Then
+		          LinkOutPath = Slash(StartPath) + ItemLLItem.TitleName ' Remove Unsorted Keep Folder if not menustyle unsorted ' else it removes the items shortcuts and folder
+		        Else
+		        End If
 		      End If
 		    End If
 		    
@@ -4013,8 +4030,10 @@ Protected Module LLMod
 		          ''If Exist (StartPath + ItemLLItem.StartMenuSourcePath) Then Deltree (StartPath + ItemLLItem.StartMenuSourcePath) 'Delete Unsorted Apps Folders
 		          'If Exist(StartPath + ItemLLItem.StartMenuSourcePath) = True Then 
 		          Deltree(StartPath + ItemLLItem.StartMenuSourcePath)
-		          If StartPathAlt <> "" Then Deltree(StartPathAlt + ItemLLItem.StartMenuSourcePath+"\"+ItemLnk(I).Title +".lnk") ' This is only the Alt Path, meaning just the User one gets removed
-		          If StartPathAlt <> "" Then  Deltree(StartPathAlt + ItemLLItem.StartMenuSourcePath)
+		          If StartPathAlt <> "" Then
+		            Deltree(StartPathAlt + ItemLLItem.StartMenuSourcePath+"\"+ItemLnk(I).Title +".lnk") ' This is only the Alt Path, meaning just the User one gets removed
+		            Deltree(StartPathAlt + ItemLLItem.StartMenuSourcePath)
+		          End If
 		        End If
 		      End If
 		    End If
