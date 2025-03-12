@@ -507,15 +507,17 @@ Protected Module LLMod
 		  If TargetWindows Then S = S.ReplaceAll("/","\") 'rmdir needs backslash in Windows
 		  
 		  S = S.Trim
+		  'QueueDeltree = False ' Test GlennGlennGlenn
 		  
 		  If QueueDeltree Then
 		    'Delete Folders
 		    Dim I As Integer
 		    Dim NewJob As String
 		    Dim Found As Boolean
-		    
+		    '
 		    NewJob = S
 		    If DelJobsList.Count >= 1 Then
+		      Found = False
 		      For I = 0 To DelJobsList.Count - 1
 		        If S = DelJobsList(I) Then
 		          Found = True
@@ -3626,6 +3628,7 @@ Protected Module LLMod
 		        
 		        ItemLnk(I).Title = ItemLnk(I).Title.ReplaceAll("{#2}", "") 'Remove Dual Arch leftovers
 		        ItemLnk(I).Title = ItemLnk(I).Title.ReplaceAll("{#1}", "") 'Remove Dual Arch leftovers
+		        ItemLnk(I).Title = ItemLnk(I).Title.Trim ' Need to trim away the space so can use it for the Link Name
 		        DesktopFile = ItemLnk(I).Title.ReplaceAll(" ", ".") + ".desktop" 'Remove Spaces and add .desktop back to file name
 		        
 		        ItemLnk(I).Link.IconLocation = ExpPath(ItemLnk(I).Link.IconLocation)
@@ -3777,6 +3780,7 @@ Protected Module LLMod
 		        
 		        ItemLnk(I).Title = ItemLnk(I).Title.ReplaceAll("{#2}", "") 'Remove Dual Arch leftovers
 		        ItemLnk(I).Title = ItemLnk(I).Title.ReplaceAll("{#1}", "") 'Remove Dual Arch leftovers
+		        ItemLnk(I).Title = ItemLnk(I).Title.Trim ' Need to trim away the space so can use it for the Link Name
 		        
 		        ItemLnk(I).Link.IconLocation = ExpPath(ItemLnk(I).Link.IconLocation)
 		        'Windows does NOT use .png's for icons at ALL, a blank one is prefered
@@ -3931,7 +3935,7 @@ Protected Module LLMod
 		  'Delete all items at once, MUCH faster
 		  If QueueDeltreeMajor = False Then
 		    QueueDeltree = False
-		    If Debugging Then Debug("--- Make Links Major Delete Job ---")
+		    If Debugging Then Debug("--- Make Links Minor Delete Job ---")
 		    RunCommand (QueueDeltreeJobs)
 		    QueueDeltreeJobs = ""
 		  End If
@@ -3941,6 +3945,17 @@ Protected Module LLMod
 	#tag Method, Flags = &h0
 		Sub MakeLinksCleanOtherStyles(Catalog As String, StartPath As String, LinkOutPath As String, I As Integer, StartPathAlt As String)
 		  If Debugging Then Debug ("--- Clean Other Menu Styles ---")
+		  
+		  'Dim LinkOutPathAlt As String
+		  
+		  
+		  StartPath = Slash(StartPath).ReplaceAll("/","\")
+		  LinkOutPath = LinkOutPath.ReplaceAll("/","\")
+		  StartPathAlt = Slash(StartPathAlt).ReplaceAll("/","\")
+		  
+		  
+		  If Debugging Then Debug ("Catalog: "+Catalog+" StartPath: "+StartPath+" LinkOutPath: "+LinkOutPath+" I: "+ I.ToString )
+		  If Debugging Then Debug ("StartMenuStylesCount: "+StartMenuStylesCount.ToString)
 		  
 		  Dim N, O As Integer
 		  
@@ -3968,35 +3983,46 @@ Protected Module LLMod
 		        LinkOutPath = LinkOutPath + "\" + ItemLnk(I).Title + ".lnk" ' One Item
 		      End If
 		      
+		      LinkOutPath = LinkOutPath.ReplaceAll("/","\")
+		      
 		      'If Debugging Then Debug("Delete Start Menu: " + LinkOutPath)
 		      
 		      ' Don't delete if part of the main tree
 		      If Not Exist("C:\windows\ssTek\Menu\" + LinkOutPath.ReplaceAll(StartPath, "")) Then 
-		        'If Exist(LinkOutPath) Then Deltree(LinkOutPath) ' Delete Old Link Sorting
-		        If Exist(LinkOutPath) = True Then Deltree(LinkOutPath)
+		        ''If Exist(LinkOutPath) Then Deltree(LinkOutPath) ' Delete Old Link Sorting
+		        'If Exist(LinkOutPath) = True Then 
+		        Deltree(LinkOutPath)
 		      End If
 		      
 		      If StartPathAlt <> "" Then 
-		        If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) = True Then Deltree(LinkOutPath.Replace(StartPath, StartPathUser))
+		        'If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) = True Then 
+		        Deltree(LinkOutPath.Replace(StartPath, StartPathUser))
 		      End If
 		      If MenuStyle <> "UnSorted" Then
-		        'If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
-		        If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") = True Then Deltree(StartPath + "Games\"+ItemLnk(I).Title +".lnk")
+		        ''If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
+		        'If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") = True Then 
+		        Deltree(StartPath + "Games\"+ItemLnk(I).Title +".lnk")
+		        If StartPathAlt <> "" Then Deltree(StartPathAlt + "Games\"+ItemLnk(I).Title +".lnk")
 		        
-		        'If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
-		        If Exist(StartPath + ItemLLItem.TitleName) = True Then Deltree(StartPath + ItemLLItem.TitleName)
+		        ''If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
+		        'If Exist(StartPath + ItemLLItem.TitleName) = True Then 
+		        Deltree(StartPath + ItemLLItem.TitleName)
+		        If StartPathAlt <> "" Then  Deltree(StartPathAlt + ItemLLItem.TitleName)
 		        
 		        If ItemLLItem.StartMenuSourcePath <> "" Then
-		          'If Exist (StartPath + ItemLLItem.StartMenuSourcePath) Then Deltree (StartPath + ItemLLItem.StartMenuSourcePath) 'Delete Unsorted Apps Folders
-		          If Exist(StartPath + ItemLLItem.StartMenuSourcePath) = True Then Deltree(StartPath + ItemLLItem.StartMenuSourcePath)
-		          
+		          ''If Exist (StartPath + ItemLLItem.StartMenuSourcePath) Then Deltree (StartPath + ItemLLItem.StartMenuSourcePath) 'Delete Unsorted Apps Folders
+		          'If Exist(StartPath + ItemLLItem.StartMenuSourcePath) = True Then 
+		          Deltree(StartPath + ItemLLItem.StartMenuSourcePath)
+		          If StartPathAlt <> "" Then Deltree(StartPathAlt + ItemLLItem.StartMenuSourcePath+"\"+ItemLnk(I).Title +".lnk") ' This is only the Alt Path, meaning just the User one gets removed
+		          If StartPathAlt <> "" Then  Deltree(StartPathAlt + ItemLLItem.StartMenuSourcePath)
 		        End If
 		      End If
 		    End If
 		    
 		    If StartPathAlt <> "" Then
-		      'Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link if in Admin Mode to remake it
-		      If Exist(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") = True Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk")
+		      ''Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link if in Admin Mode to remake it
+		      'If Exist(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") = True Then 
+		      Deltree(Slash(LinkOutPath).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk")
 		    End If
 		    
 		    
@@ -4676,7 +4702,8 @@ Protected Module LLMod
 		        F.Remove
 		      End If
 		      F = Nil
-		      If Debugging Then Debug("Results: -"+Chr(10)+Sh.ReadAll.Trim+Chr(10))
+		      'Disabled Logging Results - They are too vast
+		      'If Debugging Then Debug("Results: -"+Chr(10)+Sh.ReadAll.Trim+Chr(10))
 		    Else ''Linux Command, doesn't need to go to script file to work (it just does)
 		      'Run Script
 		      Sh.Execute (CmdIn)
@@ -4685,7 +4712,8 @@ Protected Module LLMod
 		      While Sh.IsRunning
 		        App.DoEvents(1)
 		      Wend
-		      If Debugging Then Debug("Results: -"+Chr(10)+Sh.ReadAll.Trim+Chr(10))
+		      'Disabled Logging Results - They are too vast
+		      'If Debugging Then Debug("Results: -"+Chr(10)+Sh.ReadAll.Trim+Chr(10))
 		      
 		    End If
 		  End If

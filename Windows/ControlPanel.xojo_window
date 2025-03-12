@@ -627,7 +627,6 @@ End
 		            IDClean = IDClean.ReplaceAll(".WIN_XP","") 'Remove This
 		            IDClean = IDClean.ReplaceAll(".WIN_2000","") 'Remove This
 		            IDClean = IDClean.ReplaceAll(".OSARCH_x86","") 'Remove This
-		            IDClean = IDClean.ReplaceAll(".OSARCH_x64","") 'Remove This
 		            IDClean = IDClean.ReplaceAll(".WIN_None","") 'Remove This
 		            
 		            If ID = IDClean Then Valid = True
@@ -635,6 +634,7 @@ End
 		            'Clean the rest out
 		            IDClean = IDClean.ReplaceAll(".lnk","") 'Remove This
 		            IDClean = IDClean.ReplaceAll(".WIN_10","") 'Remove This
+		            IDClean = IDClean.ReplaceAll(".OSARCH_x64","") 'Remove This
 		            
 		            ID = IDClean
 		            
@@ -755,8 +755,17 @@ End
 		    'Delete all items at once, MUCH faster
 		    QueueDeltree = False
 		    QueueDeltreeMajor = False ' Deltrees done
-		    RunCommand (QueueDeltreeJobs)
+		    'Res = RunCommandResults 
+		    RunCommand(QueueDeltreeJobs)
+		    
+		    'If Debugging Then Debug ("* Delete Menu Sort Jobs ***")
+		    'If Debugging Then Debug ("Sent In:"+Chr(10)+ QueueDeltreeJobs)
+		    'If Debugging Then Debug ("Results:"+Chr(10)+ Res)
+		    
+		    
 		    QueueDeltreeJobs = ""
+		    
+		    
 		    
 		    Tims = (System.Microseconds/1000000)-StartTimeStamp
 		    If Debugging Then Debug("* (DelJob Done) Time Since Start "+Tims.ToString)
