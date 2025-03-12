@@ -38,7 +38,7 @@ Begin DesktopWindow ControlPanel
       Index           =   -2147483648
       InitialValue    =   "ComboMenuStyle"
       Italic          =   False
-      Left            =   342
+      Left            =   344
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -54,7 +54,7 @@ Begin DesktopWindow ControlPanel
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   200
+      Width           =   198
    End
    Begin DesktopButton ButtonSetMenuStyle
       AllowAutoDeactivate=   True
@@ -97,7 +97,7 @@ Begin DesktopWindow ControlPanel
       Height          =   24
       Index           =   -2147483648
       Italic          =   False
-      Left            =   119
+      Left            =   121
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -113,11 +113,11 @@ Begin DesktopWindow ControlPanel
       TextAlignment   =   3
       TextColor       =   &c000000
       Tooltip         =   ""
-      Top             =   11
+      Top             =   12
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   88
+      Width           =   102
    End
    Begin DesktopLabel SetMenuStyle
       AllowAutoDeactivate=   True
@@ -129,7 +129,7 @@ Begin DesktopWindow ControlPanel
       Height          =   24
       Index           =   -2147483648
       Italic          =   False
-      Left            =   222
+      Left            =   238
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -145,11 +145,11 @@ Begin DesktopWindow ControlPanel
       TextAlignment   =   1
       TextColor       =   &c000000
       Tooltip         =   ""
-      Top             =   11
+      Top             =   12
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   99
+      Width           =   102
    End
    Begin DesktopCheckBox CheckCleanUp
       AllowAutoDeactivate=   True
@@ -159,10 +159,10 @@ Begin DesktopWindow ControlPanel
       FontName        =   "System"
       FontSize        =   0.0
       FontUnit        =   0
-      Height          =   20
+      Height          =   24
       Index           =   -2147483648
       Italic          =   False
-      Left            =   20
+      Left            =   13
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -173,13 +173,44 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "Removes Empty Folders"
-      Top             =   13
+      Top             =   12
       Transparent     =   False
       Underline       =   False
       Value           =   False
       Visible         =   True
       VisualState     =   1
-      Width           =   81
+      Width           =   103
+   End
+   Begin DesktopButton ButtonSetLinuxMenuSorting
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Cancel          =   False
+      Caption         =   "Enable Linux Menu Sorting"
+      Default         =   True
+      Enabled         =   True
+      FontName        =   "System"
+      FontSize        =   0.0
+      FontUnit        =   0
+      Height          =   26
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   352
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      MacButtonStyle  =   0
+      Scope           =   0
+      TabIndex        =   6
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   ""
+      Top             =   48
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   238
    End
 End
 #tag EndDesktopWindow
@@ -312,6 +343,8 @@ End
 		    ButtonSetMenuStyle.Enabled = False
 		    ComboMenuStyle.Enabled = False
 		    CheckCleanUp.Enabled = False
+		  Else 'Running in Windows
+		    ButtonSetLinuxMenuSorting.Enabled = False
 		  End If
 		  
 		  ComboMenuStyle.RemoveAllRows
@@ -783,6 +816,13 @@ End
 		  'SetMenuStyle.Text = MenuStyle
 		  '
 		  'ComboMenuStyle.Text = MenuStyle
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events ButtonSetLinuxMenuSorting
+	#tag Event
+		Sub Pressed()
+		  InstallLinuxMenuSorting(False)
 		End Sub
 	#tag EndEvent
 #tag EndEvents

@@ -1812,6 +1812,27 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub InstallLinuxMenuSorting(KeepSudo2 As Boolean = True)
+		  Dim MainPath As String = Slash(AppPath)
+		  
+		  EnableSudoScript
+		  
+		  '
+		  
+		  RunSudo("cp  -R "+Chr(34)+MainPath+"Tools/LinuxMenuSorting/xdg/menus/applications-merged"+Chr(34)+" "+Chr(34)+"/etc/xdg/menus/"+Chr(34))
+		  RunSudo("cp  -R "+Chr(34)+MainPath+"Tools/LinuxMenuSorting/desktop-directories"+Chr(34)+" "+Chr(34)+"/usr/share/"+Chr(34))
+		  
+		  RunSudo("chmod 777 "+Chr(34)+"/etc/xdg/menus/applications-merged/LastOSLinux_Sorting.menu"+Chr(34)) 'Make all access
+		  RunSudo("chmod 777 "+Chr(34)+"/usr/share/desktop-directories/cinnamon-disk.directory"+Chr(34)) 'Make all access
+		  
+		  
+		  'Close Sudo Terminal
+		  If KeepSudo2 = False Then ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > /tmp/LLSudoDone") 'Quits Terminal after All items have been installed.
+		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function InstallLLFile(FileIn As String) As Boolean
 		  App.DoEvents(7) 'Putting this here to hopefully redraw the Notification window, it only partly draws otherwise
 		  
@@ -2379,6 +2400,8 @@ Protected Module LLMod
 		    ShellFast.Execute("cp "+Chr(34)+MainPath+"libgthread-2.0.so.0.txt"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
 		    
 		    RunSudo("chmod -R 777 "+Chr(34)+InstallPath+Chr(34)) 'Make all executable
+		    
+		    InstallLinuxMenuSorting(True) 'This adds my own menu sorting style
 		    
 		    Dim Bin As String = " /usr/bin/" 'Make sure to include the space at the start of this as it's used.
 		    

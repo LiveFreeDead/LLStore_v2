@@ -1,0 +1,307 @@
+<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN"
+ "http://www.freedesktop.org/standards/menu-spec/1.0/menu.dtd">
+
+<Menu>
+
+  <Name>Applications</Name>
+  <Directory>cinnamon-menu-applications.directory</Directory>
+
+<!-- Development Tools -->
+  <Menu>
+    <Name>Development</Name>
+    <Directory>cinnamon-development.directory</Directory>
+    <Include>
+        <Category>Development</Category>
+        <Category>Debugger</Category>
+        <Category>GUIDesigner</Category>
+        <Category>IDE</Category>
+        <Category>Java</Category>
+        <Category>Programming</Category>
+        <Category>ProjectManagement</Category>
+        <Category>RevisionControl</Category>
+        <Category>WebDevelopment</Category>
+    </Include>
+  </Menu> <!-- End Development Tools -->
+
+  <!-- Disk Tools-->
+  <Menu>
+    <Name>Disk</Name>
+      <Directory>cinnamon-disk.directory</Directory>   
+      <Include>
+        <Category>Disk</Category>
+        <Category>DiscBurning</Category>
+        <Category>Burning</Category>
+        <Category>Archiving</Category>
+        <Category>Compression</Category>
+        <Category>FileManager</Category>
+        <Category>Filesystem</Category>
+        <Category>FileTools</Category>
+        <Category>FileTransfer</Category>
+        <Category>Optical</Category>
+        <Category>Recovery</Category>
+        <Category>VirtualDrive</Category>
+      </Include> 
+  </Menu>   <!-- End Disk Tools -->
+
+  <!-- Hardware-->
+  <Menu>
+    <Name>Hardware</Name>
+      <Directory>cinnamon-hardware.directory</Directory>   
+      <Include>
+        <Category>Devices</Category>
+        <Category>Electricity</Category>
+        <Category>Electronics</Category>
+        <Category>Emulator</Category>
+        <Category>Emulation</Category>
+        <Category>HamRadio</Category>
+        <Category>MobileDevice</Category>
+        <Category>ParallelComputing</Category>
+        <Category>PDA</Category>
+        <Category>Robotics</Category>
+        <Category>VirtualMachine</Category>
+      </Include> 
+  </Menu>   <!-- End Hardware -->
+
+  <!-- eBook -->
+  <Menu>
+    <Name>eBook</Name>
+    <Directory>cinnamon-education.directory</Directory>
+    <Include>
+        <Category>eBook</Category>
+        <Category>Adult</Category>
+        <Category>Comic</Category>
+        <Category>News</Category>
+    </Include>
+  </Menu> <!-- End eBook -->
+
+  <!-- Education -->
+  <Menu>
+    <Name>Education</Name>
+    <Directory>cinnamon-education.directory</Directory>
+    <Include>
+        <Category>Education</Category>
+        <Category>Engineering</Category>
+        <Category>Spirituality</Category>
+    </Include>
+  </Menu> <!-- End Education -->
+
+  <!-- Games -->
+  <Menu>
+    <Name>Games</Name>
+    <Directory>cinnamon-game.directory</Directory>
+    <Include>
+        <Category>Game</Category>
+        <Category>Amusement</Category>
+        <Category>ActionGame</Category>
+        <Category>AdventureGame</Category>
+        <Category>ArcadeGame</Category>
+        <Category>BlocksGame</Category>
+        <Category>BoardGame</Category>
+        <Category>BuildingGame</Category>
+        <Category>CardGame</Category>
+        <Category>CitySettlementGame</Category>
+        <Category>CompilationGame</Category>
+        <Category>CraftingGame</Category>
+        <Category>DiceGame</Category>
+        <Category>DrivingGame</Category>
+        <Category>EducationalGame</Category>
+        <Category>EmulationGame</Category>
+        <Category>ExplorationGame</Category>
+        <Category>FarmingGame</Category>
+        <Category>FightingGame</Category>
+        <Category>FirstPersonShooterGame</Category>
+        <Category>FishingHuntingGame</Category>
+        <Category>FlightSpaceGame</Category>
+        <Category>GamblingGame</Category>
+        <Category>HackSlashGame</Category>
+        <Category>HiddenObjectGame</Category>
+        <Category>HobbyJobGame</Category>
+        <Category>JigsawGame</Category>
+        <Category>JRPGGame</Category>
+        <Category>KidsGame</Category>
+        <Category>LogicGame</Category>
+        <Category>LogicAtoBGame</Category>
+        <Category>MatchGame</Category>
+        <Category>MatchShootGame</Category>
+        <Category>MetroidvaniaGame</Category>
+        <Category>MusicGame</Category>
+        <Category>OpenWorldGame</Category>
+        <Category>OtherGame</Category>
+        <Category>PinballGame</Category>
+        <Category>PlatformGame</Category>
+        <Category>PointAndClickGame</Category>
+        <Category>PuzzleGame</Category>
+        <Category>RacingGame</Category>
+        <Category>RealTimeStrategyGame</Category>
+        <Category>RogueLikeGame</Category>
+        <Category>RollPlayingGame</Category>
+        <Category>RollPlayingTacticalGame</Category>
+        <Category>SandboxPhysicsGame</Category>
+        <Category>ShapesGame</Category>
+        <Category>ShooterGame</Category>
+        <Category>SimulationGame</Category>
+        <Category>SportsGame</Category>
+        <Category>StealthGame</Category>
+        <Category>StrategyGame</Category>
+        <Category>SurvivalHorrorGame</Category>
+        <Category>ThirdPersonShooterGame</Category>
+        <Category>TowerDefenseGame</Category>
+        <Category>WordTriviaGame</Category>
+    </Include>
+  </Menu> <!-- End Games -->
+
+  <!-- Graphics -->
+  <Menu>
+    <Name>Graphics</Name>
+    <Directory>cinnamon-graphics.directory</Directory>
+    <Include>
+        <Category>Graphics</Category>
+        <Category>2DGraphics</Category>
+        <Category>3DGraphics</Category>
+        <Category>Art</Category>
+        <Category>ImageProcessing</Category>
+        <Category>Photography</Category>
+        <Category>RasterGraphics</Category>
+        <Category>VectorGraphics</Category>
+    </Include>
+  </Menu> <!-- End Graphics -->
+
+  <!-- Internet -->
+  <Menu>
+    <Name>Internet</Name>
+    <Directory>cinnamon-network.directory</Directory>
+    <Include>
+        <Category>Network</Category>
+        <Category>Internet</Category>
+        <Category>Email</Category>
+        <Category>Feed</Category>
+        <Category>History</Category>
+        <Category>InstantMessaging</Category>
+        <Category>IRCClient</Category>
+        <Category>Chat</Category>
+        <Category>Dialup</Category>
+        <Category>P2P</Category>
+        <Category>RemoteAccess</Category>
+        <Category>VideoConference</Category>
+        <Category>WebBrowser</Category>
+        <Category>Telephony</Category>
+        <Category>TelephonyTools</Category>
+    </Include>
+  </Menu>   <!-- End Internet -->
+
+
+  <!-- Multimedia -->
+  <Menu>
+    <Name>Multimedia</Name>
+    <Directory>cinnamon-audio-video.directory</Directory>
+    <Include>
+        <Category>AudioVideo</Category>
+        <Category>Player</Category>
+        <Category>Audio</Category>
+        <Category>Midi</Category>
+        <Category>Mixer</Category>
+        <Category>Music</Category>
+        <Category>Recorder</Category>
+        <Category>Sequencer</Category>
+        <Category>SoundVideo</Category>
+        <Category>Tuner</Category>
+        <Category>TV</Category>
+        <Category>Video</Category>
+    </Include>
+  </Menu>   <!-- End Multimedia -->
+
+<!-- Office -->
+  <Menu>
+    <Name>Office</Name>
+    <Directory>cinnamon-office.directory</Directory>
+    <Include>
+        <Category>Office</Category>
+        <Category>Viewer</Category>
+        <Category>Accessories</Category>
+        <Category>Calculator</Category>
+        <Category>Calendar</Category>
+        <Category>Chart</Category>
+        <Category>Clock</Category>
+        <Category>ContactManagement</Category>
+        <Category>DataVisualization</Category>
+        <Category>Database</Category>
+        <Category>Dictionary</Category>
+        <Category>Documentation</Category>
+        <Category>Economy</Category>
+        <Category>Finance</Category>
+        <Category>FlowChart</Category>
+        <Category>Languages</Category>
+        <Category>Literature</Category>
+        <Category>OCR</Category>
+        <Category>Presentation</Category>
+        <Category>Printing</Category>
+        <Category>Profiling</Category>
+        <Category>Publishing</Category>
+        <Category>Scanning</Category>
+        <Category>Spreadsheet</Category>
+        <Category>TextEditor</Category>
+        <Category>TextTools</Category>
+        <Category>Translation</Category>
+        <Category>WordProcessor</Category>
+    </Include>
+  </Menu> <!-- End Office -->
+
+  <Menu>
+    <Name>Science</Name>
+      <Directory>cinnamon-science.directory</Directory>
+      <Include>
+        <Category>Science</Category>
+        <Category>ArtificialIntelligence</Category>
+        <Category>Astronomy</Category>
+        <Category>Biology</Category>
+        <Category>ComputerScience</Category>
+        <Category>Chemistry</Category>
+        <Category>Fitness</Category>
+        <Category>Genealogy</Category>
+        <Category>Geography</Category>
+        <Category>Geology</Category>
+        <Category>Geoscience</Category>
+        <Category>Humanities</Category>
+        <Category>Maps</Category>
+        <Category>Math</Category>
+        <Category>MedicalSoftware</Category>
+        <Category>NumericalAnalysis</Category>
+        <Category>Physics</Category>
+        <Category>Simulation</Category>
+        <Category>Sports</Category>
+      </Include>
+  </Menu>
+
+  <Menu>
+    <Name>Security</Name>
+      <Directory>cinnamon-system.directory</Directory>
+      <Include>
+        <Category>Security</Category>
+      </Include>
+  </Menu>
+
+  <!-- System Tools-->
+  <Menu>
+    <Name>Administration</Name>
+      <Directory>cinnamon-system-tools.directory</Directory>   
+      <Include>
+        <Category>System</Category>
+        <Category>Administration</Category>
+        <Category>Accessibility</Category>
+        <Category>Building</Category>
+        <Category>Construction</Category>
+        <Category>Core</Category>
+        <Category>DesktopSettings</Category>
+        <Category>HardwareSettings</Category>
+        <Category>Installing</Category>
+        <Category>Monitor</Category>
+        <Category>PackageManager</Category>
+        <Category>Preferences</Category>
+        <Category>Theme</Category>
+        <Category>TerminalEmulator</Category>
+        <Category>UniversalAccess</Category>
+        <Category>Utility</Category>
+      </Include> 
+  </Menu>   <!-- End System Tools -->
+
+</Menu>  <!-- End Applications -->
