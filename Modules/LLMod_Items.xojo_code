@@ -115,7 +115,8 @@ Protected Module LLMod_Items
 		  LnkArchCompatible As String * 32
 		  LnkSendTo As Boolean
 		  StartSourceMenu As String * 1024
-		Link As Shortcut
+		  Link As Shortcut
+		Comment As String * 512
 	#tag EndStructure
 
 

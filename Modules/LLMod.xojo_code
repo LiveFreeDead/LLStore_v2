@@ -407,7 +407,7 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub CreateShortcut(TitleName As String, Target As String, WorkingDir As String, LinkFolder As String, Args As String = "", IconFile As String = "", HotKeys As String = "")
+		Sub CreateShortcut(TitleName As String, Target As String, WorkingDir As String, LinkFolder As String, Args As String = "", IconFile As String = "", HotKeys As String = "", Comment As String = "")
 		  'Return ' Disabled for speed test GlennGlennGlenn Rem line once tested -  About 20 seconds saved, not worth optimizing to do as a batch
 		  
 		  If Debugging Then Debug("--- Starting Create Shortcut ---")
@@ -445,7 +445,8 @@ Protected Module LLMod
 		      If scriptShell <> Nil then
 		        lnkObj = scriptShell.CreateShortcut(LinkFolder  + TitleName + ".lnk")
 		        If lnkObj <> Nil then
-		          lnkObj.Description = TitleName
+		          'lnkObj.Description = TitleName
+		          lnkObj.Description = Comment
 		          'lnkObj.TargetPath = scTarget.NativePath
 		          lnkObj.TargetPath = Target 'Target may also have some Arguments, so use text not folder item.
 		          If Args <> "" Then lnkObj.Arguments = Args 'Target may also have some Arguments, so use text not folder item.
@@ -3893,7 +3894,7 @@ Protected Module LLMod
 		                    If Not SkipCleanup Then MakeLinksCleanOtherStyles(Catalog(J), StartPath, LinkOutPath, I, StartPathAlt)
 		                    
 		                    'Now Make Shortcut
-		                    CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).Link.WorkingDirectory)), Slash(FixPath(LinkOutPathSet)),ItemLnk(I).Link.Arguments,ItemLnk(I).Link.IconLocation, ItemLnk(I).Link.Hotkey)
+		                    CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).Link.WorkingDirectory)), Slash(FixPath(LinkOutPathSet)),ItemLnk(I).Link.Arguments,ItemLnk(I).Link.IconLocation, ItemLnk(I).Link.Hotkey, ItemLnk(I).Link.Description)
 		                    
 		                    If StartPathAlt <> "" Then
 		                      If Exist(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link
@@ -3920,7 +3921,7 @@ Protected Module LLMod
 		                If Not SkipCleanup Then MakeLinksCleanOtherStyles(Catalog(J), StartPath, LinkOutPath, I, StartPathAlt)
 		                
 		                'Now Make Shortcut
-		                CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).Link.WorkingDirectory)), Slash(FixPath(LinkOutPathSet)),ItemLnk(I).Link.Arguments,ItemLnk(I).Link.IconLocation, ItemLnk(I).Link.Hotkey)
+		                CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).Link.WorkingDirectory)), Slash(FixPath(LinkOutPathSet)),ItemLnk(I).Link.Arguments,ItemLnk(I).Link.IconLocation, ItemLnk(I).Link.Hotkey, ItemLnk(I).Link.Description)
 		                
 		              End If
 		              
@@ -5452,7 +5453,8 @@ Protected Module LLMod
 		        If ItemLnk(I).Title = "" Then Continue 'Dud item, continue looping to next item
 		        DataOut = DataOut + "["+ItemLnk(I).Title+".desktop]"+Chr(10)
 		        If ItemLnk(I).Link.TargetPath <> "" Then DataOut = DataOut + "Exec="+ItemLnk(I).Link.TargetPath+Chr(10)
-		        If ItemLnk(I).Link.Description <> "" Then DataOut = DataOut + "Comment="+ItemLnk(I).Link.Description+Chr(10)
+		        'DataOut = DataOut + "Description=" + ItemLLItem.Descriptions.ReplaceAll(EndOfLine, Chr(30))+Chr(10)
+		        If ItemLnk(I).Link.Description <> "" Then DataOut = DataOut + "Comment="+ItemLnk(I).Link.Description.ReplaceAll(EndOfLine, Chr(30))+Chr(10)
 		        If ItemLnk(I).Link.WorkingDirectory <> "" Then DataOut = DataOut + "Path="+ItemLnk(I).Link.WorkingDirectory+Chr(10)
 		        If ItemLnk(I).Link.IconLocation <> "" Then DataOut = DataOut + "Icon="+ItemLnk(I).Link.IconLocation+Chr(10)
 		        If ItemLnk(I).Categories <> "" Then DataOut = DataOut + "Categories="+ItemLnk(I).Categories+Chr(10)

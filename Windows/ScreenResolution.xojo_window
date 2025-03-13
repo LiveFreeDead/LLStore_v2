@@ -29,8 +29,8 @@ Begin DesktopWindow ScreenResolution
       Bold            =   False
       Caption         =   "640x480"
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   28
       Index           =   -2147483648
@@ -59,8 +59,8 @@ Begin DesktopWindow ScreenResolution
       Bold            =   False
       Caption         =   "800x600"
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   28
       Index           =   -2147483648
@@ -89,8 +89,8 @@ Begin DesktopWindow ScreenResolution
       Bold            =   False
       Caption         =   "1024x768"
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   28
       Index           =   -2147483648
@@ -119,8 +119,8 @@ Begin DesktopWindow ScreenResolution
       Bold            =   False
       Caption         =   "1280x720"
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   28
       Index           =   -2147483648
@@ -149,8 +149,8 @@ Begin DesktopWindow ScreenResolution
       Bold            =   False
       Caption         =   "1920x1080"
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   28
       Index           =   -2147483648
@@ -179,8 +179,8 @@ Begin DesktopWindow ScreenResolution
       Bold            =   False
       Caption         =   "Desktop"
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   28
       Index           =   -2147483648

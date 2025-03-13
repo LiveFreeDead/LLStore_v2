@@ -30,8 +30,8 @@ Begin DesktopWindow ControlPanel
       AllowFocusRing  =   True
       Bold            =   False
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   26
       Hint            =   ""
@@ -63,8 +63,8 @@ Begin DesktopWindow ControlPanel
       Caption         =   "Set"
       Default         =   True
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   26
       Index           =   -2147483648
@@ -91,8 +91,8 @@ Begin DesktopWindow ControlPanel
       AllowAutoDeactivate=   True
       Bold            =   False
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   24
       Index           =   -2147483648
@@ -123,8 +123,8 @@ Begin DesktopWindow ControlPanel
       AllowAutoDeactivate=   True
       Bold            =   False
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   24
       Index           =   -2147483648
@@ -156,8 +156,8 @@ Begin DesktopWindow ControlPanel
       Bold            =   False
       Caption         =   "Clean Up"
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   24
       Index           =   -2147483648
@@ -188,8 +188,8 @@ Begin DesktopWindow ControlPanel
       Caption         =   "Enable Linux Menu Sorting"
       Default         =   True
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   26
       Index           =   -2147483648
@@ -700,7 +700,7 @@ End
 		        If Debugging Then Debug("Default Found: "+ItemLLItem.TitleName+" Target: "+StartMenuDefaults(I).Target + Chr(10)+"StartMenuSorcePath: "+ItemLLItem.StartMenuSourcePath)
 		        LnkCount = LnkCount + 1
 		        ItemLnk(LnkCount).Title = ItemLLItem.TitleName 'Not 0 Based?
-		        ItemLnk(LnkCount).Description = StartMenuDefaults(I).Description
+		        ItemLnk(LnkCount).Comment = StartMenuDefaults(I).Description 'I call the short blurb a comment because the description is use by LL Store to show details info for each shortcut
 		        ItemLnk(LnkCount).Link.TargetPath = StartMenuDefaults(I).Target
 		        ItemLnk(LnkCount).Link.Arguments = StartMenuDefaults(I).Arguments
 		        ItemLnk(LnkCount).Link.WorkingDirectory = StartMenuDefaults(I).WorkingDir

@@ -38,8 +38,8 @@ Begin DesktopWindow Data
       DefaultRowHeight=   -1
       DropIndicatorVisible=   False
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       GridLineStyle   =   3
       HasBorder       =   True
@@ -86,8 +86,8 @@ Begin DesktopWindow Data
       DefaultRowHeight=   256
       DropIndicatorVisible=   False
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       GridLineStyle   =   0
       HasBorder       =   False
@@ -134,8 +134,8 @@ Begin DesktopWindow Data
       DefaultRowHeight=   -1
       DropIndicatorVisible=   False
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       GridLineStyle   =   0
       HasBorder       =   True
@@ -182,8 +182,8 @@ Begin DesktopWindow Data
       DefaultRowHeight=   -1
       DropIndicatorVisible=   False
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       GridLineStyle   =   0
       HasBorder       =   True
@@ -230,8 +230,8 @@ Begin DesktopWindow Data
       DefaultRowHeight=   -1
       DropIndicatorVisible=   False
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       GridLineStyle   =   0
       HasBorder       =   True
@@ -278,8 +278,8 @@ Begin DesktopWindow Data
       DefaultRowHeight=   -1
       DropIndicatorVisible=   False
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       GridLineStyle   =   3
       HasBorder       =   True

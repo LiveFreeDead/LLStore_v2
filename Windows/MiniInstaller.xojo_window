@@ -38,8 +38,8 @@ Begin DesktopWindow MiniInstaller
       DefaultRowHeight=   -1
       DropIndicatorVisible=   False
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       GridLineStyle   =   0
       HasBorder       =   False
@@ -76,8 +76,8 @@ Begin DesktopWindow MiniInstaller
       AllowAutoDeactivate=   True
       Bold            =   False
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   28
       Index           =   -2147483648
@@ -112,8 +112,8 @@ Begin DesktopWindow MiniInstaller
       Caption         =   "Pause"
       Default         =   True
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   26
       Index           =   -2147483648
@@ -144,8 +144,8 @@ Begin DesktopWindow MiniInstaller
       Caption         =   "Skip"
       Default         =   True
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   26
       Index           =   -2147483648
@@ -169,7 +169,6 @@ Begin DesktopWindow MiniInstaller
       Width           =   56
    End
    Begin Thread InstallItems
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Priority        =   5
@@ -179,7 +178,6 @@ Begin DesktopWindow MiniInstaller
       Type            =   0
    End
    Begin Timer UpdateUI
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -192,8 +190,8 @@ Begin DesktopWindow MiniInstaller
       Bold            =   False
       Caption         =   "Sudo"
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   28
       Index           =   -2147483648

@@ -28,8 +28,8 @@ Begin DesktopWindow Notification
       AllowAutoDeactivate=   True
       Bold            =   False
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   42
       Index           =   -2147483648

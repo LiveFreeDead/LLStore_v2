@@ -31,8 +31,8 @@ Begin DesktopWindow Tools
       Caption         =   "Install LLStore"
       Default         =   True
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   40
       Index           =   -2147483648
@@ -62,8 +62,8 @@ Begin DesktopWindow Tools
       Caption         =   "Force Full Update"
       Default         =   True
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   40
       Index           =   -2147483648
@@ -93,8 +93,8 @@ Begin DesktopWindow Tools
       Caption         =   "Force Exe Update"
       Default         =   True
       Enabled         =   True
-      FontName        =   "System"
-      FontSize        =   0.0
+      FontName        =   "Arial"
+      FontSize        =   12.0
       FontUnit        =   0
       Height          =   40
       Index           =   -2147483648
