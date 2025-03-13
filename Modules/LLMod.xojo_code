@@ -2928,6 +2928,9 @@ Protected Module LLMod
 		        Case "startmenulegacyprimary"
 		          ItemLLItem.StartMenuLegacyPrimary = LineData
 		          Continue 'Only need to process this line and then move to the next
+		        Case "startmenulegacysecondary"
+		          ItemLLItem.StartMenuLegacySecondary = LineData
+		          Continue 'Only need to process this line and then move to the next
 		        Case "startmenusourcepath"
 		          ItemLLItem.StartMenuSourcePath = LineData
 		          Continue 'Only need to process this line and then move to the next
@@ -3980,7 +3983,7 @@ Protected Module LLMod
 		    
 		    If ItemLLItem.Flags.IndexOf("keepinfolder") >= 0 Then
 		      If ItemLLItem.StartMenuSourcePath <> "" Then 
-		         If MenuStyle = "UnSorted" Then
+		        If MenuStyle = "UnSorted" Then
 		          If ItemLLItem.StartMenuSourcePath <> ItemLLItem.TitleName Then LinkOutPath = LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'Remove sorted Keep Folder if not the same as unsorted will be
 		        Else
 		          LinkOutPath = LinkOutPath+"\"+ItemLLItem.StartMenuSourcePath 'Remove sorted Keep Folder
@@ -5336,8 +5339,13 @@ Protected Module LLMod
 		  End If
 		  If ItemLLItem.URL <> "" Then DataOut = DataOut + "URL=" + ItemLLItem.URL.ReplaceAll(Chr(13),"|")+Chr(10)
 		  
-		  If ItemLLItem.Categories <> "" And Len(ItemLLItem.Categories) >= 2 Then
-		    If Right(ItemLLItem.Categories, 1) <> ";" Then ItemLLItem.Categories = ItemLLItem.Categories +";" 'Make Sure it's got the SemiColon
+		  If ItemLLItem.Categories <> "" And Len(ItemLLItem.Categories) >= 2 Then 
+		    If ItemLLItem.BuildType = "LLApp" Or ItemLLItem.BuildType = "LLGame" Then 'Linux Items only
+		      If Right(ItemLLItem.Categories, 1) <> ";" Then ItemLLItem.Categories = ItemLLItem.Categories +";" 'Make Sure it's got the SemiColon
+		    Else'Not Linux Item
+		      If Right(ItemLLItem.Categories, 1) = ";" Then ItemLLItem.Categories = Left(ItemLLItem.Categories, Len(ItemLLItem.Categories)-1) 'Make Sure it's NOT  got the SemiColon
+		      If Right(ItemLLItem.Categories, 1) = "|" Then ItemLLItem.Categories = Left(ItemLLItem.Categories, Len(ItemLLItem.Categories)-1) 'Make Sure it's NOT  got the Trailing One
+		    End If
 		  End If
 		  
 		  If BType = "SS" Then
@@ -5353,26 +5361,35 @@ Protected Module LLMod
 		  If ItemLLItem.StartMenuSourcePath <> "" Then DataOut = DataOut + "StartMenuSourcePath=" + ItemLLItem.StartMenuSourcePath+Chr(10)
 		  
 		  If ItemLLItem.Catalog <> "" And Len(ItemLLItem.Catalog) >= 2 Then
-		    If Right(ItemLLItem.Catalog, 1) <> ";" Then ItemLLItem.Catalog = ItemLLItem.Catalog +";" 'Make Sure it's got the SemiColon
+		    'If Right(ItemLLItem.Catalog, 1) <> ";" Then ItemLLItem.Catalog = ItemLLItem.Catalog +";" 'Make Sure it's got the SemiColon
+		    
+		    If ItemLLItem.BuildType = "LLApp" Or ItemLLItem.BuildType = "LLGame" Then 'Linux Items only
+		      If Right(ItemLLItem.Catalog, 1) <> ";" Then ItemLLItem.Catalog = ItemLLItem.Catalog +";" 'Make Sure it's got the SemiColon
+		    Else'Not Linux Item
+		      If Right(ItemLLItem.Catalog, 1) = ";" Then ItemLLItem.Catalog = Left(ItemLLItem.Catalog, Len(ItemLLItem.Catalog)-1) 'Make Sure it's NOT  got the SemiColon
+		      If Right(ItemLLItem.Catalog, 1) = "|" Then ItemLLItem.Catalog = Left(ItemLLItem.Catalog, Len(ItemLLItem.Catalog)-1) 'Make Sure it's NOT  got the Trailing One
+		    End If
+		    
 		  End If
 		  
 		  If ItemLLItem.Catalog <> "" Then DataOut = DataOut + "Catalog="+ ItemLLItem.Catalog+Chr(10)
 		  If ItemLLItem.StartMenuLegacyPrimary <> "" Then DataOut = DataOut + "StartMenuLegacyPrimary=" + ItemLLItem.StartMenuLegacyPrimary+Chr(10)
-		  If ItemLLItem.ShortCutNamesKeep <> "" Then DataOut = DataOut + "ShortCutNamesKeep=" + ItemLLItem.ShortCutNamesKeep+Chr(10)
+		  If ItemLLItem.StartMenuLegacySecondary <> "" Then DataOut = DataOut + "StartMenuLegacySecondary=" + ItemLLItem.StartMenuLegacySecondary+Chr(10)
+		  If ItemLLItem.ShortCutNamesKeep <> "" Then DataOut = DataOut + "ShortCutNamesKeep=" + ItemLLItem.ShortCutNamesKeep.ReplaceAll(";","|")+Chr(10)
 		  If ItemLLItem.Priority.ToString <> "" Then
 		    DataOut = DataOut + "Priority=" + ItemLLItem.Priority.ToString+Chr(10)
 		  Else
-		    DataOut = DataOut + "Priority=5"+Chr(10)
+		    'DataOut = DataOut + "Priority=5"+Chr(10) 'Leave Data empty, sets itself to 5 on loading anyway, so no need to make files bigger
 		  End If
 		  If ItemLLItem.DECompatible <> "" Then
 		    DataOut = DataOut + "DECompatible=" + ItemLLItem.DECompatible+Chr(10)
 		  Else
-		    DataOut = DataOut + "DECompatible=All"+Chr(10)
+		    'DataOut = DataOut + "DECompatible=All"+Chr(10) 'Leave data empty so can detect ones that need setting
 		  End If
 		  If ItemLLItem.PMCompatible <> "" Then
 		    DataOut = DataOut + "PMCompatible=" + ItemLLItem.PMCompatible+Chr(10)
 		  Else
-		    DataOut = DataOut + "PMCompatible=All"+Chr(10)
+		    'DataOut = DataOut + "PMCompatible=All"+Chr(10) 'Leave data empty so can detect ones that need setting
 		  End If
 		  If ItemLLItem.ArchCompatible <> "" Then
 		    DataOut = DataOut + "ArchCompatible=" + ItemLLItem.ArchCompatible+Chr(10)
@@ -5385,7 +5402,7 @@ Protected Module LLMod
 		  
 		  'Meta Here, Glenn 2027
 		  DataOut = DataOut + "[Meta]" + Chr(10)
-		  If ItemLLItem.InstallSize.ToString <> "" Then DataOut = DataOut + "InstalledSize=" + ItemLLItem.InstallSize.ToString+Chr(10)
+		  If ItemLLItem.InstallSize <> 0 Then DataOut = DataOut + "InstalledSize=" + ItemLLItem.InstallSize.ToString+Chr(10)
 		  If ItemLLItem.Tags <> "" Then DataOut = DataOut + "Tags=" + ItemLLItem.Tags+Chr(10)
 		  If ItemLLItem.Publisher <> "" Then DataOut = DataOut + "Publisher=" + ItemLLItem.Publisher+Chr(10)
 		  If ItemLLItem.Language <> "" Then DataOut = DataOut + "Language=" + ItemLLItem.Language+Chr(10)

@@ -51,7 +51,7 @@ Begin DesktopWindow Editor
       Top             =   0
       Transparent     =   False
       Underline       =   False
-      Value           =   0
+      Value           =   1
       Visible         =   True
       Width           =   630
       Begin DesktopLabel LabelTitle
@@ -344,7 +344,7 @@ Begin DesktopWindow Editor
          TabIndex        =   5
          TabPanelIndex   =   1
          TabStop         =   True
-         Tooltip         =   ""
+         Tooltip         =   "Separate each with a ; semi colon"
          Top             =   142
          Transparent     =   False
          Underline       =   False
@@ -3796,7 +3796,7 @@ Begin DesktopWindow Editor
          Text            =   "TextKeepShortcuts"
          TextAlignment   =   0
          TextColor       =   &c000000
-         Tooltip         =   ""
+         Tooltip         =   "Seperate with a pipe | character"
          Top             =   65
          Transparent     =   False
          Underline       =   False
@@ -5507,6 +5507,15 @@ End
 		  If Exist(FileIn) = True Then
 		    LLCatalogGames = LoadDataFromFile(FileIn).Split(Chr(10))
 		  End If
+		  FileIn = Slash(ToolPath) + "MenuCategoriesssApps.ini"
+		  If Exist(FileIn) = True Then
+		    SSCategoriesApps = LoadDataFromFile(FileIn).Split(Chr(10))
+		  End If
+		  
+		  FileIn = Slash(ToolPath) + "MenuCatalogssApps.ini"
+		  If Exist(FileIn) = True Then
+		    SSCatalogsApps = LoadDataFromFile(FileIn).Split(Chr(10))
+		  End If
 		End Sub
 	#tag EndMethod
 
@@ -5515,6 +5524,12 @@ End
 		  Dim BT As String
 		  Dim F As FolderItem
 		  Dim I As Integer
+		  Dim CleanTheCat As String
+		  Dim Sp() As String
+		  
+		  
+		  EditingLnk = -1 'Start with -1 so you can edit the Main item Catalogs
+		  Populating = True 'Make sure not to allow blanks to overwrite the data before it's populated
 		  
 		  'Defaults
 		  ComboBuildType.SelectedRowIndex = 0 'Default to LLApp
@@ -5533,6 +5548,9 @@ End
 		  TextVersion.Text = ItemLLItem.Version
 		  TextURLs.Text = ItemLLItem.URL.ReplaceAll("|", Chr(13))
 		  ComboBuildType.Text = ItemLLItem.BuildType
+		  Dim MI As New DesktopMenuItem
+		  MI.Text = ItemLLItem.BuildType
+		  SelectionChangedLoadCats(MI)
 		  'I need to load in the correct Catalogs so the user can only add the correct types
 		  TextPriority.Text = ItemLLItem.Priority.ToString
 		  ComboCategory.Text = ItemLLItem.Categories
@@ -5589,7 +5607,7 @@ End
 		  
 		  'Main Window 2 - Links
 		  TextDefaultMenuPath.Text = ItemLLItem.StartMenuSourcePath 'This is required to use Keep in Folder and also to have Unsorted ssApps/ppApps.
-		  TextKeepShortcuts.Text = ""
+		  'TextKeepShortcuts.Text = ""
 		  CheckKeepFolder.Value = ItemLLItem.KeepInFolder
 		  CheckKeepAll.Value = ItemLLItem.KeepAll
 		  ComboShortcut.Text = ""
@@ -5601,15 +5619,43 @@ End
 		  TextFileTypes.Text = ""
 		  TextDescriptionLink.Text = ""
 		  TextFlags.Text = ""
-		  ComboMenuCatalog.Text = ""
-		  TextMenuCatalog.Text = ""
+		  'ComboMenuCatalog.Text = ""
+		  'TextMenuCatalog.Text = ""
 		  CheckRunInTerminal.Value = False
 		  CheckShowDesktop.Value = False
 		  CheckShowPanel.Value = False
 		  CheckSendTo.Value = False
 		  CheckShowFavorites.Value = False
 		  
+		  'KeepShortcuts list
+		  TextKeepShortcuts.Text = ItemLLItem.ShortCutNamesKeep
+		  'Do Catalogs for main item in the Link section if no link detected? - May need own section
+		  If EditingLnk < 0 Then
+		    CleanTheCat = ItemLLItem.Catalog.ReplaceAll("|",";") 'Change to Linux style for this part
+		    CleanTheCat = CleanTheCat.ReplaceAll(" ;",";")
+		    CleanTheCat = CleanTheCat.ReplaceAll("; ",";")
+		    TextMenuCatalog.Text = CleanTheCat.ReplaceAll(";",Chr(13)) 'Show the main Items Catalog, once set you can't get back to it though so I may add it to a variable as you go
+		  Else
+		    CleanTheCat = ItemLnk(EditingLnk).Categories.ReplaceAll("|",";") 'Change to Linux style for this part
+		    CleanTheCat = CleanTheCat.ReplaceAll(" ;",";")
+		    CleanTheCat = CleanTheCat.ReplaceAll("; ",";")
+		    TextMenuCatalog.Text = CleanTheCat.ReplaceAll(";",Chr(13)) 'Show the main Items Catalog, once set you can't get back to it though so I may add it to a variable as you go
+		    
+		    'TextMenuCatalog.Text = ItemLnk(EditingLnk).Categories.ReplaceAll(";", Chr(13)) 'Make Multi Line, not ; seperated
+		  End If
+		  
+		  
 		  ComboShortcut.RemoveAllRows 'Clear the Existing Shortcuts
+		  
+		  'Add Main item to Link 0
+		  ComboShortcut.AddRow("Main Item")
+		  EditingCBLnk = ComboShortcut.LastAddedRowIndex
+		  ComboShortcut.RowTagAt(EditingCBLnk) = 0
+		  EditingLnk = 0
+		  ItemLnk(0).Title = "Main Item"
+		  ItemLnk(0).Categories = ItemLLItem.Catalog
+		  
+		  
 		  If LnkCount >= 1 Then
 		    For I = 1 To LnkCount
 		      If ItemLnk(I).Title <> "" Then 'Blank Items get ignored
@@ -5699,6 +5745,7 @@ End
 		  TextBuildToFolder.Text = ItemTempPath 'Fix to use correct path depending on job
 		  CheckCompress.Value = ItemLLItem.Compressed 'If already compressed then check it again so you know
 		  
+		  Populating = False 'Now you can edit without overwriting the Item Data.
 		End Sub
 	#tag EndMethod
 
@@ -5754,8 +5801,10 @@ End
 		      Next
 		    End If
 		    
+		    'Update Catalogs back
+		    If ItemLLItem.BuildType = "ssApp" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ppGame" Then ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(";","|") ' Make it SetupS Compatible
 		    
-		    If SaveLLFile (BTF) = True Then
+		    If SaveLLFile (BTF) = True Then '''''''''************************** Actual Save to file here *********************************************
 		      'Grab the name of the INI file
 		      Select Case BT
 		      Case "ppGame"
@@ -5887,6 +5936,39 @@ End
 		End Function
 	#tag EndMethod
 
+	#tag Method, Flags = &h0
+		Sub SelectionChangedLoadCats(Item As DesktopMenuItem)
+		  'Dim TempText As String
+		  
+		  If Item.Text = "ComboBuildType" Then
+		    ButtonSaveLLFile.Caption = "Save LLFile"
+		  Else
+		    ButtonSaveLLFile.Caption = "Save "+ Item.Text+" File"
+		  End If
+		  
+		  Dim CatFileToUse As String
+		  
+		  'TempText= ComboCategory.Text
+		  
+		  ComboCategory.RemoveAllRows
+		  ComboMenuCatalog.RemoveAllRows
+		  If Item.Text = "ppGame" Or Item.Text = "LLGame" Then
+		    ComboCategory.AddAllRows(LLCatalogGames())
+		    ComboMenuCatalog.AddAllRows(LLCatalogGames())
+		  Else 'It's a App
+		    If Item.Text = "LLApp" Or Item.Text = "LLGame" Then
+		      ComboCategory.AddAllRows(LLCatalogApps())
+		      ComboMenuCatalog.AddAllRows(LLCatalogApps())
+		    Else 'ssApp or ppApp, both use windows Catalogs
+		      ComboCategory.AddAllRows(SSCategoriesApps())
+		      ComboMenuCatalog.AddAllRows(SSCatalogsApps())
+		    End If
+		  End If
+		  'ComboCategory.Text = TempText 'Put original text back after clearing all rows
+		  ComboCategory.Text = ItemLLItem.Categories
+		End Sub
+	#tag EndMethod
+
 
 	#tag Property, Flags = &h0
 		EditingCBLnk As Integer = -1
@@ -5898,6 +5980,18 @@ End
 
 	#tag Property, Flags = &h0
 		LLCatalogGames(2048) As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		Populating As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		SSCatalogsApps(2048) As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		SSCategoriesApps(2048) As String
 	#tag EndProperty
 
 
@@ -6363,10 +6457,19 @@ End
 	#tag Event
 		Sub Pressed()
 		  Dim I As Integer
-		  If EditingLnk = -1 Then Return 'Nothing Selected, just get out of here
+		  If EditingLnk <= 0 Then Return 'Nothing Selected, just get out of here
 		  
 		  ItemLnk(EditingLnk).Title = "" 'Settings to blank pretty much deletes it
 		  ComboShortcut.RemoveAllRows 'Clear the Existing Shortcuts
+		  
+		  'Add Main item to Link 0
+		  ComboShortcut.AddRow("Main Item")
+		  EditingCBLnk = ComboShortcut.LastAddedRowIndex
+		  ComboShortcut.RowTagAt(EditingCBLnk) = 0
+		  EditingLnk = 0
+		  ItemLnk(0).Title = "Main Item"
+		  ItemLnk(0).Categories = ItemLLItem.Catalog
+		  
 		  If LnkCount >= 1 Then
 		    For I = 1 To LnkCount
 		      If ItemLnk(I).Title <> "" Then 'Blank Items get ignored
@@ -6384,6 +6487,8 @@ End
 #tag Events ComboShortcut
 	#tag Event
 		Sub SelectionChanged(item As DesktopMenuItem)
+		  Dim CleanTheCat As String
+		  
 		  EditingCBLnk = ComboShortcut.SelectedRowIndex
 		  EditingLnk = ComboShortcut.RowTagAt(EditingCBLnk)
 		  
@@ -6400,7 +6505,23 @@ End
 		  
 		  TextFlags.Text = ItemLnk(EditingLnk).Flags
 		  
-		  TextMenuCatalog.Text = ItemLnk(EditingLnk).Categories.ReplaceAll(" ", Chr(13)) 'Make Multi Line, not ; seperated
+		  If EditingLnk <= 0 Then
+		    'MsgBox ItemLLItem.Catalog.ReplaceAll(";",Chr(13))
+		    
+		    CleanTheCat = ItemLLItem.Catalog.ReplaceAll("|",";") 'Change to Linux style for this part
+		    CleanTheCat = CleanTheCat.ReplaceAll(" ;",";")
+		    CleanTheCat = CleanTheCat.ReplaceAll("; ",";")
+		    TextMenuCatalog.Text = CleanTheCat.ReplaceAll(";",Chr(13))'Show the main Items Catalog, once set you can't get back to it though so I may add it to a variable as you go
+		    
+		  Else
+		    
+		    CleanTheCat = ItemLnk(EditingLnk).Categories.ReplaceAll("|",";") 'Change to Linux style for this part
+		    CleanTheCat = CleanTheCat.ReplaceAll(" ;",";")
+		    CleanTheCat = CleanTheCat.ReplaceAll("; ",";")
+		    TextMenuCatalog.Text = CleanTheCat.ReplaceAll(";",Chr(13))'Show the main Items Catalog, once set you can't get back to it though so I may add it to a variable as you go
+		    
+		    'TextMenuCatalog.Text = ItemLnk(EditingLnk).Categories.ReplaceAll(" ", Chr(13)) 'Make Multi Line, not ; seperated
+		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -6487,15 +6608,33 @@ End
 #tag Events TextMenuCatalog
 	#tag Event
 		Sub TextChanged()
-		  'Set Global/Default Catalog
-		  ItemLLItem.Catalog = Me.Text.Trim.ReplaceAll(Chr(10)," ")' Drop the  EOL and keep it spaced like used in the LLFile
-		  ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(Chr(13)," ")
+		  'Set Global/Default Catalog 'Move to below to make it possible to use a different catalog for the main item if you so want.
+		  'ItemLLItem.Catalog = Me.Text.Trim.ReplaceAll(Chr(10),"; ")' Drop the  EOL and keep it spaced like used in the LLFile
+		  'ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(Chr(13),"; ")
+		  'ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(";;",";")
+		  'ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll("; ;",";")
+		  
 		  
 		  'Set Per Link Catalogs
 		  If ComboShortcut.RowCount >= 1 Then 'Only allow it to Save Changes if it's Got Link Items added
-		    If EditingLnk <= LnkCount  And EditingLnk >= 0 Then ' Just a precaution
-		      ItemLnk(EditingLnk).Categories = Me.Text.Trim.ReplaceAll(Chr(10)," ")' Drop the  EOL and keep it spaced like used in the LLFile
-		      ItemLnk(EditingLnk).Categories = ItemLnk(EditingLnk).Categories.ReplaceAll(Chr(13)," ")
+		    If EditingLnk <= LnkCount  And EditingLnk > 0 Then ' Just a precaution
+		      ItemLnk(EditingLnk).Categories = Me.Text.Trim.ReplaceAll(Chr(13),Chr(10))
+		      ItemLnk(EditingLnk).Categories = ItemLnk(EditingLnk).Categories.ReplaceAll(Chr(10)+Chr(10),Chr(10))
+		      ItemLnk(EditingLnk).Categories = ItemLnk(EditingLnk).Categories.ReplaceAll(Chr(10),"; ")' Drop the  EOL and keep it spaced like used in the LLFile
+		      ItemLnk(EditingLnk).Categories = ItemLnk(EditingLnk).Categories.ReplaceAll(Chr(13),"; ")
+		      ItemLnk(EditingLnk).Categories=ItemLnk(EditingLnk).Categories.ReplaceAll(";;",";")
+		      ItemLnk(EditingLnk).Categories=ItemLnk(EditingLnk).Categories.ReplaceAll("; ;",";")
+		      If ItemLLItem.BuildType = "ssApp" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ppGame" Then ItemLnk(EditingLnk).Categories = ItemLnk(EditingLnk).Categories.ReplaceAll(";","|") ' Make it SetupS Compatible
+		    End If
+		    If EditingLnk = 0 Then ' Update Main Item
+		      ItemLLItem.Catalog = Me.Text.Trim.ReplaceAll(Chr(13),Chr(10))
+		      ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(Chr(10)+Chr(10),Chr(10))
+		      ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(Chr(10),"; ")' Drop the  EOL and keep it spaced like used in the LLFile
+		      
+		      ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(Chr(10),"; ")' Drop the  EOL and keep it spaced like used in the LLFile
+		      ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(";;",";")
+		      ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll("; ;",";")
+		      If ItemLLItem.BuildType = "ssApp" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ppGame" Then ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(";","|") ' Make it SetupS Compatible
 		    End If
 		  End If
 		End Sub
@@ -6986,23 +7125,13 @@ End
 #tag Events ComboBuildType
 	#tag Event
 		Sub SelectionChanged(item As DesktopMenuItem)
-		  If Item.Text = "ComboBuildType" Then
-		    ButtonSaveLLFile.Caption = "Save LLFile"
-		  Else
-		    ButtonSaveLLFile.Caption = "Save "+ Item.Text+" File"
-		  End If
+		  SelectionChangedLoadCats (Item)
 		  
-		  Dim CatFileToUse As String
 		  
-		  ComboCategory.RemoveAllRows
-		  ComboMenuCatalog.RemoveAllRows
-		  If Item.Text = "ppGame" Or Item.Text = "LLGame" Then
-		    ComboCategory.AddAllRows(LLCatalogGames())
-		    ComboMenuCatalog.AddAllRows(LLCatalogGames())
-		  Else 'It's a App
-		    ComboCategory.AddAllRows(LLCatalogApps())
-		    ComboMenuCatalog.AddAllRows(LLCatalogApps())
-		  End If
+		End Sub
+	#tag EndEvent
+	#tag Event
+		Sub TextChanged()
 		  
 		End Sub
 	#tag EndEvent
@@ -7017,7 +7146,7 @@ End
 #tag Events TextKeepShortcuts
 	#tag Event
 		Sub TextChanged()
-		  ItemLLItem.ShortCutNamesKeep = Me.Text.Trim
+		  If Not Populating Then ItemLLItem.ShortCutNamesKeep = Me.Text.Trim
 		End Sub
 	#tag EndEvent
 #tag EndEvents

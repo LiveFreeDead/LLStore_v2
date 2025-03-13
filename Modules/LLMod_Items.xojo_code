@@ -81,6 +81,7 @@ Protected Module LLMod_Items
 		  ShowAlways As Boolean
 		  ShowSetupOnly As Boolean
 		  StartMenuLegacyPrimary As String * 1024
+		  StartMenuLegacySecondary As String * 1024
 		  StartMenuSourcePath As String * 1024
 		  Tags As String * 2048
 		  TitleName As String * 1024
