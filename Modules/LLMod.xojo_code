@@ -3035,7 +3035,8 @@ Protected Module LLMod
 		        LnkEditing = LnkCount
 		        ItemLnk(LnkEditing).Title = Left(LineID, Len(LineID)-5)
 		        ItemLnk(LnkEditing).Title = Right(ItemLnk(LnkEditing).Title, Len(ItemLnk(LnkEditing).Title) - 1)
-		        ItemLnk(LnkEditing).Description = ItemLLItem.Descriptions 'Use main Items description, gets replaced if another is given
+		        'Don't use Description, I'll make it fall back to the original Items Description
+		        'ItemLnk(LnkEditing).Description = ItemLLItem.Descriptions 'Use main Items description, gets replaced if another is given
 		        ItemLnk(LnkEditing).Active = True
 		        ReadMode = 1
 		      End If
@@ -5279,6 +5280,7 @@ Protected Module LLMod
 		  Dim PicInFile As String
 		  Dim PicOutFile As String
 		  Dim Suc As Boolean
+		  Dim CatOut As String
 		  
 		  Select Case ItemLLItem.BuildType
 		  Case "ppGame"
@@ -5341,7 +5343,7 @@ Protected Module LLMod
 		  If ItemLLItem.URL <> "" Then DataOut = DataOut + "URL=" + ItemLLItem.URL.ReplaceAll(Chr(13),"|")+Chr(10)
 		  
 		  If ItemLLItem.Categories <> "" And Len(ItemLLItem.Categories) >= 2 Then 
-		    If ItemLLItem.BuildType = "LLApp" Or ItemLLItem.BuildType = "LLGame" Then 'Linux Items only
+		    If BType = "LL" Then 'Linux Items only
 		      If Right(ItemLLItem.Categories, 1) <> ";" Then ItemLLItem.Categories = ItemLLItem.Categories +";" 'Make Sure it's got the SemiColon
 		    Else'Not Linux Item
 		      If Right(ItemLLItem.Categories, 1) = ";" Then ItemLLItem.Categories = Left(ItemLLItem.Categories, Len(ItemLLItem.Categories)-1) 'Make Sure it's NOT  got the SemiColon
@@ -5350,7 +5352,11 @@ Protected Module LLMod
 		  End If
 		  
 		  If BType = "SS" Then
-		    If ItemLLItem.Categories <> "" Then DataOut = DataOut + "Category=" + ItemLLItem.Categories.ReplaceAll(";", "|")+Chr(10) 'SetupS uses Pipe not colon
+		    CatOut = ItemLLItem.Categories
+		    If Left(ItemLLItem.Categories, 1) =";" Or Left(ItemLLItem.Categories, 1) ="|" Then CatOut = Left(CatOut, Len(CatOut)-1)
+		    CatOut = CatOut.ReplaceAll(";", "|").Trim
+		    
+		    If CatOut <> "" Then DataOut = DataOut + "Category=" + CatOut+Chr(10) 'SetupS uses Pipe not colon
 		    DataOut = DataOut + "BuildType=" + ItemLLItem.BuildType+Chr(10)
 		    DataOut = DataOut +"App-File Version=v9.24.05.22.0"+Chr(10) 'Also Requires these
 		    DataOut = DataOut +"App-File Style=2 (INI)"+Chr(10) 'Also Requires these
@@ -5364,11 +5370,11 @@ Protected Module LLMod
 		  If ItemLLItem.Catalog <> "" And Len(ItemLLItem.Catalog) >= 2 Then
 		    'If Right(ItemLLItem.Catalog, 1) <> ";" Then ItemLLItem.Catalog = ItemLLItem.Catalog +";" 'Make Sure it's got the SemiColon
 		    
-		    If ItemLLItem.BuildType = "LLApp" Or ItemLLItem.BuildType = "LLGame" Then 'Linux Items only
+		    If BType = "LL" Then 'Linux Items only
 		      If Right(ItemLLItem.Catalog, 1) <> ";" Then ItemLLItem.Catalog = ItemLLItem.Catalog +";" 'Make Sure it's got the SemiColon
 		    Else'Not Linux Item
-		      If Right(ItemLLItem.Catalog, 1) = ";" Then ItemLLItem.Catalog = Left(ItemLLItem.Catalog, Len(ItemLLItem.Catalog)-1) 'Make Sure it's NOT  got the SemiColon
-		      If Right(ItemLLItem.Catalog, 1) = "|" Then ItemLLItem.Catalog = Left(ItemLLItem.Catalog, Len(ItemLLItem.Catalog)-1) 'Make Sure it's NOT  got the Trailing One
+		      ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(";","|").Trim 'Use Windows Separators
+		      If Right(ItemLLItem.Catalog, 1) = "|" Then ItemLLItem.Catalog = Left(ItemLLItem.Catalog, Len(ItemLLItem.Catalog)-1).Trim 'Make Sure it's NOT  got the Trailing One
 		    End If
 		    
 		  End If
@@ -5425,11 +5431,20 @@ Protected Module LLMod
 		        If ItemLnk(I).Title = "" Then Continue 'Dud item, continue looping to next item
 		        DataOut = DataOut + "["+ItemLnk(I).Title+".lnk]"+Chr(10)
 		        If ItemLnk(I).Link.TargetPath <> "" Then DataOut = DataOut + "Target="+ItemLnk(I).Link.TargetPath+Chr(10)
+		        If ItemLnk(I).Link.Arguments <> "" Then DataOut = DataOut + "Args="+ItemLnk(I).Link.Arguments+Chr(10)
 		        If ItemLnk(I).Associations <> "" Then DataOut = DataOut + "Extensions="+ItemLnk(I).Associations+Chr(10)
 		        If ItemLnk(I).Flags <> "" Then DataOut = DataOut + "Flags="+ItemLnk(I).Flags+Chr(10)
-		        If ItemLnk(I).Link.Description <> "" Then DataOut = DataOut + "Comment="+ItemLnk(I).Link.Description+Chr(10)
-		        If ItemLnk(I).Description <> "" Then DataOut = DataOut + "Description="+ItemLnk(I).Description+Chr(10)
-		        If ItemLnk(I).Categories <> "" Then DataOut = DataOut + "Categories="+ItemLnk(I).Categories+Chr(10)
+		        If ItemLnk(I).Link.Description <> "" Then DataOut = DataOut + "Comment="+ItemLnk(I).Link.Description.ReplaceAll(EndOfLine, Chr(30))+Chr(10)
+		        If ItemLnk(I).Description <> "" Then DataOut = DataOut + "Description="+ItemLnk(I).Description.ReplaceAll(EndOfLine, Chr(30))+Chr(10)
+		        
+		        CatOut = ItemLnk(I).Categories
+		        If CatOut.ReplaceAll(";","").ReplaceAll(" ","").Trim = ItemLLItem.Catalog.ReplaceAll(";","").ReplaceAll(" ","").Trim Then CatOut = "" 'Don't add if the same as the main items category
+		        If CatOut<> "" Then
+		          CatOut = CatOut.ReplaceAll(";","|").Trim 'Use Windows Separators
+		          If Right(CatOut, 1) = "|" Then CatOut = Left(CatOut, Len(CatOut)-1).Trim ' Remove Trailing | in windows items
+		          DataOut = DataOut + "Categories="+CatOut+Chr(10)
+		        End If
+		        ''''If ItemLnk(I).Categories <> "" Then DataOut = DataOut + "Categories="+ItemLnk(I).Categories+Chr(10) 'Old Method
 		        
 		        'Do ShowOn
 		        FlagsOut = ""
@@ -5457,10 +5472,17 @@ Protected Module LLMod
 		        If ItemLnk(I).Link.Description <> "" Then DataOut = DataOut + "Comment="+ItemLnk(I).Link.Description.ReplaceAll(EndOfLine, Chr(30))+Chr(10)
 		        If ItemLnk(I).Link.WorkingDirectory <> "" Then DataOut = DataOut + "Path="+ItemLnk(I).Link.WorkingDirectory+Chr(10)
 		        If ItemLnk(I).Link.IconLocation <> "" Then DataOut = DataOut + "Icon="+ItemLnk(I).Link.IconLocation+Chr(10)
-		        If ItemLnk(I).Categories <> "" Then DataOut = DataOut + "Categories="+ItemLnk(I).Categories+Chr(10)
+		        If ItemLnk(I).Categories <> "" Then
+		          
+		          CatOut = ItemLnk(I).Categories
+		          If CatOut.ReplaceAll(";","").ReplaceAll(" ","").Trim = ItemLLItem.Catalog.ReplaceAll(";","").ReplaceAll(" ","").Trim Then CatOut = "" 'Don't add if the same as the main items category
+		          If CatOut<> "" Then
+		            DataOut = DataOut + "Categories="+CatOut+Chr(10)
+		          End If
+		        End If
 		        If ItemLnk(I).Associations <> "" Then DataOut = DataOut + "Extensions="+ItemLnk(I).Associations+Chr(10)
 		        If ItemLnk(I).Flags <> "" Then DataOut = DataOut + "Flags="+ItemLnk(I).Flags+Chr(10)
-		        If ItemLnk(I).Description <> "" Then DataOut = DataOut + "Description="+ItemLnk(I).Description+Chr(10)
+		        If ItemLnk(I).Description <> "" Then DataOut = DataOut + "Description="+ItemLnk(I).Description.ReplaceAll(EndOfLine, Chr(30))+Chr(10)
 		        DataOut = DataOut + "Terminal="+ItemLnk(I).Terminal.ToString+Chr(10)
 		        
 		        'Do ShowOn

@@ -372,6 +372,7 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -428,6 +429,7 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -436,6 +438,7 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -955,9 +958,9 @@ End
 		  'Meta Data
 		  MetaData.RemoveAllRows
 		  MetaData.AddRow ("URL:            " + Chr(9) + Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("URL")))
-		  MetaData.AddRow ("Category:" + Chr(9) + Categories)
+		  MetaData.AddRow ("Category:   " + Chr(9) + Categories)
 		  MetaData.AddRow ("License:   " + Chr(9) + License)
-		  MetaData.AddRow ("Installed: " + Chr(9) + Installed)
+		  MetaData.AddRow ("Installed:   " + Chr(9) + Installed)
 		  MetaData.AddRow ("Size:            " + Chr(9) + InstSizeText)
 		  MetaData.AddRow ("Online:      " + Chr(9) + IsOnline)
 		  
