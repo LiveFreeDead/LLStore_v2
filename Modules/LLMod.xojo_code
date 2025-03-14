@@ -354,13 +354,13 @@ Protected Module LLMod
 		    #Pragma BreakOnExceptions Off
 		    Try
 		      F=GetFolderItem(FileIn, FolderItem.PathTypeShell)
-		      'If Not F.Parent.Exists Then MakeFolder(F.Parent.ShellPath) ' Make sure folder exists before copying to it??? To it or from it GlennGlenn Remarked out - weird
+		      'If Not F.Parent.Exists Then MakeFolder(F.Parent.NativePath) ' Make sure folder exists before copying to it??? To it or from it GlennGlenn Remarked out - weird
 		      
 		      G=GetFolderItem(FileOut, FolderItem.PathTypeShell)
-		      'MakeFolder(G.Parent.ShellPath) 'Makes sure the output path parent exists before trying to copy to it. 'leaving this out for now, causes issues with Try Catch, if access denied
+		      'MakeFolder(G.Parent.NativePath) 'Makes sure the output path parent exists before trying to copy to it. 'leaving this out for now, causes issues with Try Catch, if access denied
 		      If G.Exists And G.IsWriteable Then G.Remove
 		      
-		      'If Debugging Then Debug("Attempting Copy "+ F.ShellPath +" To " + G.ShellPath)
+		      'If Debugging Then Debug("Attempting Copy "+ F.NativePath +" To " + G.NativePath)
 		      
 		      F.CopyTo(G)
 		      
@@ -5252,7 +5252,7 @@ Protected Module LLMod
 		  If F = Nil Then
 		    Return ""
 		  Else
-		    If Lowercase(Right(F.ShellPath,3)) = Lowercase(FileTyp.Extensions) Then Return F.NativePath
+		    If Lowercase(Right(F.NativePath,3)) = Lowercase(FileTyp.Extensions) Then Return F.NativePath
 		    Return F.NativePath + "." + Lowercase(FileTyp.Extensions)
 		  End If
 		End Function
@@ -5538,7 +5538,7 @@ Protected Module LLMod
 		  Try
 		    Dim F2 As FolderItem
 		    Dim TOut As TextOutputStream
-		    F2 = GetFolderItem (F.ShellPath +".Test", FolderItem.PathTypeShell)
+		    F2 = GetFolderItem (F.NativePath +".Test", FolderItem.PathTypeShell)
 		    TOut = TextOutputStream.Create(F2)
 		    TOut.Close
 		    F2.Delete

@@ -3238,9 +3238,12 @@ End
 		  End If
 		  
 		  CurrentPath =  FixPath(SpecialFolder.CurrentWorkingDirectory.NativePath)
+		  
+		  'Msgbox (App.ExecutableFile.Parent.NativePath)
+		  
 		  F = App.ExecutableFile.Parent
 		  Do
-		    If Exist(Slash(F.ShellPath) + "Tools") Then
+		    If Exist(Slash(F.NativePath) + "Tools") Then
 		      AppPath  = F.NativePath
 		      Exit Do
 		    End If
@@ -3435,8 +3438,8 @@ End
 		  ppApps = ppAppsFolder
 		  ppGames = ppGamesFolder
 		  
-		  Linux7z = ToolPath + "7zzs"
-		  LinuxWget = ToolPath + "wget"
+		  Linux7z = Chr(34)+ToolPath + "7zzs"+Chr(34)
+		  LinuxWget = Chr(34)+ToolPath + "wget"+Chr(34)
 		  Win7z = Chr(34)+ToolPath + "7z.exe"+Chr(34) 'Added " to make it work in paths with spaces?
 		  WinWget = Chr(34)+ToolPath + "wget.exe"+Chr(34) 'Added " to make it work in paths with spaces?
 		  
