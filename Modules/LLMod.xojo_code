@@ -37,6 +37,12 @@ Protected Module LLMod
 		      'Generate desktop.ini for the folders
 		      MakePathIcon (MenuPath+StartMenuLocations(I,StartMenuUsed).Path, StartMenuLocations(I,StartMenuUsed).IconFile, StartMenuLocations(I,StartMenuUsed).IconIndex, True) 'The True is Make Command to Return Only
 		      
+		      If StartMenuLocations(I,StartMenuUsed).Path.IndexOf("Startup") >=0 Then 'Make Startup folder have it's Icon always, it doesn't get new items added very often
+		        MakePathIcon (StartPathAll+StartMenuLocations(I,StartMenuUsed).Path, StartMenuLocations(I,StartMenuUsed).IconFile, StartMenuLocations(I,StartMenuUsed).IconIndex, True) 'The True is Make Command to Return Only
+		        MakePathIcon (StartPathUser+StartMenuLocations(I,StartMenuUsed).Path, StartMenuLocations(I,StartMenuUsed).IconFile, StartMenuLocations(I,StartMenuUsed).IconIndex, True) 
+		      End If
+		      
+		      
 		      MakeFolderBatch = MakeFolderBatch + CommandReturned + Chr(10)
 		      
 		      'MsgBox CommandReturned

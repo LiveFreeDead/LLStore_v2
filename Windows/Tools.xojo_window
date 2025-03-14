@@ -117,6 +117,37 @@ Begin DesktopWindow Tools
       Visible         =   True
       Width           =   130
    End
+   Begin DesktopButton DeleteRepository
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Cancel          =   False
+      Caption         =   "Delete Repository"
+      Default         =   True
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   40
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   20
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      MacButtonStyle  =   0
+      Scope           =   0
+      TabIndex        =   3
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "This deletes the downloaded items you have on your local system in ~/zLastOSRepository, you can delete them manually, or copy them out to USB to install again"
+      Top             =   20
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   130
+   End
 End
 #tag EndDesktopWindow
 
@@ -199,6 +230,44 @@ End
 		  Loading.CheckForLLStoreUpdates
 		  ForceExeUpdate = False
 		  Loading.Hide
+		  Main.Show
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events DeleteRepository
+	#tag Event
+		Sub Pressed()
+		  Dim Res As Integer
+		  
+		  Dim F As FolderItem
+		  
+		  Res = MsgBox ("Delete Local Repository Cache (Downloaded Items)?", 52)
+		  
+		  If Res = 7 Then Return ' ABORT!
+		  
+		  If Res = 6 Then
+		    
+		    Tools.Hide
+		    Main.Hide
+		    
+		    'Delete Local Repository path
+		    #Pragma BreakOnExceptions Off
+		    Deltree(RepositoryPathLocal)
+		    
+		    'Make Folders again to be used
+		    F = GetFolderItem(Slash(RepositoryPathLocal)+".lldb", FolderItem.PathTypeShell)
+		    If Not F.Exists Then
+		      Try 
+		        MakeFolder(F.NativePath)
+		      Catch
+		      End Try
+		    End If
+		    
+		    'Make sure Repository path is accessiable to all
+		    if TargetLinux then
+		      ChMod(Slash(RepositoryPathLocal), "-R 777")
+		    End If
+		  End If
 		  Main.Show
 		End Sub
 	#tag EndEvent

@@ -212,6 +212,37 @@ Begin DesktopWindow ControlPanel
       Visible         =   True
       Width           =   238
    End
+   Begin DesktopButton ButtonCleanDudLinuxMenuItems
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Cancel          =   False
+      Caption         =   "Cleanup Dud Linux Menu Items"
+      Default         =   True
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   26
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   102
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      MacButtonStyle  =   0
+      Scope           =   0
+      TabIndex        =   7
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "This tests all linux shortcuts and removes if broken"
+      Top             =   48
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   238
+   End
 End
 #tag EndDesktopWindow
 
@@ -223,6 +254,176 @@ End
 		End Sub
 	#tag EndEvent
 
+
+	#tag Method, Flags = &h0
+		Sub CleanDudLinuxMenuItems()
+		  If Not TargetLinux Then Return ' Not the right OS
+		  'MsgBox "Not Implemented"
+		  
+		  Dim I, J As Integer
+		  Dim ScanPath As String
+		  Dim Sh As New Shell
+		  Dim Sp(), Sp2() As String
+		  Dim DesktopFileData As String
+		  Dim EXEC, PATH As String
+		  Dim LineID, LineData, Lin As String
+		  Dim EqPos As Integer
+		  Dim CleanExec, CleanPath As String
+		  Dim Test As String
+		  Dim Res As Integer
+		  
+		  Dim ValidItem As Boolean = False
+		  
+		  
+		  Sh.ExecuteMode = Shell.ExecuteModes.Synchronous
+		  Sh.TimeOut =  -1
+		  
+		  ScanPath = Slash(HomePath)+".local/share/applications"
+		  
+		  Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"*.desktop"+Chr(34))
+		  Sp = Sh.Result.Split(EndOfLine)
+		  If Sp.Count >=1 Then
+		    For I = 0 To Sp.Count -1
+		      DesktopFileData = LoadDataFromFile(Sp(I))
+		      Sp2 = DesktopFileData.Split(EndOfLine)
+		      EXEC = ""
+		      PATH = ""
+		      For J = 0 To Sp2.Count -1
+		        Lin = Sp2(J)
+		        EqPos = Lin.IndexOf(1,"=")
+		        LineID = ""
+		        LineData = ""
+		        If  EqPos >= 1 Then
+		          LineID = Left(Lin,EqPos)
+		          LineData = Right(Lin,Len(Lin)-Len(LineID)-1)
+		          LineID=LineID.Trim.Lowercase
+		          LineData=LineData.Trim
+		        End If
+		        Select Case LineID
+		        Case "EXEC"
+		          EXEC = LineData
+		        Case "PATH"
+		          PATH = LineData
+		        End Select
+		        If EXEC <> "" And PATH <> "" Then Exit ' We have everything we need
+		      Next J
+		      ValidItem = False
+		      If EXEC <> ""  Then 'Need at least this one or nothing can be tested
+		        CleanPath = "" 'Start Fresh
+		        CleanExec = ""
+		        
+		        If PATH <> "" Then CleanPath = Slash(PATH.ReplaceAll(Chr(34),"")) ' Remove quotes from paths, this should be the only cleaning we need to do
+		        
+		        CleanExec = EXEC
+		        
+		        If Left(CleanExec, 5) = "WINE " Then CleanExec = Right(CleanExec, Len(CleanExec)-5).Trim ' Remove WINE and trim it up
+		        
+		        CleanExec = CleanExec.ReplaceAll(Chr(34)+Chr(34), "") 'Remove all double quotes, they cause issues
+		        CleanExec = CleanExec.ReplaceAll(Chr(34)+Chr(34), "")
+		        CleanExec = CleanExec.ReplaceAll(Chr(34)+Chr(34), "")
+		        CleanExec = CleanExec.ReplaceAll(Chr(34)+Chr(34), "")
+		        
+		        While Left(CleanExec, 1) = Chr(34) 'Keep removing Quotes until they are gone
+		          CleanExec = Right(CleanExec,Len(CleanExec)-1) ' Remove First Quote so can find matching one to only use the EXEC name, no arguments etc
+		          CleanExec = Left(CleanExec, CleanExec.IndexOf(Chr(34))) 'Check for matching Quote to crop out the main exe name
+		        Wend
+		        
+		        CleanExec = CleanExec.ReplaceAll("%u", "")
+		        CleanExec = CleanExec.ReplaceAll("%F", "")
+		        CleanExec = CleanExec.ReplaceAll("%f", "")
+		        CleanExec = CleanExec.ReplaceAll("env GDK_BACKEND=x11", "")
+		        
+		        CleanExec = CleanExec.Trim
+		        
+		        'Special Cases
+		        If CleanExec = "notepad" Then ValidItem = True 'This item is built in to wine 
+		        If CleanExec = "uninstall" Then ValidItem = True 'This item is built in to wine
+		        If CleanExec = "uninstaller" Then ValidItem = True 'This item is built in to wine
+		        If Left(CleanExec, 5) = "steam" Then ValidItem = True  ' Steam is self managed so if one breaks, I don't want to touch it with a ten foot pole
+		        If Left(CleanExec, 8) = "/app/bin" Then ValidItem = True  ' Flatpaks are self managed so if one breaks, I don't want to touch it with a ten foot pole
+		        If Left(CleanExec, 8) = "/app/bin" Then ValidItem = True  ' Flatpaks are self managed so if one breaks, I don't want to touch it with a ten foot pole
+		        If Sp(I).IndexOf("webapp") >=0 Then ValidItem = True ' Skip Web Apps
+		        If CleanExec = "start /unix" Then ValidItem = True 'This item is built in to wine ' I still need to knock off the space in the exec path for other items (GLENN)
+		        
+		        '
+		        If CleanExec.IndexOf(".appimage") >=0 Then  'Has appimage so drop back to see if that exists
+		          CleanExec = Left(CleanExec, CleanExec.IndexOf(".appimage") + 9).Trim 'Trim to appimage file name
+		        End If
+		        
+		        'Now Check results
+		        If Exist(CleanExec) Then ValidItem = True ' It exist
+		        If Exist(CleanPath+CleanExec) Then ValidItem = True ' It exist
+		        If Exist(CleanPath+CleanExec.Lowercase) Then ValidItem = True ' It's exist but the exe is actually lowercase
+		        
+		        If ValidItem = False Then   'And CleanPath = "" Then ' Check the system paths for the executable else it's not Valid 'Don't really need to care if path is given or not, if it's available it will work
+		          'MsgBox "Testing: "+CleanExec
+		          Sh.Execute("type -P "+Chr(34)+CleanExec+Chr(34)) 'Check if system wide call, if so it's a little valid at least
+		          If  Sh.Result <> "" Then ValidItem = True 'If not nothing then found
+		          
+		          If Not ValidItem Then
+		            Test = Right(CleanExec,Len(CleanExec) -InStrRev (CleanExec,"/")).Trim ' Remove path and see if system wide executable, including the path with a system wide variable still works
+		            'MsgBox "Testing: "+Test
+		            Sh.Execute("type -P "+Chr(34)+Test+Chr(34)) 'Check if system wide call, if so it's a little valid at least
+		            If  Sh.Result <> "" Then ValidItem = True 'If not nothing then found
+		          End If
+		        End If
+		        
+		        If Not ValidItem Then ' Still more testing
+		          If CleanExec.IndexOf(" ") >=0 Then  'Has a space, test before the space
+		            Test = Left(CleanExec, CleanExec.IndexOf(" ")).Trim
+		            'MsgBox "Testing: "+Test
+		            Sh.Execute("type -P "+Chr(34)+Test+Chr(34)) 'Check if system wide call, if so it's a little valid at least
+		            If  Sh.Result <> "" Then ValidItem = True 'If not nothing then found
+		          End If
+		        End If
+		        
+		        'MsgBox "Path: "+ CleanPath+" EXEC: "+ CleanExec
+		        If Not ValidItem Then 'Remove It
+		          Res = MsgBox ("Delete: "+Sp(I)+Chr(10)+Chr(10)+"EXEC Not found: "+CleanPath+CleanExec,52)
+		          
+		          If Res = 7 Then Return ' ABORT!
+		          
+		          If Res = 6 Then
+		            'Delete Item
+		            Deltree(Sp(I))
+		          End If
+		        Else
+		          'If Sp(I).IndexOf("braid") >=0 Then MsgBox ("Kept Braid Why?")
+		        End If
+		      End If
+		    Next I
+		  End If
+		  
+		  MsgBox ("Finished Checking for Bad Links")
+		  
+		  Return
+		  Dim D As Integer
+		  Dim ItemFile As String
+		  Dim F, G As FolderItem
+		  
+		  ScanPath = Slash(HomePath)+".local/share/applications"
+		  F = GetFolderItem(ScanPath, FolderItem.PathTypeShell)
+		  If F.IsFolder And F.IsReadable Then
+		    If F.Count > 0 Then
+		      For D = 1 To F.Count
+		        ItemFile =F.Item(D).NativePath
+		        If Not F.Item(D).Directory Then 'Look for files only
+		          If Right(ItemFile, 8) = ".desktop" Then
+		            'MsgBox ItemFile
+		          End If
+		        End If
+		      Next D
+		    End If
+		  End If
+		  
+		  
+		  
+		  
+		  ScanPath = "/usr/share/applications"
+		  
+		  MsgBox ScanPath
+		End Sub
+	#tag EndMethod
 
 	#tag Method, Flags = &h0
 		Sub CleanStartMenu()
@@ -345,6 +546,7 @@ End
 		    CheckCleanUp.Enabled = False
 		  Else 'Running in Windows
 		    ButtonSetLinuxMenuSorting.Enabled = False
+		    ButtonCleanDudLinuxMenuItems.Enabled = False
 		  End If
 		  
 		  ComboMenuStyle.RemoveAllRows
@@ -832,6 +1034,15 @@ End
 	#tag Event
 		Sub Pressed()
 		  InstallLinuxMenuSorting(False)
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events ButtonCleanDudLinuxMenuItems
+	#tag Event
+		Sub Pressed()
+		  CleanDudLinuxMenuItems()
+		  
+		  
 		End Sub
 	#tag EndEvent
 #tag EndEvents
