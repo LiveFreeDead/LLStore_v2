@@ -194,7 +194,7 @@ Begin DesktopWindow ControlPanel
       Height          =   26
       Index           =   -2147483648
       Italic          =   False
-      Left            =   352
+      Left            =   364
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -206,11 +206,11 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   ""
-      Top             =   48
+      Top             =   86
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   238
+      Width           =   226
    End
    Begin DesktopButton ButtonCleanDudLinuxMenuItems
       AllowAutoDeactivate=   True
@@ -225,7 +225,7 @@ Begin DesktopWindow ControlPanel
       Height          =   26
       Index           =   -2147483648
       Italic          =   False
-      Left            =   102
+      Left            =   126
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -237,11 +237,72 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "This tests all linux shortcuts and removes if broken"
-      Top             =   48
+      Top             =   86
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   238
+      Width           =   226
+   End
+   Begin DesktopCheckBox CheckRegenerate
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Caption         =   "Regenerate"
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   24
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   13
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      Scope           =   0
+      TabIndex        =   8
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "Regenerate ppApps/ppGames when you set the menu style"
+      Top             =   48
+      Transparent     =   False
+      Underline       =   False
+      Value           =   False
+      Visible         =   True
+      VisualState     =   1
+      Width           =   103
+   End
+   Begin DesktopButton ButtonRegenerateItems
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Cancel          =   False
+      Caption         =   "Regenerate Items"
+      Default         =   True
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   26
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   128
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      MacButtonStyle  =   0
+      Scope           =   0
+      TabIndex        =   9
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "Regenerate ppApps/ppGames"
+      Top             =   50
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   226
    End
 End
 #tag EndDesktopWindow
@@ -604,6 +665,154 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub RegenerateItems()
+		  If Debugging Then Debug("--- Starting Regenerating ---")
+		  
+		  App.DoEvents(1) ' Refresh things first
+		  
+		  Dim I As Integer
+		  Dim Suc As Boolean
+		  Dim Res As String
+		  Dim ScanPath As String
+		  Dim Sp() As String
+		  
+		  Dim Sh As New Shell
+		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		  Sh.TimeOut =  -1
+		  
+		  If TargetWindows Then
+		    
+		    ScanPath = Slash(ppApps).ReplaceAll("/","\")
+		    
+		    If Debugging Then Debug ("Check for ppApp.app files in: "+ScanPath)
+		    
+		    ShellFast.Execute("dir /s /a /b "+Chr(34)+ScanPath+Chr(34)+"*.app")
+		    Res = ShellFast.Result
+		    Res = Res.ReplaceAll(Chr(10),Chr(13))
+		    Res = Res.ReplaceAll(Chr(13)+Chr(13),Chr(13)) 'Reduce Duplicated Line Ends
+		    
+		    If Debugging Then Debug ("List of ppApp.app files to regenerate:- "+Chr(10)+Res)
+		    
+		    Sp() = Res.Split(Chr(13))
+		    If Sp.Count >=1 Then
+		      For I = 0 To Sp.Count -1
+		        Sp(I) = Sp(I).Trim
+		        If Sp(I).Trim <> "" Then
+		          Suc = LoadLLFile(Sp(I).Trim, "", False, True) 'The 2nd True makes it skip loading the Icons etc, only gets the details
+		          If Suc Then ' Only do for valid items
+		            InstallFromPath = GetFullParent(Sp(I).Trim) 'Removes .lla .app etc file ' just keep path
+		            InstallToPath = InstallFromPath
+		            
+		            Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
+		            If Suc Then ' Only do if in right path
+		              RunScripts 'Run Script File from the path (Expanded variables)
+		              RunRegistry'Run The Reg File from the path (Expanded variables)
+		            End If
+		          End If
+		        End If
+		      Next I
+		    End If
+		    
+		    ScanPath = Slash(ppGames).ReplaceAll("/","\")
+		    
+		    If Debugging Then Debug ("Check for ppGame.ppg files in: "+ScanPath)
+		    
+		    ShellFast.Execute("dir /s /a /b "+Chr(34)+ScanPath+Chr(34)+"*.ppg")
+		    Res = ShellFast.Result
+		    Res = Res.ReplaceAll(Chr(10),Chr(13))
+		    Res = Res.ReplaceAll(Chr(13)+Chr(13),Chr(13)) 'Reduce Duplicated Line Ends
+		    
+		    If Debugging Then Debug ("List of ppGame.ppg files to regenerate:- "+Chr(10)+Res)
+		    
+		    Sp() = Res.Split(Chr(13))
+		    If Sp.Count >=1 Then
+		      For I = 0 To Sp.Count -1
+		        Sp(I) = Sp(I).Trim
+		        If Sp(I).Trim <> "" Then
+		          Suc = LoadLLFile(Sp(I).Trim, "", False, True) 'The 2nd True makes it skip loading the Icons etc, only gets the details
+		          If Suc Then ' Only do for valid items
+		            InstallFromPath = GetFullParent(Sp(I).Trim) 'Removes .lla .app etc file ' just keep path
+		            InstallToPath = InstallFromPath
+		            
+		            Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
+		            If Suc Then ' Only do if in right path
+		              RunScripts 'Run Script File from the path (Expanded variables)
+		              RunRegistry'Run The Reg File from the path (Expanded variables)
+		            End If
+		          End If
+		        End If
+		      Next I
+		    End If
+		    
+		    
+		  Else 'Linux
+		    ScanPath = ppApps
+		    
+		    If Debugging Then Debug ("Check for ppApp.app files in: "+ScanPath)
+		    
+		    Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"ppApp.app"+Chr(34))
+		    While Sh.IsRunning
+		      App.DoEvents(1)
+		    Wend
+		    Sp = Sh.Result.Split(EndOfLine)
+		    If Sp.Count >=1 Then
+		      For I = 0 To Sp.Count -1
+		        Sp(I) = Sp(I).Trim
+		        If Sp(I).Trim <> "" Then
+		          Suc = LoadLLFile(Sp(I).Trim, "", False, True) 'The 2nd True makes it skip loading the Icons etc, only gets the details
+		          If Suc Then ' Only do for valid items
+		            InstallFromPath = GetFullParent(Sp(I).Trim) 'Removes .lla .app etc file ' just keep path
+		            InstallToPath = InstallFromPath
+		            
+		            Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
+		            If Suc Then ' Only do if in right path
+		              RunScripts 'Run Script File from the path (Expanded variables)
+		              RunRegistry'Run The Reg File from the path (Expanded variables)
+		            End If
+		          End If
+		        End If
+		      Next I
+		    End If
+		    
+		    ScanPath = ppGames
+		    
+		    If Debugging Then Debug ("Check for ppGame.ppg files in: "+ScanPath)
+		    
+		    Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"ppGame.ppg"+Chr(34))
+		    While Sh.IsRunning
+		      App.DoEvents(1)
+		    Wend
+		    Sp = Sh.Result.Split(EndOfLine)
+		    If Sp.Count >=1 Then
+		      For I = 0 To Sp.Count -1
+		        Sp(I) = Sp(I).Trim
+		        If Sp(I).Trim <> "" Then
+		          Suc = LoadLLFile(Sp(I).Trim, "", False, True) 'The 2nd True makes it skip loading the Icons etc, only gets the details
+		          If Suc Then ' Only do for valid items
+		            InstallFromPath = GetFullParent(Sp(I).Trim) 'Removes .lla .app etc file ' just keep path
+		            InstallToPath = InstallFromPath
+		            
+		            Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
+		            If Suc Then ' Only do if in right path
+		              RunScripts 'Run Script File from the path (Expanded variables)
+		              RunRegistry'Run The Reg File from the path (Expanded variables)
+		            End If
+		          End If
+		        End If
+		      Next I
+		    End If
+		    
+		    
+		    
+		  End If
+		  
+		  If Loading.Regenerate = False Then
+		    MsgBox "Regenerating Items Done"
+		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub RegenLinks(DirToCheck As String)
 		  RegenPathIn = ""
 		  Regenerating = True
@@ -691,12 +900,8 @@ End
 		End Sub
 	#tag EndMethod
 
-
-#tag EndWindowCode
-
-#tag Events ButtonSetMenuStyle
-	#tag Event
-		Sub Pressed()
+	#tag Method, Flags = &h0
+		Sub SetPressed()
 		  'Disable them until done
 		  ButtonSetMenuStyle.Enabled = False
 		  ComboMenuStyle.Enabled = False
@@ -984,10 +1189,12 @@ End
 		  ComboMenuStyle.Enabled = True
 		  CheckCleanUp.Enabled = True
 		  
-		  If CheckCleanUp.Value = False Then
-		    MsgBox "Done Sorting"
-		  Else
-		    MsgBox "Done Sorting and Cleaning"
+		  If Loading.SortMenuStyle = False Then ' Only show if not called from command line
+		    If CheckCleanUp.Value = False Then
+		      MsgBox "Done Sorting"
+		    Else
+		      MsgBox "Done Sorting and Cleaning"
+		    End If
 		  End If
 		  
 		  '------------------------------------------------------------------------------------------------------------
@@ -1028,6 +1235,17 @@ End
 		  '
 		  'ComboMenuStyle.Text = MenuStyle
 		End Sub
+	#tag EndMethod
+
+
+#tag EndWindowCode
+
+#tag Events ButtonSetMenuStyle
+	#tag Event
+		Sub Pressed()
+		  SetPressed()
+		  If CheckRegenerate.Value = True Then RegenerateItems() 'Do this when pressing button and check enabled
+		End Sub
 	#tag EndEvent
 #tag EndEvents
 #tag Events ButtonSetLinuxMenuSorting
@@ -1041,6 +1259,15 @@ End
 	#tag Event
 		Sub Pressed()
 		  CleanDudLinuxMenuItems()
+		  
+		  
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events ButtonRegenerateItems
+	#tag Event
+		Sub Pressed()
+		  RegenerateItems()
 		  
 		  
 		End Sub

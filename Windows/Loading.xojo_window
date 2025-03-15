@@ -1908,7 +1908,7 @@ End
 		  
 		  InputStream = TextInputStream.Open(F)
 		  While Not inputStream.EndOfFile 'If Empty file this skips it
-		    RL = inputStream.ReadAll.ConvertEncoding(Encodings.ASCII)
+		    RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
 		  Wend
 		  inputStream.Close
 		  
@@ -2118,7 +2118,7 @@ End
 		  Dim EqPos As Integer
 		  If  F.Exists Then 
 		    While Not inputStream.EndOfFile 'If Empty file this skips it
-		      RL = inputStream.ReadAll.ConvertEncoding(Encodings.ASCII)
+		      RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
 		    Wend
 		    inputStream.Close
 		  End If
@@ -2623,6 +2623,15 @@ End
 		  
 		End Sub
 	#tag EndMethod
+
+
+	#tag Property, Flags = &h0
+		Regenerate As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		SortMenuStyle As Boolean
+	#tag EndProperty
 
 
 #tag EndWindowCode
@@ -3372,6 +3381,12 @@ End
 		        Else
 		          ppAppsDrive = "" 'If not found then detect where it should be or set to C:
 		        End If
+		      Else ' If Exist test it's writable
+		        F = GetFolderItem(ppAppsDrive+"\ppApps\ppWritable.ini", FolderItem.PathTypeShell)
+		        If F.IsWriteable And WritableLocation(F) Then
+		        Else
+		          ppAppsDrive = ""
+		        End If
 		      End If
 		    Catch
 		      ppAppsDrive = "" 'If not found then detect where it should be or set to C:
@@ -3390,6 +3405,12 @@ End
 		          If Not Exist (ppGamesDrive+"\ppGames") Then ppGamesDrive = "" 'If not found then detect where it should be or set to C:
 		        Else
 		          ppGamesDrive = "" 'If not found then detect where it should be or set to C:
+		        End If
+		      Else ' If Exist test it's writable
+		        F = GetFolderItem(ppGamesDrive+"\ppGames\ppWritable.ini", FolderItem.PathTypeShell)
+		        If F.IsWriteable And WritableLocation(F) Then
+		        Else
+		          ppGamesDrive = ""
 		        End If
 		      End If
 		    Catch
@@ -3597,6 +3618,12 @@ End
 		      Debugging = True 'This forces it to Debug
 		    Case "-offline"
 		      ForceOffline = True
+		    Case "-menustyle"
+		      SortMenuStyle = True
+		      StoreMode = 0
+		    Case "-regen"
+		      Regenerate = True
+		      StoreMode = 0
 		    Case Else
 		      CommandLineFile = CommandLineFile + ArgsSP(I) + " "
 		    End Select
@@ -3621,6 +3648,9 @@ End
 		  CommandLineFile = CommandLineFile.ReplaceAll("-quit ","")
 		  CommandLineFile = CommandLineFile.ReplaceAll("-debug ","")
 		  CommandLineFile = CommandLineFile.ReplaceAll("-q ","")
+		  CommandLineFile = CommandLineFile.ReplaceAll("-offline ","")
+		  CommandLineFile = CommandLineFile.ReplaceAll("-menustyle ","")
+		  CommandLineFile = CommandLineFile.ReplaceAll("-regen ","")
 		  
 		  CommandLineFile = CommandLineFile.ReplaceAll(Chr(34)+"C:\Program Files\LLStore\llstore.exe"+Chr(34),"") 'Remove dodgy path
 		  CommandLineFile = CommandLineFile.ReplaceAll("C:\Program Files\LLStore\llstore.exe","")
@@ -3793,6 +3823,7 @@ End
 		  
 		  'Install Store Mode
 		  If StoreMode = 4 Or InstallStore = True Then
+		    Loading.Hide
 		    InstallLLStore
 		    PreQuitApp ' Save Debug etc
 		    QuitApp 'Done installing, exit app, no need to continue
@@ -3801,6 +3832,7 @@ End
 		  
 		  'Install Item Mode
 		  If StoreMode = 2 Then
+		    Loading.Hide
 		    SudoAsNeeded = True 'As your only installing one item, there is no benefit to asking for SUDO if it isn't needed, so don't
 		    InstallOnly = True
 		    If Debugging Then Debug("--- Install From Commandline ---")
@@ -3846,6 +3878,7 @@ End
 		  
 		  'Editor Mode
 		  If StoreMode = 3 Then
+		    Loading.Hide
 		    'MsgBox "Loading: " + CommandLineFile
 		    #Pragma BreakOnExceptions Off
 		    If CommandLineFile = "" Then
@@ -3890,8 +3923,11 @@ End
 		  End If
 		  
 		  'Show Loading Screen here if the Store Mode is 0
-		  If StoreMode = 0 Then Loading.Visible = True 'Show the loading form here
-		  
+		  If StoreMode = 0 Then 
+		    If SortMenuStyle = False Then
+		      Loading.Visible = True 'Show the loading form here
+		    End If
+		  End If
 		  
 		  'Check if Send To and Associations are applied (if store is installed)
 		  If TargetWindows And StoreMode = 0 And AdminEnabled = True Then 'Only do as Admin so the File Associations work
@@ -3917,6 +3953,43 @@ End
 		        If Debugging Then Debug("Send To and Associated file types already applied")
 		      End If
 		    End If
+		  End If
+		  
+		  'SortMenuStyle - Just sort menu and Exit
+		  If SortMenuStyle = True Then
+		    If TargetWindows Then
+		      If ControlPanel.ComboMenuStyle.RowCount >= 1 Then
+		        For I = 0 To ControlPanel.ComboMenuStyle.RowCount -1
+		          If ControlPanel.ComboMenuStyle.RowTextAt(I) = CommandLineFile Then
+		            Loading.Hide
+		            Notify ("LLStore Installing Menu Style", "Installing Menu Style: "+CommandLineFile, "", -1) 'Mini Installer can't call this and wouldn't want to.
+		            ControlPanel.ComboMenuStyle.Text = CommandLineFile
+		            ControlPanel.SetPressed() ' Do the Task
+		            Exit
+		          End If
+		        Next
+		        PreQuitApp ' Save Debug etc
+		        QuitApp 'Done installing, exit app, no need to continue
+		        Return ' Just get out of here once set to show editor
+		      End If
+		    Else ' Linux
+		      Loading.Hide
+		      Notify ("LLStore Installing Menu Style", "Installing Menu Style: Linux", "", -1) 'Mini Installer can't call this and wouldn't want to.
+		      InstallLinuxMenuSorting(False)
+		      PreQuitApp ' Save Debug etc
+		      QuitApp 'Done installing, exit app, no need to continue
+		      Return ' Just get out of here once set to show editor
+		    End If
+		  End If
+		  
+		  If Regenerate = True Then
+		    Loading.Hide
+		    Notify ("LLStore Regenerating Items", "Regenerating ppApps/ppGames", "", -1) 'Mini Installer can't call this and wouldn't want to.
+		    App.DoEvents(1)'Refresh Things
+		    ControlPanel.RegenerateItems()
+		    PreQuitApp ' Save Debug etc
+		    QuitApp 'Done installing, exit app, no need to continue
+		    Return ' Just get out of here once set to show editor
 		  End If
 		  
 		  'Using a timer at the end of Form open allows it to display, many events hold off other processes until the complete
@@ -4171,6 +4244,22 @@ End
 		Visible=true
 		Group="Deprecated"
 		InitialValue="False"
+		Type="Boolean"
+		EditorType=""
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="Regenerate"
+		Visible=false
+		Group="Behavior"
+		InitialValue=""
+		Type="Boolean"
+		EditorType=""
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="SortMenuStyle"
+		Visible=false
+		Group="Behavior"
+		InitialValue=""
 		Type="Boolean"
 		EditorType=""
 	#tag EndViewProperty

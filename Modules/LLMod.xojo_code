@@ -1303,7 +1303,7 @@ Protected Module LLMod
 		  inputStream = TextInputStream.Open(F)
 		  
 		  While Not inputStream.EndOfFile 'If Empty file this skips it
-		    RL = inputStream.ReadAll.ConvertEncoding(Encodings.ASCII)
+		    RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
 		  Wend
 		  inputStream.Close
 		  RL = RL.ReplaceAll(Chr(13), Chr(10))
@@ -1385,7 +1385,7 @@ Protected Module LLMod
 		  inputStream = TextInputStream.Open(F)
 		  
 		  While Not inputStream.EndOfFile 'If Empty file this skips it
-		    RL = inputStream.ReadAll.ConvertEncoding(Encodings.ASCII)
+		    RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
 		  Wend
 		  inputStream.Close
 		  RL = RL.ReplaceAll(Chr(13), Chr(10))
@@ -1612,7 +1612,7 @@ Protected Module LLMod
 		  If F.Exists Then
 		    inputStream = TextInputStream.Open(F)
 		    While Not inputStream.EndOfFile 'If Empty file this skips it
-		      RL = inputStream.ReadAll.ConvertEncoding(Encodings.ASCII)
+		      RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
 		    Wend
 		    inputStream.Close
 		    RL = RL.ReplaceAll(Chr(13), Chr(10))
@@ -1659,7 +1659,7 @@ Protected Module LLMod
 		  If F.Exists Then
 		    inputStream = TextInputStream.Open(F)
 		    While Not inputStream.EndOfFile 'If Empty file this skips it
-		      RL = inputStream.ReadAll.ConvertEncoding(Encodings.ASCII)
+		      RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
 		    Wend
 		    inputStream.Close
 		    RL = RL.ReplaceAll(Chr(13), Chr(10))
@@ -1707,7 +1707,7 @@ Protected Module LLMod
 		  If F.Exists Then
 		    inputStream = TextInputStream.Open(F)
 		    While Not inputStream.EndOfFile 'If Empty file this skips it
-		      RL = inputStream.ReadAll.ConvertEncoding(Encodings.ASCII)
+		      RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
 		    Wend
 		    inputStream.Close
 		    RL = RL.ReplaceAll(Chr(13), Chr(10))
@@ -2836,7 +2836,7 @@ Protected Module LLMod
 		  
 		  Dim RL As String
 		  While Not inputStream.EndOfFile 'If Empty file this skips it
-		    RL = inputStream.ReadAll.ConvertEncoding(Encodings.ASCII)
+		    RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
 		  Wend
 		  inputStream.Close
 		  
