@@ -304,6 +304,196 @@ Begin DesktopWindow ControlPanel
       Visible         =   True
       Width           =   226
    End
+   Begin DesktopLabel LabelMenu1
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   24
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   0
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      Multiline       =   False
+      Scope           =   0
+      Selectable      =   False
+      TabIndex        =   10
+      TabPanelIndex   =   0
+      TabStop         =   False
+      Text            =   "ppApp Drive:"
+      TextAlignment   =   3
+      TextColor       =   &c000000
+      Tooltip         =   ""
+      Top             =   133
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   102
+   End
+   Begin DesktopComboBox ComboppAppDrive
+      AllowAutoComplete=   False
+      AllowAutoDeactivate=   True
+      AllowFocusRing  =   True
+      Bold            =   False
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   26
+      Hint            =   ""
+      Index           =   -2147483648
+      InitialValue    =   "ComboppAppDrive"
+      Italic          =   False
+      Left            =   121
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      Scope           =   0
+      SelectedRowIndex=   0
+      TabIndex        =   11
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   ""
+      Top             =   133
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   102
+   End
+   Begin DesktopLabel LabelMenu2
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   24
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   250
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      Multiline       =   False
+      Scope           =   0
+      Selectable      =   False
+      TabIndex        =   12
+      TabPanelIndex   =   0
+      TabStop         =   False
+      Text            =   "ppGame Drive:"
+      TextAlignment   =   3
+      TextColor       =   &c000000
+      Tooltip         =   ""
+      Top             =   133
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   102
+   End
+   Begin DesktopComboBox ComboppGameDrive
+      AllowAutoComplete=   False
+      AllowAutoDeactivate=   True
+      AllowFocusRing  =   True
+      Bold            =   False
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   26
+      Hint            =   ""
+      Index           =   -2147483648
+      InitialValue    =   "ComboppAppDrive"
+      Italic          =   False
+      Left            =   371
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      Scope           =   0
+      SelectedRowIndex=   0
+      TabIndex        =   13
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   ""
+      Top             =   133
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   102
+   End
+   Begin DesktopButton ButtonSetppDrives
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Cancel          =   False
+      Caption         =   "Set"
+      Default         =   True
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   26
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   550
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      MacButtonStyle  =   0
+      Scope           =   0
+      TabIndex        =   14
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "Apply pp Drive Letters"
+      Top             =   133
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   40
+   End
+   Begin DesktopButton ButtonRefreshppDrives
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Cancel          =   False
+      Caption         =   "R"
+      Default         =   True
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   26
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   502
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      MacButtonStyle  =   0
+      Scope           =   0
+      TabIndex        =   15
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "Refresh Available Drive Letters"
+      Top             =   133
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   40
+   End
 End
 #tag EndDesktopWindow
 
@@ -660,7 +850,44 @@ End
 		  
 		  ComboMenuStyle.Text = MenuStyle
 		  
+		  'List Drives available to use as ppDrives
+		  If TargetLinux Then 'Disable this for Linux
+		    ComboppAppDrive.Enabled = False
+		    ComboppGameDrive.Enabled = False
+		    ButtonSetppDrives.Enabled = False
+		    ButtonRefreshppDrives.Enabled = False
+		  Else 'Windows
+		    RefreshppDrives()
+		  End If
 		  
+		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub RefreshppDrives()
+		  Dim Let, I As Integer
+		  Dim ScanPath, ScanDisk As String
+		  Dim F As FolderItem
+		  
+		  ComboppAppDrive.RemoveAllRows
+		  ComboppGameDrive.RemoveAllRows
+		  
+		  Let = Asc("C")
+		  For I = 0 To 23
+		    Let = Asc("C") + I
+		    ScanDisk = Chr(Let)+":"
+		    ScanPath = ScanDisk + "\ppApps"
+		    F = GetFolderItem(ScanDisk+"\ppWriteTest.ini", FolderItem.PathTypeNative)
+		    If F.IsWriteable Then
+		      ComboppAppDrive.AddRow(ScanDisk)
+		      ComboppGameDrive.AddRow(ScanDisk)
+		    End If
+		  Next I
+		  
+		  
+		  ComboppAppDrive.Text = ppAppsDrive
+		  ComboppGameDrive.Text = ppGamesDrive
 		End Sub
 	#tag EndMethod
 
@@ -955,6 +1182,17 @@ End
 		    
 		  End If
 		  'End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub SetppDrives()
+		  If TargetWindows Then
+		    If Len(ComboppAppDrive.Text) = 2 Then SaveDataToFile (ComboppAppDrive.Text, "C:\Windows\ppAppDrive.ini")
+		    If Len(ComboppGameDrive.Text) = 2 Then SaveDataToFile (ComboppGameDrive.Text, "C:\Windows\ppGameDrive.ini")
+		  End If
+		  MsgBox "Set ppApp Drive to: "+ ComboppAppDrive.Text +" and ppGame Drive to: "+ ComboppGameDrive.Text
+		  
 		End Sub
 	#tag EndMethod
 
@@ -1327,6 +1565,22 @@ End
 		Sub Pressed()
 		  RegenerateItems()
 		  
+		  
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events ButtonSetppDrives
+	#tag Event
+		Sub Pressed()
+		  SetppDrives()
+		  
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events ButtonRefreshppDrives
+	#tag Event
+		Sub Pressed()
+		  RefreshppDrives()
 		  
 		End Sub
 	#tag EndEvent
