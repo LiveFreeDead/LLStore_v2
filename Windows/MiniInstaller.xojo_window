@@ -169,6 +169,7 @@ Begin DesktopWindow MiniInstaller
       Width           =   56
    End
    Begin Thread InstallItems
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Priority        =   5
@@ -178,6 +179,7 @@ Begin DesktopWindow MiniInstaller
       Type            =   0
    End
    Begin Timer UpdateUI
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -838,7 +840,7 @@ End
 		      Dim DownloadAnyway As Boolean
 		      DownloadAnyway = False
 		      Try
-		        F = GetFolderItem(FileToInstallFrom, FolderItem.PathTypeShell)
+		        F = GetFolderItem(FileToInstallFrom, FolderItem.PathTypeNative)
 		        If F.Length <=10000 Then '10KB is pretty small
 		          If Left(Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("PathINI")), 4) = "http" Then DownloadAnyway = True 'If the File isn't online one then don't download or will cause issues
 		        End If

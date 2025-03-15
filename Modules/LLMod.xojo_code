@@ -359,10 +359,10 @@ Protected Module LLMod
 		  If Exist(FileIn) Then
 		    #Pragma BreakOnExceptions Off
 		    Try
-		      F=GetFolderItem(FileIn, FolderItem.PathTypeShell)
+		      F=GetFolderItem(FileIn, FolderItem.PathTypeNative)
 		      'If Not F.Parent.Exists Then MakeFolder(F.Parent.NativePath) ' Make sure folder exists before copying to it??? To it or from it GlennGlenn Remarked out - weird
 		      
-		      G=GetFolderItem(FileOut, FolderItem.PathTypeShell)
+		      G=GetFolderItem(FileOut, FolderItem.PathTypeNative)
 		      'MakeFolder(G.Parent.NativePath) 'Makes sure the output path parent exists before trying to copy to it. 'leaving this out for now, causes issues with Try Catch, if access denied
 		      If G.Exists And G.IsWriteable Then G.Remove
 		      
@@ -429,8 +429,8 @@ Protected Module LLMod
 		  Dim scWorkingDir As FolderItem
 		  
 		  'Dim scTarget As FolderItem
-		  'scTarget = GetFolderItem(Target, FolderItem.PathTypeShell)
-		  scWorkingDir = GetFolderItem(WorkingDir, FolderItem.PathTypeShell)
+		  'scTarget = GetFolderItem(Target, FolderItem.PathTypeNative)
+		  scWorkingDir = GetFolderItem(WorkingDir, FolderItem.PathTypeNative)
 		  
 		  'If Not Exist(LinkFolder) Then
 		  'MakeFolder (LinkFolder) 'Make 100% Sure it's there
@@ -677,7 +677,7 @@ Protected Module LLMod
 		  If FileIn = "" Then Return False
 		  #Pragma BreakOnExceptions Off
 		  Try
-		    F = GetFolderItem(FileIn, FolderItem.PathTypeShell)
+		    F = GetFolderItem(FileIn, FolderItem.PathTypeNative)
 		    If F <> Nil Then
 		      'If Debugging Then Debug("Exist: "+FileIn +" = True")  'Too many calls to log it really
 		      If F.Exists = True Then Return True
@@ -1294,7 +1294,7 @@ Protected Module LLMod
 		  Dim ScriptFile As String
 		  Dim SP() As String
 		  
-		  F = GetFolderItem(OrigScript, FolderItem.PathTypeShell)
+		  F = GetFolderItem(OrigScript, FolderItem.PathTypeNative)
 		  
 		  'ScriptFile = Slash(FixPath(F.Parent.NativePath)+"Expanded_Registry.reg") 'Use InstallFrom Drive, not Temp
 		  ScriptFile = Slash(FixPath(TmpPath))+"Expanded_Registry.reg"
@@ -1368,7 +1368,7 @@ Protected Module LLMod
 		  ScriptPath = Slash(FixPath(TmpPath+"scripts" + Randomiser.InRange(10000, 20000).ToString))
 		  MkDir(ScriptPath)
 		  
-		  F = GetFolderItem(OrigScript, FolderItem.PathTypeShell)
+		  F = GetFolderItem(OrigScript, FolderItem.PathTypeNative)
 		  
 		  If Right(OrigScript,3) = ".sh" Then
 		    ScriptFile = ScriptPath+"Expanded_Script.sh"
@@ -1606,7 +1606,7 @@ Protected Module LLMod
 		  
 		  RedirectAppCount = 0
 		  
-		  F = GetFolderItem (Slash(ToolPath)+"MenuCatalogApps_Redirects.ini", FolderItem.PathTypeShell)
+		  F = GetFolderItem (Slash(ToolPath)+"MenuCatalogApps_Redirects.ini", FolderItem.PathTypeNative)
 		  
 		  'Load in whole file at once (Fastest Method)
 		  If F.Exists Then
@@ -1651,7 +1651,7 @@ Protected Module LLMod
 		    End If
 		  End If
 		  
-		  F = GetFolderItem (Slash(ToolPath)+"MenuCatalogGames_Redirects.ini", FolderItem.PathTypeShell)
+		  F = GetFolderItem (Slash(ToolPath)+"MenuCatalogGames_Redirects.ini", FolderItem.PathTypeNative)
 		  
 		  RedirectGameCount = 0
 		  
@@ -1701,7 +1701,7 @@ Protected Module LLMod
 		  
 		  
 		  MenuWindowsCount = 0
-		  F = GetFolderItem (Slash(ToolPath)+"MenuWindows.ini", FolderItem.PathTypeShell)
+		  F = GetFolderItem (Slash(ToolPath)+"MenuWindows.ini", FolderItem.PathTypeNative)
 		  
 		  'Load in whole file at once (Fastest Method)
 		  If F.Exists Then
@@ -2570,7 +2570,7 @@ Protected Module LLMod
 		  Dim F As FolderItem
 		  #Pragma BreakOnExceptions Off
 		  Try
-		    F = GetFolderItem(TestPath, FolderItem.PathTypeShell)
+		    F = GetFolderItem(TestPath, FolderItem.PathTypeNative)
 		    If F <> Nil Then
 		      If F.Exists Then
 		        If F.IsFolder Then Return True
@@ -2631,7 +2631,7 @@ Protected Module LLMod
 		    #Pragma BreakOnExceptions Off
 		    
 		    Try
-		      F = GetFolderItem(FileIn, FolderItem.PathTypeShell)
+		      F = GetFolderItem(FileIn, FolderItem.PathTypeNative)
 		      If F <> Nil Then
 		        If F.Exists And F.IsReadable Then
 		          T = TextInputStream.Open(F)
@@ -2795,7 +2795,7 @@ Protected Module LLMod
 		    If ActualIni = "" Then Return False 'Failed to set the item
 		    #Pragma BreakOnExceptions Off
 		    Try
-		      F = GetFolderItem(ActualIni,FolderItem.PathTypeShell)
+		      F = GetFolderItem(ActualIni,FolderItem.PathTypeNative)
 		    Catch
 		      If Debugging Then Debug ("* Error: Failed to load LLFile, Skip: "+ActualIni)
 		      Return False'Failed to set the item
@@ -2822,7 +2822,7 @@ Protected Module LLMod
 		    End If
 		    
 		    If ActualIni = "" Then Return False 'Failed to set the item
-		    F = GetFolderItem(ActualIni,FolderItem.PathTypeShell)
+		    F = GetFolderItem(ActualIni,FolderItem.PathTypeNative)
 		    If Not F.Exists Then Return False'Failed to set the item, did it fail to extract
 		  End If
 		  
@@ -4374,7 +4374,7 @@ Protected Module LLMod
 		  If IconFile <> "" Then
 		    Try
 		      If ItemLLItem.FileFader <> "" Then
-		        F = GetFolderItem(IconFile, FolderItem.PathTypeShell)
+		        F = GetFolderItem(IconFile, FolderItem.PathTypeNative)
 		        If F.Exists Then
 		          'Notification.Icon.Backdrop = Picture.Open(F)
 		          IconPic = Picture.Open(F)
@@ -4443,7 +4443,7 @@ Protected Module LLMod
 		  
 		  If InitialPath = "" Then InitialPath = SpecialFolder.Desktop.NativePath
 		  
-		  Init = GetFolderItem(InitialPath, FolderItem.PathTypeShell)
+		  Init = GetFolderItem(InitialPath, FolderItem.PathTypeNative)
 		  dlg = New OpenDialog
 		  dlg.InitialDirectory = Init
 		  dlg.Title = Title
@@ -4461,7 +4461,7 @@ Protected Module LLMod
 		  
 		  If InitialPath = "" Then InitialPath = SpecialFolder.Desktop.NativePath
 		  
-		  Init = GetFolderItem(InitialPath, FolderItem.PathTypeShell)
+		  Init = GetFolderItem(InitialPath, FolderItem.PathTypeNative)
 		  dlg = New OpenFileDialog
 		  dlg.InitialDirectory = Init
 		  dlg.Title = Title
@@ -4670,7 +4670,7 @@ Protected Module LLMod
 		    AssemblyFile = ScriptPath+"Assembly.cmd"
 		    SaveDataToFile(AssemblyContent, AssemblyFile)
 		    
-		    F = GetFolderItem(AssemblyFile, FolderItem.PathTypeShell)
+		    F = GetFolderItem(AssemblyFile, FolderItem.PathTypeNative)
 		    If TargetWindows Then
 		      Shelly.Execute ("cd " + Chr(34) + InstallFromPath + Chr(34) + " && " + Chr(34) + FixPath(F.NativePath) + Chr(34)) ' Use && Here because if path fails, then script will anyway
 		    Else
@@ -4718,7 +4718,7 @@ Protected Module LLMod
 		    If TargetWindows Then
 		      SaveDataToFile(CmdIn, ScriptFile)
 		      
-		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
+		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		      If F.Exists Then
 		        'Run Script
 		        Sh.Execute (F.NativePath)
@@ -4775,7 +4775,7 @@ Protected Module LLMod
 		    If TargetWindows Then
 		      SaveDataToFile(CmdIn, ScriptFile)
 		      
-		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
+		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		      If F.Exists Then
 		        'Run Script
 		        Sh.Execute (F.NativePath)
@@ -4847,7 +4847,7 @@ Protected Module LLMod
 		    If TargetWindows Then
 		      SaveDataToFile(CmdIn, ScriptFile)
 		      
-		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
+		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		      If F.Exists Then
 		        'Run Script
 		        Sh.Execute (F.NativePath)
@@ -4920,7 +4920,7 @@ Protected Module LLMod
 		    
 		    SaveDataToFile(CmdIn, ScriptFile)
 		    
-		    F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
+		    F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		    If F.Exists Then
 		      'Run Script
 		      Sh.Execute (F.NativePath)
@@ -4956,7 +4956,7 @@ Protected Module LLMod
 		    If TargetWindows Then
 		      ScriptFile = ExpReg (InstallToPath + ItemLLItem.BuildType+".reg")
 		      
-		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
+		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		      
 		      Shelly.Execute ("cmd.exe /c", "regedit.exe /s " + Chr(34) + FixPath(F.NativePath) + Chr(34)) 'Trying this way as it seem more compatible
 		      While Shelly.IsRunning
@@ -4975,7 +4975,7 @@ Protected Module LLMod
 		      If TargetWindows Then
 		        ScriptFile = ExpReg (InstallFromPath + ItemLLItem.BuildType+".reg")
 		        
-		        F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
+		        F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		        
 		        Shelly.Execute ("cmd.exe /c", "regedit.exe /s " + Chr(34) + FixPath(F.NativePath) + Chr(34)) 'Trying this way as it seem more compatible
 		        While Shelly.IsRunning
@@ -5022,7 +5022,7 @@ Protected Module LLMod
 		      If F.Exists Then  ' Run Linux Script
 		        
 		        ScriptFile = ExpScript (InstallToPath + "LLScript.sh")
-		        F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
+		        F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		        Shelly.Execute("cd " + Chr(34) + InstallToPath + Chr(34) + " ; bash " + Chr(34) + FixPath(F.NativePath) + Chr(34)) 'Use bash over sh. I think it is better
 		        While Shelly.IsRunning
 		          App.DoEvents(7)
@@ -5041,7 +5041,7 @@ Protected Module LLMod
 		      If Exist(InstallFromPath + ItemLLItem.BuildType+".cmd") Then 
 		        ScriptFile = ExpScript (InstallFromPath + ItemLLItem.BuildType+".cmd")
 		        
-		        F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
+		        F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		        If TargetWindows Then
 		          Shelly.Execute ("cmd.exe /c",Chr(34)+FixPath(F.NativePath)+Chr(34))
 		        Else
@@ -5064,7 +5064,7 @@ Protected Module LLMod
 		      If Exist(InstallToPath + ItemLLItem.BuildType+".cmd") Then 
 		        ScriptFile = ExpScript (InstallToPath + ItemLLItem.BuildType+".cmd")
 		        If Debugging Then Debug("Running: "+ ScriptFile)
-		        F = GetFolderItem(ScriptFile, FolderItem.PathTypeShell)
+		        F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		        If TargetWindows Then
 		          Shelly.Execute ("cmd.exe /c",Chr(34)+FixPath(F.NativePath)+Chr(34))
 		        Else
@@ -5220,7 +5220,7 @@ Protected Module LLMod
 		  #Pragma BreakOnExceptions Off
 		  
 		  Try
-		    F = GetFolderItem(FileIn, FolderItem.PathTypeShell)
+		    F = GetFolderItem(FileIn, FolderItem.PathTypeNative)
 		    
 		    If F <> Nil Then
 		      If F.IsWriteable Then
@@ -5246,7 +5246,7 @@ Protected Module LLMod
 		  Dim F, Init As FolderItem
 		  Dim dlg As SaveAsDialog
 		  
-		  Init = GetFolderItem(InitialPath, FolderItem.PathTypeShell)
+		  Init = GetFolderItem(InitialPath, FolderItem.PathTypeNative)
 		  
 		  dlg = New SaveAsDialog
 		  dlg.InitialDirectory=Init
@@ -5544,7 +5544,7 @@ Protected Module LLMod
 		  Try
 		    Dim F2 As FolderItem
 		    Dim TOut As TextOutputStream
-		    F2 = GetFolderItem (F.NativePath +".Test", FolderItem.PathTypeShell)
+		    F2 = GetFolderItem (F.NativePath +".Test", FolderItem.PathTypeNative)
 		    TOut = TextOutputStream.Create(F2)
 		    TOut.Close
 		    F2.Delete

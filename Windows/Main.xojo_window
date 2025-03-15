@@ -732,7 +732,7 @@ End
 		    'dlg.InitialDirectory = SpecialFolder.Documents
 		    F = dlg.ShowModal
 		  Else
-		    F = GetFolderItem(FolderIn, FolderItem.PathTypeShell)
+		    F = GetFolderItem(FolderIn, FolderItem.PathTypeNative)
 		  End If
 		  If F <> Nil And F.Exists Then
 		    Settings.SetManualLocations.Text = Settings.SetManualLocations.Text.Trim + Chr(10) + F.NativePath + Chr(10)
@@ -871,7 +871,7 @@ End
 		  Else
 		    WebWall = WebWall.ReplaceAll("\","/")
 		  End If
-		  F = GetFolderItem(WebWall, FolderItem.PathTypeShell)
+		  F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
 		  If Exist(WebWall) Then
 		    ScreenShotCurrent = Picture.Open(F)
 		  Else
@@ -887,7 +887,7 @@ End
 		  If WebWall = "" Or Not Exist(WebWall) Then
 		    WebWall = Slash(ThemePath) + "Icon.png" 'Default Theme Icon  used if no other given (could do Category Icons here if wanted)
 		  End If
-		  F = GetFolderItem(WebWall, FolderItem.PathTypeShell)
+		  F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
 		  CurrentFader = Picture.Open(F)
 		  
 		  If RunningGame = True Then 

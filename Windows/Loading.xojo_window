@@ -290,10 +290,10 @@ End
 		    End If
 		    'ReRun the newer Store version
 		    If TargetWindows Then
-		      F = GetFolderItem(Slash(AppPath)+"llstore.exe", FolderItem.PathTypeShell)
+		      F = GetFolderItem(Slash(AppPath)+"llstore.exe", FolderItem.PathTypeNative)
 		      F.Launch
 		    Else
-		      F = GetFolderItem(Slash(AppPath)+"llstore", FolderItem.PathTypeShell)
+		      F = GetFolderItem(Slash(AppPath)+"llstore", FolderItem.PathTypeNative)
 		      F.Launch
 		    End If
 		    
@@ -359,10 +359,10 @@ End
 		      End If
 		      'ReRun the newer Store version
 		      If TargetWindows Then
-		        F = GetFolderItem(Slash(AppPath)+"llstore.exe", FolderItem.PathTypeShell)
+		        F = GetFolderItem(Slash(AppPath)+"llstore.exe", FolderItem.PathTypeNative)
 		        F.Launch
 		      Else
-		        F = GetFolderItem(Slash(AppPath)+"llstore", FolderItem.PathTypeShell)
+		        F = GetFolderItem(Slash(AppPath)+"llstore", FolderItem.PathTypeNative)
 		        F.Launch
 		      End If
 		      
@@ -405,9 +405,9 @@ End
 		  
 		  Try
 		    If TargetWindows Then
-		      F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeShell)
+		      F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative)
 		    Else
-		      F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
+		      F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
 		    End If
 		    'If Debugging Then Debug("Checking Item Path: "+ FixPath(F.NativePath)) 'Don't need to show all these, the parent folder will do.
 		    If F.IsFolder And F.IsReadable Then
@@ -486,7 +486,7 @@ End
 		      Else
 		        EOL = Chr(10)
 		      End If
-		      F = GetFolderItem(ItemInn,FolderItem.PathTypeShell)
+		      F = GetFolderItem(ItemInn,FolderItem.PathTypeNative)
 		      If F.Exists Then
 		        Exten = Right(ItemInn,4)
 		        Exten = Exten.Lowercase
@@ -717,7 +717,7 @@ End
 		      'MsgBox(Test)
 		      
 		      If Exist (Test) Then
-		        F = GetFolderItem(Drive+"\ppWritable.ini", FolderItem.PathTypeShell)
+		        F = GetFolderItem(Drive+"\ppWritable.ini", FolderItem.PathTypeNative)
 		        If F.IsWriteable And WritableLocation(F) Then
 		          Ret = Drive
 		          'MsgBox(Ret)
@@ -760,7 +760,7 @@ End
 		  
 		  Dim FadeFile As String
 		  
-		  F = GetFolderItem(ItemInn,FolderItem.PathTypeShell)
+		  F = GetFolderItem(ItemInn,FolderItem.PathTypeNative)
 		  If F.Exists Then
 		    
 		    Exten = Right(ItemInn,4)
@@ -1125,9 +1125,9 @@ End
 		  'Add folders with an item in it and add files that match
 		  DirToCheck = Slash(Inn)
 		  If TargetWindows Then
-		    F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeShell) 'When Getting items, best use correct OS paths
+		    F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative) 'When Getting items, best use correct OS paths
 		  Else
-		    F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
+		    F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
 		  End If
 		  If F.IsFolder And F.IsReadable Then
 		    If F.Count > 0 Then
@@ -1135,23 +1135,23 @@ End
 		        ItemPath = Slash(FixPath(F.Item(D).NativePath))
 		        If StoreMode = 0 Then
 		          If F.Item(D).Directory Then 'Look for folders only
-		            G = GetFolderItem(ItemPath + "LLApp.lla", FolderItem.PathTypeShell)
+		            G = GetFolderItem(ItemPath + "LLApp.lla", FolderItem.PathTypeNative)
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath))
 		            End If
-		            G = GetFolderItem(ItemPath + "LLGame.llg", FolderItem.PathTypeShell)
+		            G = GetFolderItem(ItemPath + "LLGame.llg", FolderItem.PathTypeNative)
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath))
 		            End If
-		            G = GetFolderItem(ItemPath+ "ssApp.app", FolderItem.PathTypeShell)
+		            G = GetFolderItem(ItemPath+ "ssApp.app", FolderItem.PathTypeNative)
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath))
 		            End If
-		            G = GetFolderItem(ItemPath + "ppApp.app", FolderItem.PathTypeShell)
+		            G = GetFolderItem(ItemPath + "ppApp.app", FolderItem.PathTypeNative)
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath))
 		            End If
-		            G = GetFolderItem(ItemPath + "ppGame.ppg", FolderItem.PathTypeShell)
+		            G = GetFolderItem(ItemPath + "ppGame.ppg", FolderItem.PathTypeNative)
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath))
 		            End If
@@ -1172,17 +1172,17 @@ End
 		        ElseIf StoreMode = 1 Then 'Launcher
 		          If F.Item(D).Directory Then 'Look for folders only
 		            If TargetWindows Then
-		              G = GetFolderItem(Slash(F.Item(D).NativePath.ReplaceAll("/","\")) + "LLGame.llg", FolderItem.PathTypeShell)
+		              G = GetFolderItem(Slash(F.Item(D).NativePath.ReplaceAll("/","\")) + "LLGame.llg", FolderItem.PathTypeNative)
 		            Else
-		              G = GetFolderItem(Slash(F.Item(D).NativePath) + "LLGame.llg", FolderItem.PathTypeShell)
+		              G = GetFolderItem(Slash(F.Item(D).NativePath) + "LLGame.llg", FolderItem.PathTypeNative)
 		            End If
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath), ItemPath, DirToCheck) 'Instead of TmpPath use ScanedInPath for Games
 		            End If
 		            If TargetWindows Then
-		              G = GetFolderItem(Slash(FixPath(F.Item(D).NativePath.ReplaceAll("/","\"))) + "ppGame.ppg", FolderItem.PathTypeShell)
+		              G = GetFolderItem(Slash(FixPath(F.Item(D).NativePath.ReplaceAll("/","\"))) + "ppGame.ppg", FolderItem.PathTypeNative)
 		            Else
-		              G = GetFolderItem(Slash(FixPath(F.Item(D).NativePath)) + "ppGame.ppg", FolderItem.PathTypeShell)
+		              G = GetFolderItem(Slash(FixPath(F.Item(D).NativePath)) + "ppGame.ppg", FolderItem.PathTypeNative)
 		            End If
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath), ItemPath, DirToCheck) 'Instead of TmpPath use ScanedInPath for Games
@@ -1352,9 +1352,9 @@ End
 		    
 		    If Settings.SetScanLocalItems.Value = True Then
 		      If TargetWindows Then
-		        F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeShell)
+		        F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative)
 		      Else
-		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
+		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
 		      End If
 		      If F.IsFolder And F.IsReadable Then
 		        GetItemsPaths(DirToCheck)
@@ -1366,7 +1366,7 @@ End
 		    If TargetLinux Then
 		      If Settings.SetScanLocalItems.Value = True Then
 		        DirToCheck = "/media/"
-		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
+		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
 		        If F.IsFolder And F.IsReadable Then
 		          If F.Count > 0 Then
 		            For D = 1 To F.Count
@@ -1391,7 +1391,7 @@ End
 		      
 		      If Settings.SetScanLocalItems.Value = True Then
 		        DirToCheck = "/run/media/"
-		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
+		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
 		        If F.IsFolder And F.IsReadable Then
 		          If F.Count > 0 Then
 		            For D = 1 To F.Count
@@ -1416,7 +1416,7 @@ End
 		      
 		      If Settings.SetScanLocalItems.Value = True Then
 		        DirToCheck = "/mnt/"
-		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
+		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
 		        If F.IsFolder And F.IsReadable Then
 		          If F.Count > 0 Then
 		            For D = 1 To F.Count
@@ -1436,7 +1436,7 @@ End
 		        For I = 0 To 23
 		          Let = Asc("C") + I
 		          DirToCheck = Chr(Let)+":/" 'Linux Path
-		          F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeShell) 'This fixes the issue, yes whenever windows does folder stuff, convert it back until it returns, or it will add a backslash after the forward slash
+		          F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative) 'This fixes the issue, yes whenever windows does folder stuff, convert it back until it returns, or it will add a backslash after the forward slash
 		          
 		          If F.IsFolder And F.IsReadable Then
 		            If F.Count > 0 Then
@@ -1469,9 +1469,9 @@ End
 		      If Settings.SetScanLocalItems.Value = True Then
 		        DirToCheck = RepositoryPathLocal
 		        If TargetWindows Then
-		          F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeShell)
+		          F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative)
 		        Else
-		          F = GetFolderItem(DirToCheck, FolderItem.PathTypeShell)
+		          F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
 		        End If
 		        If F.IsFolder And F.IsReadable Then
 		          GetItemsPaths(DirToCheck, True)
@@ -2053,7 +2053,7 @@ End
 		  ThemePath = AppPath+"Themes/"+ThemeName+"/"
 		  
 		  ImgPath = ThemePath+"Loading.png"
-		  F=GetFolderItem(ImgPath, FolderItem.PathTypeShell)
+		  F=GetFolderItem(ImgPath, FolderItem.PathTypeNative)
 		  DefaultLoadingWallpaper = Picture.Open(F)
 		  
 		  If Loading.Backdrop = Nil Then
@@ -2067,7 +2067,7 @@ End
 		  If FirstRun = False Then Loading.Show 'Show as soon as it's Themed, then it draws right :)
 		  
 		  ImgPath = ThemePath+"Wallpaper.jpg"
-		  F=GetFolderItem(ImgPath, FolderItem.PathTypeShell)
+		  F=GetFolderItem(ImgPath, FolderItem.PathTypeNative)
 		  If Exist(ImgPath) Then
 		    DefaultMainWallpaper = Picture.Open(F)
 		  Else
@@ -2077,7 +2077,7 @@ End
 		  End If
 		  
 		  If Exist(ThemePath+"Screenshot.jpg") Then
-		    F=GetFolderItem(ThemePath+"Screenshot.jpg", FolderItem.PathTypeShell)
+		    F=GetFolderItem(ThemePath+"Screenshot.jpg", FolderItem.PathTypeNative)
 		    ScreenShotCurrent = Picture.Open(F)
 		  Else
 		    'No Need to make black if always transparent
@@ -2088,13 +2088,13 @@ End
 		  
 		  Main.Backdrop = DefaultMainWallpaper
 		  
-		  F=GetFolderItem(ThemePath+"Icon.png", FolderItem.PathTypeShell)
+		  F=GetFolderItem(ThemePath+"Icon.png", FolderItem.PathTypeNative)
 		  DefaultFader = Picture.Open(F)
 		  
-		  F=GetFolderItem(ThemePath+"StartButton.png", FolderItem.PathTypeShell)
+		  F=GetFolderItem(ThemePath+"StartButton.png", FolderItem.PathTypeNative)
 		  DefaultStartButton = Picture.Open(F)
 		  
-		  F=GetFolderItem(ThemePath+"StartButtonHover.png", FolderItem.PathTypeShell)
+		  F=GetFolderItem(ThemePath+"StartButtonHover.png", FolderItem.PathTypeNative)
 		  DefaultStartButtonHover = Picture.Open(F)
 		  
 		  If Main.StartButton.Backdrop = Nil Then
@@ -2109,7 +2109,7 @@ End
 		  Data.Icons.DefaultRowHeight = 256
 		  
 		  'Load in whole file at once (Fastest Method)
-		  F = GetFolderItem(ThemePath+"Style.ini",FolderItem.PathTypeShell)
+		  F = GetFolderItem(ThemePath+"Style.ini",FolderItem.PathTypeNative)
 		  inputStream = TextInputStream.Open(F)
 		  
 		  Dim RL As String
@@ -2600,7 +2600,7 @@ End
 		      WebWall = Slash(ThemePath) + "Screenshot.jpg" 'Default Theme Wallpaper used if no other given (could do Category Screenshots here if wanted)
 		    End If
 		    
-		    F = GetFolderItem(WebWall, FolderItem.PathTypeShell)
+		    F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
 		    ScreenShotCurrent = Picture.Open(F)
 		    Main.ScaleScreenShot
 		  End If
@@ -2609,7 +2609,7 @@ End
 		    If WebWall = "" Or Not Exist(WebWall) Then
 		      WebWall = Slash(ThemePath) + "Icon.png" 'Default Theme Icon  used if no other given (could do Category Icons here if wanted)
 		    End If
-		    F = GetFolderItem(WebWall, FolderItem.PathTypeShell)
+		    F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
 		    CurrentFader = Picture.Open(F)
 		    
 		    'Clone From Wallpaper to Icon BG
@@ -3258,9 +3258,9 @@ End
 		    F = F.Parent
 		    If F = Nil Then
 		      If TargetWindows Then
-		        G = GetFolderItem("C:\Windows\LLStore\LLStore.exe",FolderItem.PathTypeShell) 'Pretend path for now, might move it to be system wide tool in System32
+		        G = GetFolderItem("C:\Windows\LLStore\LLStore.exe",FolderItem.PathTypeNative) 'Pretend path for now, might move it to be system wide tool in System32
 		      Else
-		        G = GetFolderItem("/bin/llfile",FolderItem.PathTypeShell) 'Hardcoded path, will exist on LastOS's
+		        G = GetFolderItem("/bin/llfile",FolderItem.PathTypeNative) 'Hardcoded path, will exist on LastOS's
 		      End If
 		      If G.Exists Then 'Use LLFile path
 		        AppPath = Slash(G.Parent.NativePath)
@@ -3346,7 +3346,7 @@ End
 		  If TargetWindows Then ' Get the real drives with ppApps/Games etc
 		    'Get ppApps and ppGames Default Install locations
 		    Try
-		      F = GetFolderItem(SysRoot + "/ppAppDrive.ini", FolderItem.PathTypeShell)
+		      F = GetFolderItem(SysRoot + "/ppAppDrive.ini", FolderItem.PathTypeNative)
 		      If F <> Nil And F.Exists Then
 		        TI = TextInputStream.Open(F)
 		        S = Trim(Left(TI.ReadLine, 2))
@@ -3359,7 +3359,7 @@ End
 		    End Try
 		    
 		    Try
-		      F = GetFolderItem(SysRoot + "/ppGameDrive.ini", FolderItem.PathTypeShell)
+		      F = GetFolderItem(SysRoot + "/ppGameDrive.ini", FolderItem.PathTypeNative)
 		      If F <> Nil And F.Exists Then
 		        TI = TextInputStream.Open(F)
 		        S = Trim(Left(TI.ReadLine, 2))
@@ -3373,7 +3373,7 @@ End
 		    
 		    Try
 		      If Not Exist (ppAppsDrive+"\ppApps") Then
-		        F = GetFolderItem(ppAppsDrive+"\ppWritable.ini", FolderItem.PathTypeShell)
+		        F = GetFolderItem(ppAppsDrive+"\ppWritable.ini", FolderItem.PathTypeNative)
 		        If F.IsWriteable And WritableLocation(F) Then
 		          ShellFast.Execute("mkdir " + chr(34) + ppAppsDrive+"\ppApps"+ chr(34)) 'Make folder if possible, else it'll redetect the drive
 		          If Not Exist (ppAppsDrive+"\ppApps") Then ppAppsDrive = "" 'If not found then detect where it should be or set to C:
@@ -3382,7 +3382,7 @@ End
 		          ppAppsDrive = "" 'If not found then detect where it should be or set to C:
 		        End If
 		      Else ' If Exist test it's writable
-		        F = GetFolderItem(ppAppsDrive+"\ppApps\ppWritable.ini", FolderItem.PathTypeShell)
+		        F = GetFolderItem(ppAppsDrive+"\ppApps\ppWritable.ini", FolderItem.PathTypeNative)
 		        If F.IsWriteable And WritableLocation(F) Then
 		        Else
 		          ppAppsDrive = ""
@@ -3399,7 +3399,7 @@ End
 		    
 		    Try
 		      If Not Exist (ppGamesDrive+"\ppGames") Then
-		        F = GetFolderItem(ppGamesDrive+"\ppWritable.ini", FolderItem.PathTypeShell)
+		        F = GetFolderItem(ppGamesDrive+"\ppWritable.ini", FolderItem.PathTypeNative)
 		        If F.IsWriteable And WritableLocation(F) Then
 		          ShellFast.Execute("mkdir " + chr(34) + ppGamesDrive+"\ppApps"+ chr(34)) 'Make folder if possible, else it'll redetect the drive
 		          If Not Exist (ppGamesDrive+"\ppGames") Then ppGamesDrive = "" 'If not found then detect where it should be or set to C:
@@ -3407,7 +3407,7 @@ End
 		          ppGamesDrive = "" 'If not found then detect where it should be or set to C:
 		        End If
 		      Else ' If Exist test it's writable
-		        F = GetFolderItem(ppGamesDrive+"\ppGames\ppWritable.ini", FolderItem.PathTypeShell)
+		        F = GetFolderItem(ppGamesDrive+"\ppGames\ppWritable.ini", FolderItem.PathTypeNative)
 		        If F.IsWriteable And WritableLocation(F) Then
 		        Else
 		          ppGamesDrive = ""
@@ -3495,7 +3495,7 @@ End
 		  
 		  'Make Local paths and Debug File
 		  #Pragma BreakOnExceptions Off
-		  F = GetFolderItem(Slash(RepositoryPathLocal)+".lldb", FolderItem.PathTypeShell)
+		  F = GetFolderItem(Slash(RepositoryPathLocal)+".lldb", FolderItem.PathTypeNative)
 		  If Not F.Exists Then
 		    Try 
 		      MakeFolder(F.NativePath)
@@ -3512,7 +3512,7 @@ End
 		  'Enable Debugger
 		  Try
 		    DebugFileName = Slash(TmpPath)+"DebugLog"+Randomiser.InRange(10000, 20000).ToString+".txt"
-		    DebugFile = GetFolderItem(DebugFileName, FolderItem.PathTypeShell)
+		    DebugFile = GetFolderItem(DebugFileName, FolderItem.PathTypeNative)
 		    If Exist(DebugFileName) Then
 		      Deltree(DebugFileName)
 		      DebugOutput = TextOutputStream.open(DebugFile)

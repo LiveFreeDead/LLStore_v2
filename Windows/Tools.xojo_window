@@ -255,7 +255,7 @@ End
 		    Deltree(RepositoryPathLocal)
 		    
 		    'Make Folders again to be used
-		    F = GetFolderItem(Slash(RepositoryPathLocal)+".lldb", FolderItem.PathTypeShell)
+		    F = GetFolderItem(Slash(RepositoryPathLocal)+".lldb", FolderItem.PathTypeNative)
 		    If Not F.Exists Then
 		      Try 
 		        MakeFolder(F.NativePath)

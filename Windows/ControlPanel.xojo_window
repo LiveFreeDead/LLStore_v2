@@ -463,7 +463,7 @@ End
 		  Dim F, G As FolderItem
 		  
 		  ScanPath = Slash(HomePath)+".local/share/applications"
-		  F = GetFolderItem(ScanPath, FolderItem.PathTypeShell)
+		  F = GetFolderItem(ScanPath, FolderItem.PathTypeNative)
 		  If F.IsFolder And F.IsReadable Then
 		    If F.Count > 0 Then
 		      For D = 1 To F.Count
@@ -824,7 +824,7 @@ End
 		  Dim LLFile As String
 		  
 		  
-		  F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeShell) 'This fixes the issue, yes whenever windows does folder stuff, convert it back until it returns, or it will add a backslash after the forward slash
+		  F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative) 'This fixes the issue, yes whenever windows does folder stuff, convert it back until it returns, or it will add a backslash after the forward slash
 		  
 		  If F.IsFolder And F.IsReadable Then
 		    If F.Count > 0 Then

@@ -5260,7 +5260,7 @@ End
 		          Else ' Is installer, clean up?
 		            If InFolder = OutFolder Then      
 		              If Exist(OutFile) Then 'Now if compressed file is in tact, remove all other files except BuildType.* Then
-		                F = GetFolderItem(OutFolder, FolderItem.PathTypeShell)
+		                F = GetFolderItem(OutFolder, FolderItem.PathTypeNative)
 		                If F <> Nil Then
 		                  FC = F.Count
 		                  For I = FC To 1 Step -1 'Do backwards so it doesn't remove them and make the folder count less/reordered and skip removing some of them
@@ -5407,7 +5407,7 @@ End
 		          Else ' Is installer, clean up?
 		            If InFolder = OutFolder Then      
 		              If Exist(OutFile) Then 'Now if compressed file is in tact, remove all other files except BuildType.* Then
-		                F = GetFolderItem(OutFolder, FolderItem.PathTypeShell)
+		                F = GetFolderItem(OutFolder, FolderItem.PathTypeNative)
 		                If F <> Nil Then
 		                  FC = F.Count
 		                  For I = FC To 1 Step -1 'Do backwards so it doesn't remove them and make the folder count less/reordered and skip removing some of them
@@ -5692,22 +5692,22 @@ End
 		  
 		  'Main Window 5 - Graphics
 		  If Exist(Slash(ItemTempPath)+BT+".jpg") Then
-		    F = GetFolderItem(Slash(ItemTempPath)+BT+".jpg",FolderItem.PathTypeShell)
+		    F = GetFolderItem(Slash(ItemTempPath)+BT+".jpg",FolderItem.PathTypeNative)
 		    CanvasScreenshot.Backdrop = Picture.Open (F)
 		  End If
 		  
 		  If Exist(Slash(ItemTempPath)+BT+".ico") Then
-		    F = GetFolderItem(Slash(ItemTempPath)+BT+".ico",FolderItem.PathTypeShell)
+		    F = GetFolderItem(Slash(ItemTempPath)+BT+".ico",FolderItem.PathTypeNative)
 		    CanvasIcon.Backdrop = Picture.Open (F)
 		  End If
 		  
 		  If Exist(Slash(ItemTempPath)+BT+".svg") Then
-		    F = GetFolderItem(Slash(ItemTempPath)+BT+".svg",FolderItem.PathTypeShell)
+		    F = GetFolderItem(Slash(ItemTempPath)+BT+".svg",FolderItem.PathTypeNative)
 		    CanvasIcon.Backdrop = Picture.Open (F)
 		  End If
 		  
 		  If Exist(Slash(ItemTempPath)+BT+".png") Then
-		    F = GetFolderItem(Slash(ItemTempPath)+BT+".png",FolderItem.PathTypeShell)
+		    F = GetFolderItem(Slash(ItemTempPath)+BT+".png",FolderItem.PathTypeNative)
 		    CanvasFader.Backdrop = Picture.Open (F)
 		  End If
 		  
@@ -6076,7 +6076,7 @@ End
 		  
 		  If TextIncludeFolder.Text <>"" Then
 		    If Exist(TextIncludeFolder.Text) Then
-		      G = GetFolderItem(TextIncludeFolder.Text,FolderItem.PathTypeShell)
+		      G = GetFolderItem(TextIncludeFolder.Text,FolderItem.PathTypeNative)
 		    Else
 		      G = SpecialFolder.Desktop
 		    End If
@@ -6107,7 +6107,7 @@ End
 		  
 		  If TextBuildToFolder.Text <>"" Then
 		    If Exist(TextBuildToFolder.Text) Then
-		      G = GetFolderItem(TextBuildToFolder.Text,FolderItem.PathTypeShell)
+		      G = GetFolderItem(TextBuildToFolder.Text,FolderItem.PathTypeNative)
 		    Else
 		      G = SpecialFolder.Desktop
 		    End If
@@ -6813,7 +6813,7 @@ End
 		  ImageIn = OpenDialog(iniType, "Select Fader PNG File", ImageIn) ' browse for one 
 		  If ImageIn <> "" Then
 		    NewFileFader = ImageIn
-		    F = GetFolderItem(ImageIn, FolderItem.PathTypeShell)
+		    F = GetFolderItem(ImageIn, FolderItem.PathTypeNative)
 		    CanvasFader.Backdrop = Picture.Open(F)
 		  End If
 		End Sub
@@ -6845,7 +6845,7 @@ End
 		  ImageIn = OpenDialog(iniType, "Select Screenshot File", ImageIn) ' browse for one 
 		  If ImageIn <> "" Then
 		    NewFileScreenshot = ImageIn
-		    F = GetFolderItem(ImageIn, FolderItem.PathTypeShell)
+		    F = GetFolderItem(ImageIn, FolderItem.PathTypeNative)
 		    CanvasScreenshot.Backdrop = Picture.Open(F)
 		  End If
 		End Sub
@@ -6883,7 +6883,7 @@ End
 		  ImageIn = OpenDialog(iniType, "Select Icon File", ImageIn) ' browse for one 
 		  If ImageIn <> "" Then
 		    NewFileIcon = ImageIn
-		    F = GetFolderItem(ImageIn, FolderItem.PathTypeShell)
+		    F = GetFolderItem(ImageIn, FolderItem.PathTypeNative)
 		    CanvasIcon.Backdrop = Picture.Open(F)
 		  End If
 		End Sub
@@ -6982,7 +6982,7 @@ End
 		  
 		  If Pat <>"" Then
 		    If Exist(Pat) Then
-		      G = GetFolderItem(Pat,FolderItem.PathTypeShell)
+		      G = GetFolderItem(Pat,FolderItem.PathTypeNative)
 		    Else
 		      G = SpecialFolder.Desktop
 		    End If
