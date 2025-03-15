@@ -1188,10 +1188,18 @@ End
 	#tag Method, Flags = &h0
 		Sub SetppDrives()
 		  If TargetWindows Then
-		    If Len(ComboppAppDrive.Text) = 2 Then SaveDataToFile (ComboppAppDrive.Text, "C:\Windows\ppAppDrive.ini")
-		    If Len(ComboppGameDrive.Text) = 2 Then SaveDataToFile (ComboppGameDrive.Text, "C:\Windows\ppGameDrive.ini")
+		    If Len(ComboppAppDrive.Text) = 2 Then
+		      SaveDataToFile (ComboppAppDrive.Text, "C:\Windows\ppAppDrive.ini")
+		      ppApps = ComboppAppDrive.Text+"\ppApps" 'Set it as active straight away
+		      ppAppsDrive = ComboppAppDrive.Text
+		    End If
+		    If Len(ComboppGameDrive.Text) = 2 Then
+		      SaveDataToFile (ComboppGameDrive.Text, "C:\Windows\ppGameDrive.ini")
+		      ppGames = ComboppGameDrive.Text+"\ppGames" 'Set it as active straight away
+		      ppGamesDrive = ComboppGameDrive.Text
+		    End If
+		    MsgBox "Set ppApp Drive to: "+ ComboppAppDrive.Text +" and ppGame Drive to: "+ ComboppGameDrive.Text
 		  End If
-		  MsgBox "Set ppApp Drive to: "+ ComboppAppDrive.Text +" and ppGame Drive to: "+ ComboppGameDrive.Text
 		  
 		End Sub
 	#tag EndMethod
