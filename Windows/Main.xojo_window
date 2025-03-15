@@ -1350,6 +1350,10 @@ End
 		Sub GenerateItems()
 		  Items.RemoveAllRows 'Always Clear it before starting again
 		  
+		  'Reset the Selectors when redrawing the list
+		  MultiOldItem = 0
+		  MultiNewItem = 0
+		  
 		  'Resort Data by Ref or it fails to work
 		  'Sort the Data (Need to be in order added once done sorting manually)
 		  Data.Items.SortingColumn = 0
@@ -2226,6 +2230,64 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub SelectMulti()
+		  If MultiSelect > 0 Then
+		    Dim Tog As Boolean
+		    Dim I As Integer
+		    'MsgBox "Selected - OldItem: "+MultiOldItem.ToString+ " MultiNewItem: " + MultiNewItem.ToString
+		    If MultiSelect = 1 Then ' Ctrl
+		      
+		      'Does weird stuff if first item is toggled
+		      ''Do First Item
+		      'Tog = IsTrue(Data.Items.CellTextAt(Items.CellTagAt(MultiOldItem,0), Data.GetDBHeader("Selected")))
+		      'If Tog = True Then
+		      'Data.Items.CellTextAt(Items.CellTagAt(MultiOldItem,0), Data.GetDBHeader("Selected")) = "F" ' Select it
+		      'Else
+		      'Data.Items.CellTextAt(Items.CellTagAt(MultiOldItem,0), Data.GetDBHeader("Selected")) = "T" ' Select it
+		      'End If
+		      
+		      'Do 2nd Item
+		      Tog = IsTrue(Data.Items.CellTextAt(Items.CellTagAt(MultiNewItem,0), Data.GetDBHeader("Selected")))
+		      If Tog = True Then
+		        Data.Items.CellTextAt(Items.CellTagAt(MultiNewItem,0), Data.GetDBHeader("Selected")) = "F" ' Select it
+		      Else
+		        Data.Items.CellTextAt(Items.CellTagAt(MultiNewItem,0), Data.GetDBHeader("Selected")) = "T" ' Select it
+		      End If
+		    End If
+		    #Pragma BreakOnExceptions Off
+		    Try 'If it finds a dud item then it will crash, so skip selecting
+		      If MultiSelect = 2 Then ' Shift
+		        Tog = IsTrue(Data.Items.CellTextAt(Items.CellTagAt(MultiOldItem,0), Data.GetDBHeader("Selected"))) ' The first items mode is the one that gets toggled to
+		        If MultiNewItem > MultiOldItem Then
+		          For I = MultiOldItem To MultiNewItem
+		            If Tog = True Then
+		              Data.Items.CellTextAt(Items.CellTagAt(I,0), Data.GetDBHeader("Selected")) = "F" ' Select it
+		            Else
+		              Data.Items.CellTextAt(Items.CellTagAt(I,0), Data.GetDBHeader("Selected")) = "T" ' Select it
+		            End If
+		          Next I
+		        Else
+		          For I = MultiNewItem To MultiOldItem
+		            If Tog = True Then
+		              Data.Items.CellTextAt(Items.CellTagAt(I,0), Data.GetDBHeader("Selected")) = "F" ' Select it
+		            Else
+		              Data.Items.CellTextAt(Items.CellTagAt(I,0), Data.GetDBHeader("Selected")) = "T" ' Select it
+		            End If
+		          Next I
+		        End If
+		      End If
+		    Catch
+		    End Try
+		    #Pragma BreakOnExceptions On
+		    
+		    Items.Refresh 'Redraw selection
+		    UpdateStats 'Recount
+		    MultiSelect = 0
+		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub StartPushed()
 		  Dim ColSelected As Integer = Data.GetDBHeader("Selected")
 		  
@@ -2330,6 +2392,18 @@ End
 
 	#tag Property, Flags = &h0
 		HideUnsetFlags As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		MultiNewItem As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		MultiOldItem As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		MultiSelect As Integer
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -2489,7 +2563,11 @@ End
 		  If CLI >= 0 Then
 		    CurrentItemID = CLI
 		    ChangeItem(CLI)
+		    MultiNewItem = Row
+		    If MultiSelect > 0 Then SelectMulti() ' Allows selecting Multiple items
 		  End If
+		  
+		  MultiOldItem = Row
 		  
 		End Function
 	#tag EndEvent
@@ -2567,17 +2645,24 @@ End
 		End Sub
 	#tag EndEvent
 	#tag Event
-		Sub MouseUp(x As Integer, y As Integer)
-		  
-		End Sub
-	#tag EndEvent
-	#tag Event
 		Function MouseDown(x As Integer, y As Integer) As Boolean
 		  'If WasContext = True Then Return True
 		  If IsContextualClick Then
 		    'WasContext = True
 		    DoContextTimer.RunMode = Timer.RunModes.Single
 		    Return False
+		  End If
+		  
+		  'Allow Multi Selects here
+		  MultiSelect = 0
+		  If Keyboard.ControlKey Then
+		    MultiSelect = 1
+		    Return False ' So Mouse Up gets called
+		  End If
+		  
+		  If Keyboard.ShiftKey Then
+		    MultiSelect = 2
+		    Return False ' So Mouse Up gets called
 		  End If
 		End Function
 	#tag EndEvent
@@ -3330,6 +3415,30 @@ End
 		Group="Behavior"
 		InitialValue="False"
 		Type="Boolean"
+		EditorType=""
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="MultiSelect"
+		Visible=false
+		Group="Behavior"
+		InitialValue=""
+		Type="Integer"
+		EditorType=""
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="MultiOldItem"
+		Visible=false
+		Group="Behavior"
+		InitialValue=""
+		Type="Integer"
+		EditorType=""
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="MultiNewItem"
+		Visible=false
+		Group="Behavior"
+		InitialValue=""
+		Type="Integer"
 		EditorType=""
 	#tag EndViewProperty
 #tag EndViewBehavior
