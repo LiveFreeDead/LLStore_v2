@@ -667,14 +667,17 @@ End
 	#tag Method, Flags = &h0
 		Sub RegenerateItems()
 		  If Debugging Then Debug("--- Starting Regenerating ---")
+		  App.DoEvents(1) ' Refresh things first
+		  
+		  If Debugging Then Debug("--- Starting Regenerating ---")
 		  
 		  App.DoEvents(1) ' Refresh things first
 		  
-		  Dim I As Integer
 		  Dim Suc As Boolean
 		  Dim Res As String
 		  Dim ScanPath As String
 		  Dim Sp() As String
+		  Dim I As Integer
 		  
 		  Dim Sh As New Shell
 		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
@@ -682,68 +685,124 @@ End
 		  
 		  If TargetWindows Then
 		    
-		    ScanPath = Slash(ppApps).ReplaceAll("/","\")
+		    Declare Function SetErrorMode Lib "Kernel32" (mode As Integer) As Integer
+		    Const SEM_FAILCRITICALERRORS = &h1
 		    
-		    If Debugging Then Debug ("Check for ppApp.app files in: "+ScanPath)
+		    Dim oldMode As Integer = SetErrorMode( SEM_FAILCRITICALERRORS )
+		    Dim reg As registryItem
+		    Dim Ret As String
+		    Dim J, A As Integer
+		    Dim F As FolderItem
 		    
-		    ShellFast.Execute("dir /s /a /b "+Chr(34)+ScanPath+Chr(34)+"*.app")
-		    Res = ShellFast.Result
-		    Res = Res.ReplaceAll(Chr(10),Chr(13))
-		    Res = Res.ReplaceAll(Chr(13)+Chr(13),Chr(13)) 'Reduce Duplicated Line Ends
+		    #Pragma BreakOnExceptions Off
+		    Try
+		      reg = new registryItem(RegKeyHKLMccsWin) 'RegKeyHKLMccsWin = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Windows"
+		      reg.Value("ErrorMode") = 2
+		    Catch
+		    End Try
 		    
-		    If Debugging Then Debug ("List of ppApp.app files to regenerate:- "+Chr(10)+Res)
+		    Ret = ""
+		    A = Asc("C")
 		    
-		    Sp() = Res.Split(Chr(13))
-		    If Sp.Count >=1 Then
-		      For I = 0 To Sp.Count -1
-		        Sp(I) = Sp(I).Trim
-		        If Sp(I).Trim <> "" Then
-		          Suc = LoadLLFile(Sp(I).Trim, "", False, True) 'The 2nd True makes it skip loading the Icons etc, only gets the details
-		          If Suc Then ' Only do for valid items
-		            InstallFromPath = GetFullParent(Sp(I).Trim) 'Removes .lla .app etc file ' just keep path
-		            InstallToPath = InstallFromPath
+		    Dim Test, Drive As String
+		    
+		    
+		    For I = 0 To 23
+		      Try
+		        Drive = Chr(A+I)+":"
+		        Test = Drive+"\ppApps"
+		        'MsgBox(Test)
+		        If Debugging Then Debug ("Testing for: "+Test)
+		        If Exist (Test) Then
+		          If Debugging Then Debug ("FOUND: "+Test)
+		          F = GetFolderItem(Drive+"\ppWritable.ini", FolderItem.PathTypeNative)
+		          If F.IsWriteable And WritableLocation(F) Then
+		            If Debugging Then Debug ("WRITABLE: "+Test)
+		            ScanPath = Slash(Test).ReplaceAll("/","\")
 		            
-		            Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
-		            If Suc Then ' Only do if in right path
-		              RunScripts 'Run Script File from the path (Expanded variables)
-		              RunRegistry'Run The Reg File from the path (Expanded variables)
+		            If Debugging Then Debug ("Check for ppApp.app files in: "+ScanPath)
+		            
+		            ShellFast.Execute("dir /s /a /b "+Chr(34)+ScanPath+Chr(34)+"*.app")
+		            Res = ShellFast.Result
+		            Res = Res.ReplaceAll(Chr(10),Chr(13))
+		            Res = Res.ReplaceAll(Chr(13)+Chr(13),Chr(13)) 'Reduce Duplicated Line Ends
+		            
+		            If Debugging Then Debug ("List of ppApp.app files to regenerate:- "+Chr(10)+Res)
+		            
+		            Sp() = Res.Split(Chr(13))
+		            If Sp.Count >=1 Then
+		              For J = 0 To Sp.Count -1
+		                Sp(J) = Sp(J).Trim
+		                If Sp(J).Trim <> "" Then
+		                  Suc = LoadLLFile(Sp(J).Trim, "", False, True) 'The 2nd True makes it skip loading the Icons etc, only gets the details
+		                  If Suc Then ' Only do for valid items
+		                    InstallFromPath = GetFullParent(Sp(J).Trim) 'Removes .lla .app etc file ' just keep path
+		                    InstallToPath = InstallFromPath
+		                    
+		                    Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
+		                    If Suc Then ' Only do if in right path
+		                      RunScripts 'Run Script File from the path (Expanded variables)
+		                      RunRegistry'Run The Reg File from the path (Expanded variables)
+		                    End If
+		                  End If
+		                End If
+		              Next J
 		            End If
 		          End If
 		        End If
-		      Next I
-		    End If
-		    
-		    ScanPath = Slash(ppGames).ReplaceAll("/","\")
-		    
-		    If Debugging Then Debug ("Check for ppGame.ppg files in: "+ScanPath)
-		    
-		    ShellFast.Execute("dir /s /a /b "+Chr(34)+ScanPath+Chr(34)+"*.ppg")
-		    Res = ShellFast.Result
-		    Res = Res.ReplaceAll(Chr(10),Chr(13))
-		    Res = Res.ReplaceAll(Chr(13)+Chr(13),Chr(13)) 'Reduce Duplicated Line Ends
-		    
-		    If Debugging Then Debug ("List of ppGame.ppg files to regenerate:- "+Chr(10)+Res)
-		    
-		    Sp() = Res.Split(Chr(13))
-		    If Sp.Count >=1 Then
-		      For I = 0 To Sp.Count -1
-		        Sp(I) = Sp(I).Trim
-		        If Sp(I).Trim <> "" Then
-		          Suc = LoadLLFile(Sp(I).Trim, "", False, True) 'The 2nd True makes it skip loading the Icons etc, only gets the details
-		          If Suc Then ' Only do for valid items
-		            InstallFromPath = GetFullParent(Sp(I).Trim) 'Removes .lla .app etc file ' just keep path
-		            InstallToPath = InstallFromPath
+		        
+		        Test = Drive+"\ppGames"
+		        
+		        If Debugging Then Debug ("Testing for: "+Test)
+		        If Exist (Test) Then
+		          If Debugging Then Debug ("FOUND: "+Test)
+		          F = GetFolderItem(Drive+"\ppWritable.ini", FolderItem.PathTypeNative)
+		          If F.IsWriteable And WritableLocation(F) Then
+		            If Debugging Then Debug ("WRITABLE: "+Test)
 		            
-		            Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
-		            If Suc Then ' Only do if in right path
-		              RunScripts 'Run Script File from the path (Expanded variables)
-		              RunRegistry'Run The Reg File from the path (Expanded variables)
+		            ScanPath = Slash(Test).ReplaceAll("/","\")
+		            
+		            If Debugging Then Debug ("Check for ppGame.ppg files in: "+ScanPath)
+		            
+		            ShellFast.Execute("dir /s /a /b "+Chr(34)+ScanPath+Chr(34)+"*.ppg")
+		            Res = ShellFast.Result
+		            Res = Res.ReplaceAll(Chr(10),Chr(13))
+		            Res = Res.ReplaceAll(Chr(13)+Chr(13),Chr(13)) 'Reduce Duplicated Line Ends
+		            
+		            If Debugging Then Debug ("List of ppGame.ppg files to regenerate:- "+Chr(10)+Res)
+		            
+		            Sp() = Res.Split(Chr(13))
+		            If Sp.Count >=1 Then
+		              For J = 0 To Sp.Count -1
+		                Sp(J) = Sp(J).Trim
+		                If Sp(J).Trim <> "" Then
+		                  Suc = LoadLLFile(Sp(J).Trim, "", False, True) 'The 2nd True makes it skip loading the Icons etc, only gets the details
+		                  If Suc Then ' Only do for valid items
+		                    InstallFromPath = GetFullParent(Sp(J).Trim) 'Removes .lla .app etc file ' just keep path
+		                    InstallToPath = InstallFromPath
+		                    
+		                    Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
+		                    If Suc Then ' Only do if in right path
+		                      RunScripts 'Run Script File from the path (Expanded variables)
+		                      RunRegistry'Run The Reg File from the path (Expanded variables)
+		                    End If
+		                  End If
+		                End If
+		              Next J
 		            End If
 		          End If
 		        End If
-		      Next I
-		    End If
+		      Catch
+		      End Try
+		    Next I
 		    
+		    Call SetErrorMode( oldMode )
+		    #Pragma BreakOnExceptions Off
+		    Try
+		      reg = new registryItem(RegKeyHKLMccsWin) 'RegKeyHKLMccsWin = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Windows"
+		      reg.Value("ErrorMode") = 0
+		    Catch
+		    End Try
 		    
 		  Else 'Linux
 		    ScanPath = ppApps
@@ -801,10 +860,9 @@ End
 		        End If
 		      Next I
 		    End If
-		    
-		    
-		    
 		  End If
+		  
+		  #Pragma BreakOnExceptions On
 		  
 		  If Loading.Regenerate = False Then
 		    MsgBox "Regenerating Items Done"
