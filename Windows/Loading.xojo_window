@@ -3173,6 +3173,8 @@ End
 #tag Events VeryFirstRunTimer
 	#tag Event
 		Sub Action()
+		  Dim QuitNow As Boolean = False 'This allows multiple jobs to be done before it quits (useful for the command line arguments)
+		  
 		  App.AllowAutoQuit = True 'Makes it close if no windows are open
 		  
 		  If ForceQuit = True Then Return 'Don't bother even opening if set to quit
@@ -3825,9 +3827,10 @@ End
 		  If StoreMode = 4 Or InstallStore = True Then
 		    Loading.Hide
 		    InstallLLStore
-		    PreQuitApp ' Save Debug etc
-		    QuitApp 'Done installing, exit app, no need to continue
-		    Return ' Just get out of here once set to show editor
+		    'PreQuitApp ' Save Debug etc
+		    'QuitApp 'Done installing, exit app, no need to continue
+		    'Return ' Just get out of here once set to show editor
+		    QuitNow = True
 		  End If
 		  
 		  'Install Item Mode
@@ -3871,9 +3874,10 @@ End
 		      End If
 		      
 		    End If
-		    PreQuitApp ' Save Debug etc
-		    QuitApp 'Done installing, exit app, no need to continue
-		    Return ' Just get out of here once set to show editor
+		    'PreQuitApp ' Save Debug etc
+		    'QuitApp 'Done installing, exit app, no need to continue
+		    'Return ' Just get out of here once set to show editor
+		    QuitNow = True
 		  End If
 		  
 		  'Editor Mode
@@ -3976,22 +3980,28 @@ End
 		      Loading.Hide
 		      Notify ("LLStore Installing Menu Style", "Installing Menu Style: Linux", "", -1) 'Mini Installer can't call this and wouldn't want to.
 		      InstallLinuxMenuSorting(False)
-		      PreQuitApp ' Save Debug etc
-		      QuitApp 'Done installing, exit app, no need to continue
-		      Return ' Just get out of here once set to show editor
+		      QuitNow = True
 		    End If
 		  End If
 		  
+		  'Regenerate pp Items
 		  If Regenerate = True Then
 		    Loading.Hide
 		    Notify ("LLStore Regenerating Items", "Regenerating ppApps/ppGames", "", -1) 'Mini Installer can't call this and wouldn't want to.
 		    App.DoEvents(1)'Refresh Things
 		    ControlPanel.RegenerateItems()
+		    QuitNow = True
+		  End If
+		  
+		  
+		  
+		  '--------------- Quit if done jobs above ---------------
+		  
+		  If QuitNow = True Then
 		    PreQuitApp ' Save Debug etc
 		    QuitApp 'Done installing, exit app, no need to continue
 		    Return ' Just get out of here once set to show editor
 		  End If
-		  
 		  'Using a timer at the end of Form open allows it to display, many events hold off other processes until the complete
 		  If StoreMode <=1 Then FirstRunTime.RunMode = Timer.RunModes.Single ' Only show the store in Installer or Launcher modes, else just quit?
 		  
