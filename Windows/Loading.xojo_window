@@ -25,7 +25,6 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,7 +65,6 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -75,7 +73,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -84,7 +81,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -731,6 +727,9 @@ End
 		    Next I
 		  Catch
 		  End Try
+		  
+		  If Ret = "" Then Ret = SysDrive ' Default to SysDrive ' so works with LivePE's etc
+		  If Ret = "" Then Ret = "C:" ' Default to C: 'If SysDrive is blank, set it to C:
 		  
 		  Call SetErrorMode( oldMode )
 		  #Pragma BreakOnExceptions Off
@@ -3411,6 +3410,13 @@ End
 		    ppGamesFolder = Slash(HomePath)+".wine/drive_c/ppGames/"
 		  End If
 		  
+		  If TargetWindows Then ' Give up and just use C:\
+		    If ppAppsDrive = "" Then ppAppsDrive = "C:"
+		    If ppGamesDrive = "" Then ppGamesDrive = "C:"
+		    ppAppsFolder = ppAppsDrive + "/ppApps/" 'Do these 2 lines last to make sure they have a drive and path
+		    ppGamesFolder = ppGamesDrive + "/ppGames/"
+		  End If
+		  
 		  'Get MenuStyle
 		  ControlPanel.PopulateControlPanel()
 		  
@@ -3764,6 +3770,8 @@ End
 		  If Debugging Then Debug("WinWget: "+WinWget)
 		  If Debugging Then Debug("LinuxWget: "+LinuxWget)
 		  If Debugging Then Debug("System Drive: "+SysDrive)
+		  If Debugging Then Debug("ppApps: "+ppAppsDrive)
+		  If Debugging Then Debug("ppGames: "+ppGamesDrive)
 		  If Debugging Then Debug("ppApps: "+ppApps)
 		  If Debugging Then Debug("ppGames: "+ppGames+ Chr(10))
 		  
