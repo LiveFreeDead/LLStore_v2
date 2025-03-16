@@ -184,7 +184,7 @@ Protected Module LLMod
 		              Next J
 		              If DetectedItem <=0 Then 'Add new Item as root folder option
 		                StartMenuLocationsCount(K) = StartMenuLocationsCount(K) + 1 'Don't make it 0 Based, Start at 1
-		                StartMenuLocations(StartMenuLocationsCount(K), K).Catalog = StartMenuPath 'GlennGlennGlenn - I think this should be the Catalog name, NOT the start path???
+		                StartMenuLocations(StartMenuLocationsCount(K), K).Catalog = StartMenuPath
 		                StartMenuLocations(StartMenuLocationsCount(K), K).Path = StartMenuPath
 		                DetectedItem = StartMenuLocationsCount(K) 'Newly added item
 		              End If
@@ -360,20 +360,18 @@ Protected Module LLMod
 		    #Pragma BreakOnExceptions Off
 		    Try
 		      F=GetFolderItem(FileIn, FolderItem.PathTypeNative)
-		      'If Not F.Parent.Exists Then MakeFolder(F.Parent.NativePath) ' Make sure folder exists before copying to it??? To it or from it GlennGlenn Remarked out - weird
+		      'If Not F.Parent.Exists Then MakeFolder(F.Parent.NativePath) ' Make sure folder exists before copying to it??? To it or from it 'The folder should already exist
 		      
 		      G=GetFolderItem(FileOut, FolderItem.PathTypeNative)
 		      'MakeFolder(G.Parent.NativePath) 'Makes sure the output path parent exists before trying to copy to it. 'leaving this out for now, causes issues with Try Catch, if access denied
 		      If G.Exists And G.IsWriteable Then G.Remove
 		      
-		      'If Debugging Then Debug("Attempting Copy "+ F.NativePath +" To " + G.NativePath)
+		      'If Debugging Then Debug("Attempting copy: "+ F.NativePath +" To " + G.NativePath)
 		      
 		      F.CopyTo(G)
 		      
-		      'If Debugging Then Debug("Copied? No Error Catch")
-		      
 		    Catch
-		      If Debugging Then Debug(" Failed Copy!!!")
+		      If Debugging Then Debug("Failed to copy: "+F.NativePath+" to "+G.NativePath)
 		      Return False
 		    End Try
 		    #Pragma BreakOnExceptions On
@@ -414,8 +412,6 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Sub CreateShortcut(TitleName As String, Target As String, WorkingDir As String, LinkFolder As String, Args As String = "", IconFile As String = "", HotKeys As String = "", Comment As String = "")
-		  'Return ' Disabled for speed test GlennGlennGlenn Rem line once tested -  About 20 seconds saved, not worth optimizing to do as a batch
-		  
 		  If Debugging Then Debug("--- Starting Create Shortcut ---")
 		  
 		  Target = Target.ReplaceAll("/","\")
@@ -423,7 +419,6 @@ Protected Module LLMod
 		  LinkFolder = Slash(LinkFolder).ReplaceAll("/","\")
 		  IconFile = IconFile.ReplaceAll("/","\")
 		  
-		  'If Debugging Then Debug("* HERE HERE ")
 		  'If Debugging Then Debug("TitleName: "+TitleName+Chr(10)+"Target:- "+Chr(10)+Target+Chr(10)+"Working:- "+Chr(10)+WorkingDir+Chr(10)+"LinkFolder:- "+Chr(10)+LinkFolder +Chr(10)+"IconLocation: "+ IconFile)
 		  
 		  Dim scWorkingDir As FolderItem
@@ -434,7 +429,6 @@ Protected Module LLMod
 		  
 		  'If Not Exist(LinkFolder) Then
 		  'MakeFolder (LinkFolder) 'Make 100% Sure it's there
-		  
 		  
 		  'Making Links fails if no folder made for it, we don't want it to crash a store when a shortcut fails.
 		  #Pragma BreakOnExceptions Off
@@ -524,7 +518,7 @@ Protected Module LLMod
 		  If TargetWindows Then S = S.ReplaceAll("/","\") 'rmdir needs backslash in Windows
 		  
 		  S = S.Trim
-		  'QueueDeltree = False ' Test GlennGlennGlenn
+		  'QueueDeltree = False ' Enable this line to test if Queue is causing issues
 		  
 		  If QueueDeltree Then
 		    'Delete Folders
@@ -1072,7 +1066,7 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Function ExpPathScript(PathIn As String, WinPaths As Boolean = False) As String
-		  'Glenn - Make sure I convert ALL the Variables I need in all these expanders
+		  'Make sure I convert ALL the Variables I need in all these expanders
 		  
 		  If Debugging Then Debug("ExpPathScript = " +PathIn)
 		  Dim UserName As String
@@ -1303,7 +1297,7 @@ Protected Module LLMod
 		  inputStream = TextInputStream.Open(F)
 		  
 		  While Not inputStream.EndOfFile 'If Empty file this skips it
-		    RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
+		    RL = inputStream.ReadAll
 		  Wend
 		  inputStream.Close
 		  RL = RL.ReplaceAll(Chr(13), Chr(10))
@@ -1340,7 +1334,7 @@ Protected Module LLMod
 		    Sp(I) = Sp(I).ReplaceAll("#Is_x86#","") 'Clean unrequired text
 		    Sp(I) = Sp(I).ReplaceAll("#Is_x64#","") 'Clean unrequired text
 		    Sp(I) = Sp(I).ReplaceAll("#Is_ARM#","") 'Clean unrequired text
-		    Sp(I) = Sp(I).ReplaceAll("#Is_NT5#","") 'Clean unrequired text 'NT check not yet added to this method so will just use all by default, may cause issues? Glenn
+		    Sp(I) = Sp(I).ReplaceAll("#Is_NT5#","") 'Clean unrequired text 'NT check not yet added to this method so will just use all by default, may cause issues?
 		    Sp(I) = Sp(I).ReplaceAll("#Is_NT6#","") 'Clean unrequired text
 		    Sp(I) = Sp(I).ReplaceAll("#Is_NT10#","") 'Clean unrequired text
 		    
@@ -1385,7 +1379,7 @@ Protected Module LLMod
 		  inputStream = TextInputStream.Open(F)
 		  
 		  While Not inputStream.EndOfFile 'If Empty file this skips it
-		    RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
+		    RL = inputStream.ReadAll
 		  Wend
 		  inputStream.Close
 		  RL = RL.ReplaceAll(Chr(13), Chr(10))
@@ -1442,7 +1436,7 @@ Protected Module LLMod
 		    Sp(I) = Sp(I).ReplaceAll("#Is_x86#","") 'Clean unrequired text
 		    Sp(I) = Sp(I).ReplaceAll("#Is_x64#","") 'Clean unrequired text
 		    Sp(I) = Sp(I).ReplaceAll("#Is_ARM#","") 'Clean unrequired text
-		    Sp(I) = Sp(I).ReplaceAll("#Is_NT5#","") 'Clean unrequired text 'NT check not yet added to this method so will just use all by default, may cause issues? Glenn
+		    Sp(I) = Sp(I).ReplaceAll("#Is_NT5#","") 'Clean unrequired text 'NT check not yet added to this method so will just use all by default, may cause issues?
 		    Sp(I) = Sp(I).ReplaceAll("#Is_NT6#","") 'Clean unrequired text
 		    Sp(I) = Sp(I).ReplaceAll("#Is_NT10#","") 'Clean unrequired text
 		    
@@ -1458,7 +1452,7 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Function Extract(Archive As String, OutPath As String, ExcludesIncludes As String, Fast As Boolean = False) As Boolean
+		Function Extract(Archive As String, OutPath As String, ExcludesIncludes As String) As Boolean
 		  If Debugging Then Debug("--- Starting Extract ---")
 		  Dim Commands As String
 		  Dim F As FolderItem
@@ -1612,7 +1606,7 @@ Protected Module LLMod
 		  If F.Exists Then
 		    inputStream = TextInputStream.Open(F)
 		    While Not inputStream.EndOfFile 'If Empty file this skips it
-		      RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
+		      RL = inputStream.ReadAll
 		    Wend
 		    inputStream.Close
 		    RL = RL.ReplaceAll(Chr(13), Chr(10))
@@ -1659,7 +1653,7 @@ Protected Module LLMod
 		  If F.Exists Then
 		    inputStream = TextInputStream.Open(F)
 		    While Not inputStream.EndOfFile 'If Empty file this skips it
-		      RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
+		      RL = inputStream.ReadAll
 		    Wend
 		    inputStream.Close
 		    RL = RL.ReplaceAll(Chr(13), Chr(10))
@@ -1707,7 +1701,7 @@ Protected Module LLMod
 		  If F.Exists Then
 		    inputStream = TextInputStream.Open(F)
 		    While Not inputStream.EndOfFile 'If Empty file this skips it
-		      RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
+		      RL = inputStream.ReadAll
 		    Wend
 		    inputStream.Close
 		    RL = RL.ReplaceAll(Chr(13), Chr(10))
@@ -2004,7 +1998,7 @@ Protected Module LLMod
 		    End If
 		    
 		    
-		    'Glenn 2027 - Copy all .jpg .png .svg .ico .mp4 from InstallFrom to InstallTo so screenshots for multi shortcut items work
+		    'Copy all .jpg .png .svg .ico .mp4 from InstallFrom to InstallTo so screenshots for multi shortcut items work
 		    'Copy LLFiles to the Install folder (So Games Launcher has the Link Info and Screenshots/Fader etc 'This will copy all but archives, Need to manually copy the ssApp and ppApp files after this
 		    If TargetWindows Then
 		      If InstallFromPath.IndexOf("ppAppsLive")>=1 Then
@@ -2033,10 +2027,9 @@ Protected Module LLMod
 		      End If
 		      
 		    Else 'Linux Mode
-		      'Ignore LLApps??? Yeah, no need to copy the installer data to it's folder, but I do below because it's easier
 		      'rsync doesn't work in Debian by default, needs installing, so just copy the essentials in that case
 		      If InstallFromPath.IndexOf("ppAppsLive")>=1 Then
-		        Shelly.Execute ("cp -rf " + Chr(34) + Slash(InstallFromPath) + "." + Chr(34) + " " + Chr(34) + InstallToPath + Chr(34)) 'GlennGlenn Test
+		        Shelly.Execute ("cp -rf " + Chr(34) + Slash(InstallFromPath) + "." + Chr(34) + " " + Chr(34) + InstallToPath + Chr(34))
 		        Do
 		          App.DoEvents(7)
 		        Loop Until Shelly.IsRunning = False
@@ -2636,7 +2629,7 @@ Protected Module LLMod
 		        If F.Exists And F.IsReadable Then
 		          T = TextInputStream.Open(F)
 		          While Not T.EndOfFile 'If Empty file this skips it
-		            Return T.ReadAll '.ConvertEncoding(Encodings.ASCII)
+		            Return T.ReadAll
 		          Wend
 		          T.Close
 		        End If
@@ -2836,7 +2829,7 @@ Protected Module LLMod
 		  
 		  Dim RL As String
 		  While Not inputStream.EndOfFile 'If Empty file this skips it
-		    RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
+		    RL = inputStream.ReadAll
 		  Wend
 		  inputStream.Close
 		  
@@ -3499,30 +3492,17 @@ Protected Module LLMod
 		  
 		  BT = ItemLLItem.BuildType
 		  
-		  If TargetWindows Then 'Do ssApps/SentTo here
-		    'Make SentTo for first item if Main flag set
-		    'If BT ="ssApp" Then 'Do Send To if Set in
+		  If TargetWindows Then 'Do Flagged here
 		    If ItemLLItem.Flags.IndexOf("sendto") >=0 Then SendTo = True'Do SendTo (Not done yet)
 		    If ItemLLItem.Flags.IndexOf("root") >=0 Then Root = True
 		    If ItemLLItem.Flags.IndexOf("programs") >=0 Then Root = True
 		    If ItemLLItem.Flags.IndexOf("startup") >=0 Then Startup = True
-		    'Glenn - not done ssApp Links Processing yet, only the cleanup
-		    'End If
 		    
-		    'Clean up links, only leave on Desktop if enabled
-		    'Done in MoveLinks
-		    
+		    'Clean up Done in MoveLinks
 		  End If
 		  
-		  'End If
-		  
-		  '******* Removed cases from below as some ppApps and ssApps are game related and they get lost, I'll need to make it at least create it in the Default folder if it can't sort it GlennGlenn
-		  'Sort Catalog to Shortcuts - Windows ItemsOnly
-		  'Get the StartMenu Stuff for ssApps and then for ppApps/Games
-		  'If TargetWindows Then
-		  
 		  '***********************************************************************************************************************************************************
-		  'GlennGlennGlenn - This line below stops the redirected Categories from happening, so the new sort method below should work???
+		  'This line below stops the redirected Categories from happening, so the new sort method below should work???
 		  If TargetWindows Then RedirectAppCount = 0 '**************************************************************************************************************************************
 		  '***********************************************************************************************************************************************************
 		  
@@ -3533,7 +3513,8 @@ Protected Module LLMod
 		      For I = 0 To CatalogCount
 		        Catalog(I) = Catalog(I).Trim
 		        IF RedirectAppCount >= 1 Then
-		          'Select Case ItemLLItem.BuildType
+		          'I've disabled exiting the loops incase duplicates are found and I do apps and games incase something is in wrong category
+		          'Select Case ItemLLItem.BuildType 
 		          'Case "ssApp","ppApp"
 		          For J = 0 To RedirectAppCount -1
 		            If Catalog(I)  = RedirectsApp (J,0) Then
@@ -3858,8 +3839,6 @@ Protected Module LLMod
 		            Catalog(J) = Catalog(J).Trim
 		            GameCat = "Game " + Catalog(J) 'This is how games get detected
 		            If Catalog(J) = "ppGame" Then Catalog(J) = "Game" 'Some of my older items have ppGame instead of Game, this fixes that
-		            'GlennGlennGlenn - If not Catalogs then use StartMenuSourcePath - So Something is made - NOT DONE YET
-		            'Trying to do above
 		            
 		            If Catalog(J) <> "" Then ' Only do Valid Link Catalogs
 		              
@@ -4501,12 +4480,6 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub ProcessFlags(Item As LLItem, Flags As String)
-		  
-		End Sub
-	#tag EndMethod
-
-	#tag Method, Flags = &h0
 		Sub QuitApp()
 		  If Debugging Then Debug("--- Quitting LLStore ---")
 		  ForceQuit = True
@@ -4580,7 +4553,7 @@ Protected Module LLMod
 		      Sp(I) = Sp(I).ReplaceAll("#Is_x86#","") 'Clean unrequired text
 		      Sp(I) = Sp(I).ReplaceAll("#Is_x64#","") 'Clean unrequired text
 		      Sp(I) = Sp(I).ReplaceAll("#Is_ARM#","") 'Clean unrequired text
-		      Sp(I) = Sp(I).ReplaceAll("#Is_NT5#","") 'Clean unrequired text 'NT check not yet added to this method so will just use all by default, may cause issues? Glenn
+		      Sp(I) = Sp(I).ReplaceAll("#Is_NT5#","") 'Clean unrequired text 'NT check not yet added to this method so will just use all by default, may cause issues?
 		      Sp(I) = Sp(I).ReplaceAll("#Is_NT6#","") 'Clean unrequired text
 		      Sp(I) = Sp(I).ReplaceAll("#Is_NT10#","") 'Clean unrequired text
 		      
@@ -4635,7 +4608,7 @@ Protected Module LLMod
 		    ItemLLItem.Assembly  = ItemLLItem.Assembly.ReplaceAll("#Is_x86#","") 'Clean unrequired text
 		    ItemLLItem.Assembly  = ItemLLItem.Assembly.ReplaceAll("#Is_x64#","") 'Clean unrequired text
 		    ItemLLItem.Assembly  = ItemLLItem.Assembly.ReplaceAll("#Is_ARM#","") 'Clean unrequired text
-		    ItemLLItem.Assembly  = ItemLLItem.Assembly.ReplaceAll("#Is_NT5#","") 'Clean unrequired text 'NT check not yet added to this method so will just use all by default, may cause issues? Glenn
+		    ItemLLItem.Assembly  = ItemLLItem.Assembly.ReplaceAll("#Is_NT5#","") 'Clean unrequired text 'NT check not yet added to this method so will just use all by default, may cause issues?
 		    ItemLLItem.Assembly  = ItemLLItem.Assembly.ReplaceAll("#Is_NT6#","") 'Clean unrequired text
 		    ItemLLItem.Assembly  = ItemLLItem.Assembly.ReplaceAll("#Is_NT10#","") 'Clean unrequired text
 		    
@@ -5413,7 +5386,7 @@ Protected Module LLMod
 		  If ItemLLItem.Flags <> "" Then DataOut = DataOut + "Flags=" + ItemLLItem.Flags+Chr(10)
 		  If ItemLLItem.Arch <> "" Then DataOut = DataOut + "Architecture=" + ItemLLItem.Arch+Chr(10) 'This will need to convert x86, x64, arm to numbered, 1 = x86, 2 = x64, will need to check the rest to make it match
 		  
-		  'Meta Here, Glenn 2027
+		  'Meta Here
 		  DataOut = DataOut + "[Meta]" + Chr(10)
 		  If ItemLLItem.InstallSize <> 0 Then DataOut = DataOut + "InstalledSize=" + ItemLLItem.InstallSize.ToString+Chr(10)
 		  If ItemLLItem.Tags <> "" Then DataOut = DataOut + "Tags=" + ItemLLItem.Tags+Chr(10)
@@ -7688,6 +7661,14 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue="0"
 			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CheckingForDatabases"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Boolean"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior

@@ -5266,7 +5266,7 @@ End
 		                  For I = FC To 1 Step -1 'Do backwards so it doesn't remove them and make the folder count less/reordered and skip removing some of them
 		                    If Debugging Then Debug("Testing If Deletion "+I.ToString+"/"+FC.ToString+": "+F.Item(I).NativePath)
 		                    Status.Text =  "Clean Up Files..."
-		                    'May also need to check for patch folder/files and other stuff like Files with same name as title (Like pics for multi shortcut items) Glenn 2027
+		                    'May also need to check for patch folder/files and other stuff like Files with same name as title (Like pics for multi shortcut items) Glenn
 		                    If Left(F.Item(I).Name, 5) = Left(BT, 5) Or Left(F.Item(I).Name, 5) = "LLScr" Or Left(F.Item(I).Name, 8) = "Patch.7z"  Then 'Keep
 		                    Else 'Not a LLFile type or a script
 		                      If Right(F.Item(I).Name, 4) <> ".jpg" Then 'If the file to delete isn't a picture, movie etc then it gets deleted, else it gets kept
@@ -5780,26 +5780,26 @@ End
 		    'Only update the item choice here, not each time it's changed
 		    ItemLLItem.ArchCompatible = ComboArch.Text
 		    
-		    'Build Link Flags - ********************* I think this is moved to SaveLLFile, so may not be needed anymore, will need to check - Glenn - Appears not to, will check when I start using to build new stuff
-		    If LnkCount >= 1 Then
-		      For I = 1 To LnkCount
-		        If ItemLnk(I).Title.Trim <> "" Then
-		          'Skipping Flags for now
-		          'FlagsOut = ""
-		          ''If ItemLnk(I).Desktop = True Then FlagsOut = FlagsOut + "hidden "
-		          'ItemLnk(I).Flags = FlagsOut.Trim
-		          
-		          'Case "terminal"
-		          'If LineData = "True" Then ItemLnk(LnkEditing).Terminal= True Else ItemLnk(LnkEditing).Terminal= False
-		          '
-		          'Case "showon"
-		          'If OrigLine.IndexOf("desktop") >= 1 Then ItemLnk(LnkEditing).Desktop = True Else ItemLnk(LnkEditing).Desktop = False
-		          'If OrigLine.IndexOf("panel") >= 1  Then ItemLnk(LnkEditing).Panel = True Else ItemLnk(LnkEditing).Panel = False
-		          'If OrigLine.IndexOf("favorite") >= 1 Then ItemLnk(LnkEditing).Favorite = True Else ItemLnk(LnkEditing).Favorite = False
-		          
-		        End If
-		      Next
-		    End If
+		    'Build Link Flags - This is moved to SaveLLFile, I think
+		    'If LnkCount >= 1 Then
+		    'For I = 1 To LnkCount
+		    'If ItemLnk(I).Title.Trim <> "" Then
+		    'Skipping Flags for now
+		    'FlagsOut = ""
+		    ''If ItemLnk(I).Desktop = True Then FlagsOut = FlagsOut + "hidden "
+		    'ItemLnk(I).Flags = FlagsOut.Trim
+		    
+		    'Case "terminal"
+		    'If LineData = "True" Then ItemLnk(LnkEditing).Terminal= True Else ItemLnk(LnkEditing).Terminal= False
+		    '
+		    'Case "showon"
+		    'If OrigLine.IndexOf("desktop") >= 1 Then ItemLnk(LnkEditing).Desktop = True Else ItemLnk(LnkEditing).Desktop = False
+		    'If OrigLine.IndexOf("panel") >= 1  Then ItemLnk(LnkEditing).Panel = True Else ItemLnk(LnkEditing).Panel = False
+		    'If OrigLine.IndexOf("favorite") >= 1 Then ItemLnk(LnkEditing).Favorite = True Else ItemLnk(LnkEditing).Favorite = False
+		    
+		    'End If
+		    'Next
+		    'End If
 		    
 		    'Update Catalogs back
 		    If ItemLLItem.BuildType = "ssApp" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ppGame" Then ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(";","|") ' Make it SetupS Compatible
@@ -6253,13 +6253,11 @@ End
 		  
 		  Dim F As FolderItem
 		  
-		  'Glenn Maybe add Include Folder from shortcut selection??? would only work in Windows as I can't get the .lnk target yet (only .desktop)
+		  'Maybe add Include Folder from shortcut selection??? would only work in Windows as I can't get the .lnk target yet (only .desktop)
 		  
 		  
 		  If TargetWindows Then
 		    'List All start menu items to pick one - just copy the .lnk files from all users and current user then follow the lnk to the actual EXE etc, but use lnk for Title name, icon etc
-		    
-		    'MsgBox "Not Yet Implemented Browsing Shortcuts in windows"
 		    
 		    Dim iniType As New FileType
 		    iniType.Name = "link/desktop"
@@ -6275,10 +6273,7 @@ End
 		      
 		      If Right(ImageIn.Lowercase,4) = ".lnk" Then 'Windows Lnk file
 		        
-		        'MsgBox ImageIn 'LnkPath
-		        
 		        F = GetFolderItem(ImageIn)
-		        'MsgBox F.NativePath '.EXE path 
 		        
 		        If Debugging Then Debug("Grab shortcut Data from: "+ ImageIn)
 		        
@@ -6329,8 +6324,6 @@ End
 		          TextMenuCatalog.Text = Categories
 		          CheckRunInTerminal.Value = Term
 		        End If
-		        
-		        
 		      End If
 		    End If
 		    
@@ -6361,8 +6354,7 @@ End
 		        Name = Right(ImageIn, Len(ImageIn) - InStrRev(ImageIn,"/")) 'Remove Path
 		        Name = Left(Name, Len(Name)-4) 'Remove .lnk
 		        
-		        'MsgBox GetLnk(ImageIn) 'Incomplete Function
-		        'Can't get much from shortcut in Linux yet, Glenn
+		        'Can't get much from shortcut in Linux yet
 		        
 		      End If
 		      

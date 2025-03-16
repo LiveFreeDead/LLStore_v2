@@ -691,8 +691,13 @@ End
 	#tag Method, Flags = &h0
 		Function GetExistingppFolder(GetType As String) As String
 		  Declare Function SetErrorMode Lib "Kernel32" (mode As Integer) As Integer
-		  Const SEM_FAILCRITICALERRORS = &h1
-		  Dim oldMode As Integer = SetErrorMode( SEM_FAILCRITICALERRORS )
+		  Dim oldMode As Integer 
+		  If TargetWindows Then
+		    Const SEM_FAILCRITICALERRORS = &h1
+		    oldMode = SetErrorMode( SEM_FAILCRITICALERRORS )
+		  Else
+		    oldMode = 0
+		  End If
 		  Dim reg As registryItem
 		  Dim Ret As String
 		  Dim I, A As Integer
@@ -731,7 +736,7 @@ End
 		  If Ret = "" Then Ret = SysDrive ' Default to SysDrive ' so works with LivePE's etc
 		  If Ret = "" Then Ret = "C:" ' Default to C: 'If SysDrive is blank, set it to C:
 		  
-		  Call SetErrorMode( oldMode )
+		  If TargetWindows Then Call SetErrorMode( oldMode )
 		  #Pragma BreakOnExceptions Off
 		  Try
 		    reg = new registryItem(RegKeyHKLMccsWin) 'RegKeyHKLMccsWin = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Windows"
@@ -877,7 +882,7 @@ End
 		      Case "ArchCompatible"
 		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.ArchCompatible
 		        
-		      Case "LnkMultiple" 'Links' GlennGlenn - Don't add the Core Item to the Multi Links as it's already getting added to the DB
+		      Case "LnkMultiple" 'Links' - Don't add the Core Item to the Multi Links as it's already getting added to the DB
 		        If LnkCount >1 And StoreMode = 1 Then 'Hide Parent items in Launcher mode
 		          'Data.Items.CellTextAt(ItemCount,I) = "T"
 		          Data.Items.CellTextAt(ItemCount,I) = "Hide" 'Set to Hide so can Hide main items in MultiLinks
@@ -952,7 +957,7 @@ End
 		        For I = 1 To Data.Items.ColumnCount
 		          Data.Items.CellTextAt(ItemCount,I) = Data.Items.CellTextAt(MainItem,I)
 		          Select Case  Data.Items.HeaderAt(I)
-		          Case "LnkMultiple" 'Links 'GlennGlenn Trying to fix this
+		          Case "LnkMultiple" 'Links
 		            If LnkCount >1 And StoreMode = 1 Then 'Only do this for Launcher mode so the SaveAllDB's works
 		              Data.Items.CellTextAt(ItemCount,I) = "T"
 		              Data.Items.CellTagAt(ItemCount,I) = CurrentScanPath 'Set this to the ScanPath Item so if the paths match it'll only add to that DB
@@ -1714,7 +1719,7 @@ End
 		  Dim FadeFile As String
 		  
 		  While Not inputStream.EndOfFile 'If Empty file this skips it
-		    RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII) 'Don't need to do this as DB's shouldn't have invalid chars
+		    RL = inputStream.ReadAll 
 		  Wend
 		  inputStream.Close
 		  
@@ -1764,42 +1769,7 @@ End
 		              Else 'Icon not found - Use Defaults
 		                Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("IconRef")) = Str(0)
 		              End If
-		              
-		              'Case "Flags"
-		              'FlagsIn = Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Flags"))
-		              ''MessageBox(ItemLLItem.Flags)
-		              'If FlagsIn.IndexOf("alwayshide") >=0 Then
-		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Hidden")) = "True"
-		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("HiddenAlways")) = "True"
-		              'Else
-		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Hidden")) = "False"
-		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("HiddenAlways")) = "False"
-		              'End If
-		              'If FlagsIn.IndexOf("hidden") >=0 Then
-		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Hidden")) = "True"
-		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("HiddenAlways")) = "True"
-		              'Else
-		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Hidden")) = "False"
-		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("HiddenAlways")) = "False"
-		              'End If
-		              '
-		              'If FlagsIn.IndexOf("showsetuponly") >=0 Then
-		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("ShowSetupOnly")) = "True"
-		              'If StoreMode <> 0 Then 'Only hide if not Setup/install mode
-		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Hidden")) = "True"
-		              'Else
-		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Hidden")) = "False"
-		              'End If
-		              'Else
-		              'Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("ShowSetupOnly")) = "False"
-		              'End If
-		              'If FlagsIn.IndexOf("internetrequired") >=0 Then ItemLLItem.InternetRequired = True Else ItemLLItem.InternetRequired = False
-		              'If FlagsIn.IndexOf("noinstall") >=0 Then
-		              'ItemLLItem.NoInstall = True
-		              'Else
-		              'ItemLLItem.NoInstall = False
-		              'End If
-		            Case "PathApp" ' Convert these back ASAP? GlennGlennGlennGlenn
+		            Case "PathApp" ' Convert these back ASAP, Less issues if it's already converted and it gets converted back when saving to DB's
 		              If DataHeadID >= 1 Then
 		                Data.Items.CellTextAt(ItemCount,DataHeadID) = ExpPath(ItemSP(J))
 		              End If
@@ -1920,7 +1890,7 @@ End
 		  
 		  InputStream = TextInputStream.Open(F)
 		  While Not inputStream.EndOfFile 'If Empty file this skips it
-		    RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
+		    RL = inputStream.ReadAll
 		  Wend
 		  inputStream.Close
 		  
@@ -2130,7 +2100,7 @@ End
 		  Dim EqPos As Integer
 		  If  F.Exists Then 
 		    While Not inputStream.EndOfFile 'If Empty file this skips it
-		      RL = inputStream.ReadAll '.ConvertEncoding(Encodings.ASCII)
+		      RL = inputStream.ReadAll
 		    Wend
 		    inputStream.Close
 		  End If
@@ -3012,7 +2982,7 @@ End
 		    'Get Weblinks and substitute URL's if found
 		    GetURL = QueueURL(QueueUpTo)
 		    
-		    'Add Weblinks back in to get from there instead of the repo's Glenn 2029
+		    'Add Weblinks back in to get from there instead of the repo's
 		    If WebLinksCount >= 1 Then
 		      For I = 0 To WebLinksCount - 1
 		        LocalName = Replace(QueueLocal(QueueUpTo), Slash(RepositoryPathLocal), "") 'Remove Path, just use File Name
@@ -3714,7 +3684,7 @@ End
 		    'Remove Quotes that get put on my Nemo etc
 		    If Left(CommandLineFile,1) = Chr(34) Then CommandLineFile = CommandLineFile.ReplaceAll(Chr(34),"") 'Remove Quotes from given path entirly
 		    
-		    'Do I Need to convert ./ to $PWD etc - Glenn 2025 - Yes
+		    'Do I Need to convert ./ to $PWD etc - Yes, So if not / then it will use curent path
 		    If TargetLinux Then
 		      'If Not Exist (CommandLineFile) Then CommandLineFile = Slash(CurrentPath)+CommandLineFile
 		      If Left (CommandLineFile,1) <> "/" Then CommandLineFile = Slash(CurrentPath)+CommandLineFile 'Make sure path is given

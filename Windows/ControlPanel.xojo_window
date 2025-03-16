@@ -595,6 +595,7 @@ End
 		        If Left(CleanExec, 8) = "/app/bin" Then ValidItem = True  ' Flatpaks are self managed so if one breaks, I don't want to touch it with a ten foot pole
 		        If Sp(I).IndexOf("webapp") >=0 Then ValidItem = True ' Skip Web Apps
 		        If CleanExec = "start /unix" Then ValidItem = True 'This item is built in to wine ' I still need to knock off the space in the exec path for other items (GLENN)
+		        If CleanExec.IndexOf(".lnk") > 0 Then ValidItem = True  'Glenn, I can't yet process .lnk files in Linux, so just skip over them for deletion
 		        
 		        '
 		        If CleanExec.IndexOf(".appimage") >=0 Then  'Has appimage so drop back to see if that exists
@@ -1289,8 +1290,10 @@ End
 		          MenuStyle = ComboMenuStyle.Text.Trim
 		          'Get the correct Menu Number ASAP
 		          For I = 0 To StartMenuStylesCount
-		            If StartMenuStyles(I) = MenuStyle Then StartMenuUsed = I 'Gets the current Menu Style Number
-		            'Start
+		            If StartMenuStyles(I) = MenuStyle Then
+		              StartMenuUsed = I 'Gets the current Menu Style Number
+		              Exit 'No Need to keep looking
+		            End If
 		          Next
 		          
 		          'Update Menu Style ini File here
@@ -1308,9 +1311,8 @@ End
 		          XCopyFile(MenuPath+"Definitions.ini", "C:\windows\ssTek\")
 		          Suc = Extract(MenuPath+"Icons.7z", "C:\windows\ssTek\Icons\", "")
 		          
-		          'GlennGlennGlenn - ReEnabled Below 2 after testing
-		          'BuildStartMenuLocations()
-		          'BuildMenuStyleFolder()
+		          BuildStartMenuLocations()
+		          BuildMenuStyleFolder()
 		          
 		          SetMenuStyle.Text = MenuStyle 'Update GUI to how new menu style
 		        Else
@@ -1451,27 +1453,6 @@ End
 		    If LnkCount >= 1 Then MakeLinks 'Do All Links at once, to speed it up
 		  End If
 		  
-		  'Data = ""
-		  'If StartMenuDefaultsCount >= 1 Then
-		  'For I = 0 To StartMenuDefaultsCount
-		  'Data = Data + StartMenuDefaults(I).Name +" "+ StartMenuDefaults(I).Target + Chr(10)
-		  'Next
-		  'If Data <> "" Then MsgBox Data
-		  'End If
-		  
-		  
-		  
-		  ''Enable Them Again
-		  'ButtonSetMenuStyle.Enabled = True
-		  'ComboMenuStyle.Enabled = True
-		  'CheckCleanUp.Enabled = True
-		  'MsgBox "Done Creating Defaults"
-		  'Return 'GlennGlennGlenn - Quit For now, to test only making the Defaults.
-		  
-		  
-		  
-		  
-		  
 		  Tims = (System.Microseconds/1000000)-StartTimeStamp
 		  If Debugging Then Debug("* (Build Menu Folder Done) Time Since Start "+Tims.ToString)
 		  
@@ -1482,7 +1463,7 @@ End
 		    QueueDeltreeJobs = ""
 		    DelJobsList.RemoveAll
 		    
-		    ResortStartMenu() 'Disabled for now so I can test cleaner - re-enable (GlennGlennGlenn)
+		    ResortStartMenu()
 		    
 		    Tims = (System.Microseconds/1000000)-StartTimeStamp
 		    If Debugging Then Debug("* (Resort Job Done) Time Since Start "+Tims.ToString)
@@ -1490,17 +1471,15 @@ End
 		    'Delete all items at once, MUCH faster
 		    QueueDeltree = False
 		    QueueDeltreeMajor = False ' Deltrees done
-		    'Res = RunCommandResults 
+		    
 		    RunCommand(QueueDeltreeJobs)
 		    
+		    'Res = RunCommandResults (QueueDeltreeJobs)
 		    'If Debugging Then Debug ("* Delete Menu Sort Jobs ***")
 		    'If Debugging Then Debug ("Sent In:"+Chr(10)+ QueueDeltreeJobs)
 		    'If Debugging Then Debug ("Results:"+Chr(10)+ Res)
 		    
-		    
 		    QueueDeltreeJobs = ""
-		    
-		    
 		    
 		    Tims = (System.Microseconds/1000000)-StartTimeStamp
 		    If Debugging Then Debug("* (DelJob Done) Time Since Start "+Tims.ToString)
@@ -1527,44 +1506,6 @@ End
 		      MsgBox "Done Sorting and Cleaning"
 		    End If
 		  End If
-		  
-		  '------------------------------------------------------------------------------------------------------------
-		  
-		  'ComboMenuStyle.RemoveAllRows
-		  'ComboMenuStyle.AddRow("UnSorted")
-		  '
-		  '
-		  ''Get Available Menu Styles
-		  'If Exist(Slash(ToolPath)+ Slash("Menus")+"MenuStyles.ini") Then
-		  'MenuIn = LoadDataFromFile(Slash(ToolPath)+ Slash("Menus")+"MenuStyles.ini")
-		  'MenuIn = MenuIn.ReplaceAll(Chr(13),Chr(10))
-		  'MenuIn = MenuIn.ReplaceAll(Chr(10)+Chr(10),Chr(10))
-		  'Sp()=MenuIn.Split(Chr(10))
-		  'If Sp.Count >= 1 Then
-		  'For I = 1 To Sp.Count -1
-		  'ComboMenuStyle.AddRow(Right(Sp(I), Len(Sp(I))-InStrRev(Sp(I),"=")))
-		  'Next
-		  'End If
-		  'End If
-		  '
-		  '
-		  ''Get Current Menu Style
-		  'If Exist("C:\windows\SetupSMenu.ini") Then
-		  'MenuIn = LoadDataFromFile("C:\windows\SetupSMenu.ini")
-		  'MenuIn = MenuIn.ReplaceAll(Chr(13),Chr(10))
-		  'Sp()=MenuIn.Split(Chr(10))
-		  'Sp(0) = Sp(0).Trim
-		  'If Sp(0) <>"" Then
-		  'MenuStyle = Sp(0)
-		  ''ComboMenuStyle.AddRow(MenuStyle)
-		  'End If
-		  'Else
-		  'MenuStyle = "UnSorted"
-		  'End If
-		  '
-		  'SetMenuStyle.Text = MenuStyle
-		  '
-		  'ComboMenuStyle.Text = MenuStyle
 		End Sub
 	#tag EndMethod
 

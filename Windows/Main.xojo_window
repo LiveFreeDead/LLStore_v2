@@ -2297,7 +2297,7 @@ End
 		  
 		  If StoreMode = 0 Then 'Installer
 		    If SelectsCount >= 1 Then ' Must have selected one item
-		      'GlennGlennGlenn - Save Current Install as a preset, so can reload if it fails
+		      'GlennGlennGlennGlenn - Saves Current Install as a preset, so can reload if it fails
 		      SaveToPreset (Slash(RepositoryPathLocal)+"Current_LLStore_Install.ini")
 		      MiniInstallerShowing = True
 		      MiniInstaller.StartInstaller()
@@ -2498,7 +2498,7 @@ End
 	#tag EndEvent
 	#tag Event
 		Function PaintCellBackground(g As Graphics, row As Integer, column As Integer) As Boolean
-		  'If Main.Visible = False Then Return False ' Don't redraw if not seen 'This may be breaking Wayland, try this fix
+		  'If Main.Visible = False Then Return False ' Don't redraw if not seen 'This may be breaking Wayland, try this fix, seems to help
 		  
 		  'Can Do Solid Color
 		  'g.DrawingColor =  &C000000
