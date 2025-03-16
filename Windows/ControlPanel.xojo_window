@@ -910,6 +910,15 @@ End
 		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
 		  Sh.TimeOut =  -1
 		  
+		  If TargetLinux Then
+		    ButtonSetMenuStyle.Enabled = False
+		    ComboMenuStyle.Enabled = False
+		    CheckCleanUp.Enabled = False
+		  End If
+		  
+		  CheckRegenerate.Enabled = False
+		  ButtonRegenerateItems.Enabled = False
+		  
 		  If TargetWindows Then
 		    
 		    Declare Function SetErrorMode Lib "Kernel32" (mode As Integer) As Integer
@@ -1089,6 +1098,18 @@ End
 		    End If
 		  End If
 		  
+		  'Enabler Them Again
+		  If TargetLinux Then
+		    ButtonSetMenuStyle.Enabled = True
+		    ComboMenuStyle.Enabled = True
+		    CheckCleanUp.Enabled = True
+		  End If
+		  
+		  CheckRegenerate.Enabled = True
+		  ButtonRegenerateItems.Enabled = True
+		  
+		  
+		  
 		  #Pragma BreakOnExceptions On
 		  
 		  If Loading.Regenerate = False Then
@@ -1210,6 +1231,9 @@ End
 		  ButtonSetMenuStyle.Enabled = False
 		  ComboMenuStyle.Enabled = False
 		  CheckCleanUp.Enabled = False
+		  
+		  CheckRegenerate.Enabled = False
+		  ButtonRegenerateItems.Enabled = False
 		  
 		  
 		  Dim I As Integer
@@ -1492,6 +1516,9 @@ End
 		  ButtonSetMenuStyle.Enabled = True
 		  ComboMenuStyle.Enabled = True
 		  CheckCleanUp.Enabled = True
+		  
+		  CheckRegenerate.Enabled = True
+		  ButtonRegenerateItems.Enabled = True
 		  
 		  If Loading.SortMenuStyle = False Then ' Only show if not called from command line
 		    If CheckCleanUp.Value = False Then

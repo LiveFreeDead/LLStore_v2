@@ -5621,6 +5621,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		CheckingForDatabases As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		CheckingForUpdates As Boolean = False
 	#tag EndProperty
 

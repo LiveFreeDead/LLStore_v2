@@ -1799,6 +1799,18 @@ End
 		              'Else
 		              'ItemLLItem.NoInstall = False
 		              'End If
+		            Case "PathApp" ' Convert these back ASAP? GlennGlennGlennGlenn
+		              If DataHeadID >= 1 Then
+		                Data.Items.CellTextAt(ItemCount,DataHeadID) = ExpPath(ItemSP(J))
+		              End If
+		            Case "PathINI"
+		              If DataHeadID >= 1 Then
+		                Data.Items.CellTextAt(ItemCount,DataHeadID) = ExpPath(ItemSP(J))
+		              End If
+		            Case "FileINI"
+		              If DataHeadID >= 1 Then
+		                Data.Items.CellTextAt(ItemCount,DataHeadID) = ExpPath(ItemSP(J))
+		              End If
 		              
 		            Case Else
 		              If DataHeadID >= 1 Then
@@ -2751,10 +2763,12 @@ End
 		      If OnlineDBs.Trim <> "" Then Settings.SetOnlineRepos.Text = OnlineDBs.Trim
 		      
 		      If Settings.SetUseOnlineRepos.Value = True Then
+		        CheckingForDatabases = True
 		        Loading.Status.Text = "Downloading Online Databases..."
 		        Loading.Refresh
 		        App.DoEvents(1)
 		        GetOnlineDBs 'Only do this when in Installation mode
+		        CheckingForDatabases = True
 		      End If
 		    End If
 		    'Disabled Weblinks for now while I find an alternative as google API is blocked by wget for non logged in users.
@@ -3088,7 +3102,7 @@ End
 		          End If
 		          
 		          'Update Loading Stats for Updating files
-		          If CheckingForUpdates = True Then
+		          If CheckingForUpdates = True Or CheckingForDatabases = True Then
 		            theResults = DownloadShell.ReadAll
 		            
 		            ProgPerc = Right(theResults, 80)
@@ -3100,7 +3114,8 @@ End
 		              DownloadPercentage = ProgPerc
 		            End If
 		            'MiniInstaller.Stats.Text = "Downloading "+ DownloadPercentage
-		            Loading.Status.Text = "Check For Store Updates: "+DownloadPercentage
+		            If CheckingForUpdates = True Then Loading.Status.Text = "Check For Store Updates: "+DownloadPercentage
+		            If CheckingForDatabases = True Then Loading.Status.Text = "Downloading Online Databases: "+DownloadPercentage
 		          End If
 		          
 		          

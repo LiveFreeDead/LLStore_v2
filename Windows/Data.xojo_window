@@ -464,12 +464,44 @@ End
 
 
 	#tag Property, Flags = &h0
+		ItemRow As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		LocalDBHeader As String
 	#tag EndProperty
 
 
 #tag EndWindowCode
 
+#tag Events Items
+	#tag Event
+		Sub DoublePressed()
+		  Dim Data As String
+		  Dim I As Integer
+		  For I = 0 To Items.ColumnCount-1
+		    
+		    Data = Data + Items.CellTextAt(ItemRow,I)+"<>"
+		    
+		  Next I
+		  Data = Left(Data,Len(Data)-2)
+		  
+		  Debug("--- Data For: "+Items.CellTextAt(ItemRow,11))
+		  Debug (Data)
+		End Sub
+	#tag EndEvent
+	#tag Event
+		Sub SelectionChanged()
+		  
+		End Sub
+	#tag EndEvent
+	#tag Event
+		Function CellPressed(row As Integer, column As Integer, x As Integer, y As Integer) As Boolean
+		  ItemRow = row
+		  
+		End Function
+	#tag EndEvent
+#tag EndEvents
 #tag ViewBehavior
 	#tag ViewProperty
 		Name="Name"
