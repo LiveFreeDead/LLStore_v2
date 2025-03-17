@@ -734,6 +734,9 @@ End
 		          If Sp2(I).IndexOf("StartUp")<0 Then 'Don't remove this folder, even if empty, it will be 0 or greater if so, making this false and not ran
 		            DelCommand = DelCommand+"rmdir /q /s " + Chr(34)+Sp2(I)+Chr(34)+Chr(10)
 		            DelCount = DelCount + 1
+		          Else 'It is startup, check the attribs are correct while here
+		            ShellFast.Execute("attrib "+Chr(34)+StartPathAll+"Startup\desktop.ini"+Chr(34)+" +h +s") 'Ini is hidden and system so doesn't open the ini on startup 'enforced
+		            ShellFast.Execute("attrib "+Chr(34)+StartPathUser+"Startup\desktop.ini"+Chr(34)+" +h +s") 'Ini is hidden and system so doesn't open the ini on startup 'enforced
 		          End If
 		        End If
 		      End If
@@ -1500,10 +1503,12 @@ End
 		  ButtonRegenerateItems.Enabled = True
 		  
 		  If Loading.SortMenuStyle = False Then ' Only show if not called from command line
-		    If CheckCleanUp.Value = False Then
-		      MsgBox "Done Sorting"
-		    Else
-		      MsgBox "Done Sorting and Cleaning"
+		    If CheckRegenerate.Value = False Then ' Don't show message box 1/2 way through the task and make it wait!
+		      If CheckCleanUp.Value = False Then
+		        MsgBox "Done Sorting"
+		      Else
+		        MsgBox "Done Sorting and Cleaning"
+		      End If
 		    End If
 		  End If
 		End Sub

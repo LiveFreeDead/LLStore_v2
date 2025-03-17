@@ -39,7 +39,9 @@ Protected Module LLMod
 		      
 		      If StartMenuLocations(I,StartMenuUsed).Path.IndexOf("Startup") >=0 Then 'Make Startup folder have it's Icon always, it doesn't get new items added very often
 		        MakePathIcon (StartPathAll+StartMenuLocations(I,StartMenuUsed).Path, StartMenuLocations(I,StartMenuUsed).IconFile, StartMenuLocations(I,StartMenuUsed).IconIndex, True) 'The True is Make Command to Return Only
-		        MakePathIcon (StartPathUser+StartMenuLocations(I,StartMenuUsed).Path, StartMenuLocations(I,StartMenuUsed).IconFile, StartMenuLocations(I,StartMenuUsed).IconIndex, True) 
+		        MakePathIcon (StartPathUser+StartMenuLocations(I,StartMenuUsed).Path, StartMenuLocations(I,StartMenuUsed).IconFile, StartMenuLocations(I,StartMenuUsed).IconIndex, True)
+		        ShellFast.Execute("attrib "+Chr(34)+StartPathAll+"Startup\desktop.ini"+Chr(34)+" +h +s") 'Ini is hidden and system so doesn't open the ini on startup 'enforced
+		        ShellFast.Execute("attrib "+Chr(34)+StartPathUser+"Startup\desktop.ini"+Chr(34)+" +h +s") 'Ini is hidden and system so doesn't open the ini on startup 'enforced
 		      End If
 		      
 		      
@@ -1082,6 +1084,10 @@ Protected Module LLMod
 		  PathIn = PathIn.ReplaceAll("%LLGames%", Slash(HomePath)+"LLGames")
 		  PathIn = PathIn.ReplaceAll("%LLApps%", Slash(HomePath)+"LLApps")
 		  
+		  
+		  PathIn = PathIn.ReplaceAll("%~DP0", Slash(InstallToPath)) ' The InstallToPath needs to be used here else when you run expanded scripts it'll run from the temp folder and not the temp extracted app folder or pre extracted folder.
+		  PathIn = PathIn.ReplaceAll("%~D0", Left(InstallToPath,2)) ' The InstallToPath needs to be used here else when you run expanded scripts it'll run from the temp folder and not the temp extracted app folder or pre extracted folder.
+		  
 		  'Below will only be used in Windows and Wine, so can use Disk Letters
 		  If TargetWindows Then
 		    PathIn = PathIn.ReplaceAll("%USBDrive%", Left(AppPath,2)) 'Convert USB/DVD your running off  to correct Path
@@ -1883,6 +1889,10 @@ Protected Module LLMod
 		    Return False ' Couldn't Load Item
 		  End If
 		  
+		  'Check for Nonething and set to InstallOnly if so: Nonething is a special case used by ssApps mostly.
+		  If ItemLLItem.PathApp.IndexOf("Nonething") >=0 Then ItemLLItem.NoInstall = True 'This will not use a folder on the computer to install the item to.
+		  
+		  
 		  'Make sure Sudo is available during ANY install (if not required for instaling one item then can skip it)
 		  If InstallOnly Then
 		    Select Case ItemLLItem.BuildType 
@@ -2184,7 +2194,11 @@ Protected Module LLMod
 		    
 		    'Change to App/Games INI Path to run Assemblys from
 		    If ChDirSet(InstallFromPath) = True Then ' Was successful
+		      
+		      If Debugging Then Debug ("Change Directory: "+InstallFromPath +" Successfully")
 		      'MsgBox "InstallTo Path: " + InstallToPath + " InstallFrom Path: " + InstallFromPath
+		    Else
+		      If Debugging Then Debug ("Failed to Change Directory: "+InstallFromPath +" Error")
 		    End If
 		    
 		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
@@ -3921,6 +3935,15 @@ Protected Module LLMod
 		          MakeFileType(ItemLnk(I).Title, ItemLnk(I).Associations, ItemLnk(I).Link.Description, Target, ExpPath(ItemLnk(I).Link.WorkingDirectory), ItemLnk(I).Link.IconLocation)
 		        End If
 		        
+		        'Do Individual links desktop if set
+		        If ItemLnk(I).Desktop = True Then
+		          If AdminEnabled Then
+		            CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)))
+		          Else 'User only
+		            CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(FixPath(SpecialFolder.Desktop.NativePath)))
+		          End If
+		        End If
+		        
 		        '**** Make Extra Shortcuts on Desktop, SendTo, Root, Startup and Quicklaunch
 		        If FirstLinkDone = False Then
 		          MakeLinksExtra(I, Target, StartPath)
@@ -4049,6 +4072,15 @@ Protected Module LLMod
 		      CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(FixPath(SpecialFolder.Desktop.NativePath)))
 		    End If
 		  End If
+		  
+		  'If ItemLLItem.Flags.IndexOf ("desktop") >=0 Then ' This will do all links, not just the first one
+		  'If AdminEnabled Then
+		  'CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(FixPath(SpecialFolder.SharedDesktop.NativePath)))
+		  'Else 'User only
+		  'CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(FixPath(SpecialFolder.Desktop.NativePath)))
+		  'End If
+		  'End If
+		  
 		  
 		  'SendTo
 		  If ItemLLItem.Flags.IndexOf ("sendto") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
@@ -4229,9 +4261,10 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Sub MoveLinks()
-		  Dim M As Integer
+		  Dim M, I As Integer
 		  Dim Sp() As String
 		  Dim Link As Shortcut
+		  Dim Found As Boolean
 		  
 		  Dim Data As String
 		  
@@ -4290,35 +4323,59 @@ Protected Module LLMod
 		      If Exist (Slash(TmpPath)+"LLShorts/"+Sp(M)+".lnk") Then
 		        If Debugging Then Debug("Starting MoveLink Job: " + Sp(M)+".lnk")
 		        
-		        'Get all the Link File Details
-		        Link = GetShortcut(Slash(TmpPath)+"LLShorts/"+Sp(M)+".lnk")
-		        
-		        'Add To ItemLnk - so can use the Proper sorting tools in MakeLinks
-		        If Link.TargetPath <> "" Then
-		          LnkCount = LnkCount + 1
-		          ItemLnk(LnkCount).Title = Sp(M)
-		          ItemLnk(LnkCount).Link.TargetPath = Link.TargetPath
-		          ItemLnk(LnkCount).Link.Arguments = Link.Arguments
-		          ItemLnk(LnkCount).Link.WorkingDirectory = Link.WorkingDirectory
-		          ItemLnk(LnkCount).Link.Description = Link.Description
-		          ItemLnk(LnkCount).Link.IconLocation = Link.IconLocation
-		          ItemLnk(LnkCount).Link.Hotkey = Link.Hotkey
-		          ItemLnk(LnkCount).Link.WindowStyle = Link.WindowStyle
-		          ItemLnk(LnkCount).Categories = ItemLLItem.Catalog 'Use main item's catalog for sorting.
-		          
-		          If Debugging Then Debug ("Link Icon Details: "+ItemLnk(LnkCount).Link.IconLocation)
+		        Found = False 'Scan if already in the Shortcuts in the .app .ppg file
+		        If LnkCount >= 1 Then
+		          For I = 0 To LnkCount
+		            If ItemLnk(LnkCount).Title = Sp(M) Then
+		              Found = True
+		              Exit
+		            End If
+		          Next I
 		        End If
 		        
-		        'Do The Link Rewrite seperate to evey kept Link that I find
-		        CurrentssAppFile = CurrentssAppFile.ReplaceAll("/","\")
-		        If Debugging Then Debug ("--- Attempting to update ssApp.app: "+ CurrentssAppFile)
-		        If Link.TargetPath <> "" Then
-		          If Data <> "" Then
-		            Data = Data + "["+Sp(M).Trim+".lnk"+"]" + Chr(10)
-		            Data = Data + "Target="+Link.TargetPath + Chr(10)
-		            If Link.Arguments <> "" Then Data = Data + "Args="+Link.Arguments + Chr(10)
-		            If Link.WorkingDirectory <> "" Then Data = Data + "WorkingDir="+Link.WorkingDirectory + Chr(10)
-		            If Link.Description <> "" Then Data = Data + "Comment="+Link.Description.ReplaceAll(Chr(13),Chr(30)) + Chr(10) ' Make sure all EOL are Chr(30) to make it one line.
+		        If Found = False Then 'Only add items that aren't already in the .app .ppg files
+		          'Get all the Link File Details
+		          Link = GetShortcut(Slash(TmpPath)+"LLShorts/"+Sp(M)+".lnk")
+		          
+		          'Add To ItemLnk - so can use the Proper sorting tools in MakeLinks
+		          If Link.TargetPath <> "" Then
+		            LnkCount = LnkCount + 1
+		            ItemLnk(LnkCount).Title = Sp(M)
+		            ItemLnk(LnkCount).Link.TargetPath = Link.TargetPath
+		            ItemLnk(LnkCount).Link.Arguments = Link.Arguments
+		            ItemLnk(LnkCount).Link.WorkingDirectory = Link.WorkingDirectory
+		            ItemLnk(LnkCount).Link.Description = Link.Description
+		            ItemLnk(LnkCount).Link.IconLocation = Link.IconLocation
+		            ItemLnk(LnkCount).Link.Hotkey = Link.Hotkey
+		            ItemLnk(LnkCount).Link.WindowStyle = Link.WindowStyle
+		            ItemLnk(LnkCount).Categories = ItemLLItem.Catalog 'Use main item's catalog for sorting.
+		            If LnkCount = 1 Then
+		              If ItemLLItem.Flags.IndexOf("desktop")>=0 Then ItemLnk(LnkCount).Desktop = True 'Set this is first item in ssApps
+		              '''If ItemLLItem.Flags.IndexOf("desktop")>=0 Then ItemLnk(LnkCount). = True 'Need to check for SendTo, not sure I've added support yet
+		              ''ItemLnk(LnkCount).ShowOn  <- Maybe add this as option, then treat like flags?
+		            End If
+		            
+		            If Debugging Then Debug ("Link Icon Details: "+ItemLnk(LnkCount).Link.IconLocation)
+		          End If
+		          
+		          'Do The Link Rewrite seperate to evey kept Link that I find
+		          CurrentssAppFile = CurrentssAppFile.ReplaceAll("/","\")
+		          If Debugging Then Debug ("--- Attempting to update ssApp.app: "+ CurrentssAppFile)
+		          If Link.TargetPath <> "" Then
+		            If Data <> "" Then
+		              Data = Data + "["+Sp(M).Trim+".lnk"+"]" + Chr(10)
+		              Data = Data + "Target="+Link.TargetPath + Chr(10)
+		              If Link.Arguments <> "" Then Data = Data + "Args="+Link.Arguments + Chr(10)
+		              If Link.WorkingDirectory <> "" Then Data = Data + "WorkingDir="+Link.WorkingDirectory + Chr(10)
+		              If Link.Description <> "" Then 
+		                If Link.Description.ReplaceAll(EndOfLine,Chr(30)).Trim <> ItemLLItem.Descriptions.Trim Then ' Only if different
+		                  Data = Data + "Comment="+Link.Description.ReplaceAll(EndOfLine,Chr(30)) + Chr(10) ' Make sure all EOL are Chr(30) to make it one line.
+		                End If
+		              End If
+		              If LnkCount = 1 Then
+		                If ItemLnk(LnkCount).Desktop = True Then Data = Data + "ShowOn=desktop"+ Chr(10)
+		              End If
+		            End If
 		          End If
 		        End If
 		      End If
@@ -4344,6 +4401,8 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Sub Notify(Head As String, Msg As String, IconFile As String = "", NoteTimeOut As Integer = 4000)
+		  If MiniInstallerShowing Then Return
+		  
 		  Dim F As FolderItem
 		  Dim IconPic As Picture
 		  Notification.Status.Text = Msg
