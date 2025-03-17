@@ -333,10 +333,21 @@ Protected Module LLMod
 		  PathIn = PathIn.ReplaceAll(NoSlash(ppApps.ReplaceAll("\","/")), "%ppApps%")
 		  
 		  If TargetWindows Then
+		    
+		    PathIn = PathIn.ReplaceAll("C:\Program File (x86)","%ProgramFiles(x86)%")
+		    PathIn = PathIn.ReplaceAll("C:\Program File", "%ProgramFiles%")
+		    
+		    PathIn = PathIn.ReplaceAll("C:/Program File (x86)","%ProgramFiles(x86)%")
+		    PathIn = PathIn.ReplaceAll("C:/Program File", "%ProgramFiles%")
+		    
 		    PathIn = PathIn.ReplaceAll(Left(ppGames,2),"%ppGamesDrive%")
 		    PathIn = PathIn.ReplaceAll(Left(ppApps,2),"%ppAppsDrive%")
 		    PathIn = PathIn.ReplaceAll(Win7z,"%Extract%")
 		  Else
+		    
+		    PathIn = PathIn.ReplaceAll(HomePath +  "/.wine/drive_c/Program Files (x86)","%ProgramFiles(x86)%")
+		    PathIn = PathIn.ReplaceAll(HomePath +  "/.wine/drive_c/Program Files", "%ProgramFiles%")
+		    
 		    PathIn = PathIn.ReplaceAll(HomePath +  "/.wine/drive_c","%ppGamesDrive%")
 		    PathIn = PathIn.ReplaceAll(HomePath +  "/.wine/drive_c", "%ppAppsDrive%")
 		    PathIn = PathIn.ReplaceAll(Win7z,"%Extract%") 'This is only used by Wine Scripts, I'll make another method for Linux
@@ -5480,7 +5491,7 @@ Protected Module LLMod
 		        If CatOut<> "" Then
 		          CatOut = CatOut.ReplaceAll(";","|").Trim 'Use Windows Separators
 		          If Right(CatOut, 1) = "|" Then CatOut = Left(CatOut, Len(CatOut)-1).Trim ' Remove Trailing | in windows items
-		          DataOut = DataOut + "Categories="+CatOut+Chr(10)
+		          if CatOut.Trim <> ItemLLItem.Catalog.Trim Then DataOut = DataOut + "Categories="+CatOut+Chr(10) ' Only add if Different
 		        End If
 		        ''''If ItemLnk(I).Categories <> "" Then DataOut = DataOut + "Categories="+ItemLnk(I).Categories+Chr(10) 'Old Method
 		        
@@ -5515,7 +5526,7 @@ Protected Module LLMod
 		          CatOut = ItemLnk(I).Categories
 		          If CatOut.ReplaceAll(";","").ReplaceAll(" ","").Trim = ItemLLItem.Catalog.ReplaceAll(";","").ReplaceAll(" ","").Trim Then CatOut = "" 'Don't add if the same as the main items category
 		          If CatOut<> "" Then
-		            DataOut = DataOut + "Categories="+CatOut+Chr(10)
+		            if CatOut.Trim <> ItemLLItem.Catalog.Trim Then DataOut = DataOut + "Categories="+CatOut+Chr(10) ' Only add if Different
 		          End If
 		        End If
 		        If ItemLnk(I).Associations <> "" Then DataOut = DataOut + "Extensions="+ItemLnk(I).Associations+Chr(10)

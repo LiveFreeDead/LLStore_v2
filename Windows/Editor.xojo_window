@@ -4710,7 +4710,7 @@ Begin DesktopWindow Editor
          Top             =   240
          Transparent     =   False
          Underline       =   False
-         Visible         =   False
+         Visible         =   True
          Width           =   53
       End
       Begin DesktopTextField TextBuilder
@@ -5020,6 +5020,36 @@ Begin DesktopWindow Editor
          VisualState     =   0
          Width           =   172
       End
+      Begin DesktopCheckBox CheckGetSizeComp
+         AllowAutoDeactivate=   True
+         Bold            =   False
+         Caption         =   "Get Size Compress"
+         Enabled         =   True
+         FontName        =   "Arial"
+         FontSize        =   12.0
+         FontUnit        =   0
+         Height          =   20
+         Index           =   -2147483648
+         InitialParent   =   "TabPanelEditor"
+         Italic          =   False
+         Left            =   417
+         LockBottom      =   False
+         LockedInPosition=   False
+         LockLeft        =   False
+         LockRight       =   True
+         LockTop         =   True
+         Scope           =   0
+         TabIndex        =   105
+         TabPanelIndex   =   6
+         TabStop         =   True
+         Tooltip         =   "This will automatically get the size once compressed internal archives"
+         Top             =   246
+         Transparent     =   False
+         Underline       =   False
+         Visible         =   True
+         VisualState     =   0
+         Width           =   135
+      End
    End
    Begin DesktopLabel Status
       AllowAutoDeactivate=   True
@@ -5290,6 +5320,16 @@ End
 		          
 		        End If
 		        
+		        
+		        
+		        '-----------------------------------------------------------------------------------------------------************************************************************
+		        'Update INI with compress size
+		        'If CheckGetSizeComp.Value = True Then
+		        
+		        'End If
+		        
+		        
+		        
 		        'Now Compress to a single tar if checked;
 		        If CheckCompress.Value = True Then 'Tar overwrites existing, so no need to check for it
 		          'Make a single tar Title_Version_BuildType.tar
@@ -5437,6 +5477,19 @@ End
 		          
 		        End If
 		        
+		        '-----------------------------------------------------------------------------------------------------************************************************************
+		        'Update INI with compress size
+		        If CheckGetSizeComp.Value = True Then
+		          If Exist (OutFile) Then
+		            TextInstalledSize.Text = GetUnCompressedSize(OutFile) 'ZippedOut
+		            '''''MsgBox GetUnCompressedSize (OutFile)
+		            
+		            'Resave the LLFile with teh new size
+		            If SaveLLFile (Slash(TextBuildToFolder.Text)) = True Then
+		              'Success
+		            End If
+		          End If
+		        End If
 		        
 		        'Now Compress to a single 7z if checked;
 		        If CheckCompress.Value = True Then 'Tar overwrites existing, so no need to check for it, but does 7z?
@@ -5497,6 +5550,43 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function GetUnCompressedSize(CompFile As String) As String
+		  If Not Exist (CompFile) Then Return "0" 'Dud Item
+		  
+		  Dim Res, FinalRes As String
+		  Dim Sp() As String
+		  Dim I As Integer
+		  
+		  Dim Sh As New Shell
+		  Sh.ExecuteMode = Shell.ExecuteModes.Synchronous
+		  Sh.TimeOut = -1
+		  
+		  
+		  If TargetWindows Then
+		    Sh.Execute(Win7z +" t "+Chr(34)+CompFile+Chr(34))
+		  Else ' Linux
+		    Sh.Execute(Linux7z +" t "+Chr(34)+CompFile+Chr(34))
+		  End If
+		  
+		  FinalRes = "0" ' Will return 0 if size not returned
+		  
+		  Res = Sh.ReadAll
+		  Sp = Res.Split(EndOfLine)
+		  If Sp.Count >=0 Then
+		    For I = 0 To Sp.Count -1
+		      Sp(I) = Sp(I).Trim
+		      If Left(Sp(I),5) = "Size:" Then
+		        FinalRes =Right(Sp(I),Len(Sp(I))-5)
+		        FinalRes = FinalRes.Trim
+		        Exit
+		      End If
+		    Next I
+		  End If
+		  Return FinalRes
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub LoadCatalogs()
 		  Dim FileIn As String
 		  FileIn = Slash(ToolPath) + "MenuCatalogApps.ini"
@@ -5521,6 +5611,7 @@ End
 
 	#tag Method, Flags = &h0
 		Sub PopulateData()
+		  Dim Ext As String
 		  Dim BT As String
 		  Dim F As FolderItem
 		  Dim I As Integer
@@ -5533,6 +5624,10 @@ End
 		  
 		  'Defaults
 		  ComboBuildType.SelectedRowIndex = 0 'Default to LLApp
+		  
+		  'Set the Size first so I can uncheck the Auto Getting size on the Build Tab
+		  CheckGetSizeComp.Value = False
+		  TextInstalledSize.Text = ItemLLItem.InstallSize.ToString
 		  
 		  BT = ItemLLItem.BuildType
 		  
@@ -5731,7 +5826,7 @@ End
 		  TextReleaseVersion.Text = ItemLLItem.ReleaseVersion
 		  TextReleaseDate.Text = ItemLLItem.ReleaseDate
 		  TextBuilder.Text = ItemLLItem.Builder
-		  TextInstalledSize.Text = ItemLLItem.InstallSize.ToString
+		  'TextInstalledSize.Text = ItemLLItem.InstallSize.ToString 'Move to the Top so I can select the Get size auto by default
 		  
 		  
 		  'Main Window 7 - Build Tab
@@ -5744,6 +5839,31 @@ End
 		  TextIncludeFolder.Text = ItemTempPath 'Fix to use correct path depending on job
 		  TextBuildToFolder.Text = ItemTempPath 'Fix to use correct path depending on job
 		  CheckCompress.Value = ItemLLItem.Compressed 'If already compressed then check it again so you know
+		  
+		  If Not ItemLLItem.Compressed Then ' Can Do it
+		    Select Case BT
+		    Case "ssApp", "ppApp", "ppGame"
+		      Ext = ".7z"
+		    Case "LLApp", "LLGame"
+		      Ext = ".tar.gz"
+		    End Select
+		    
+		    ZippedOut = Slash(TextBuildToFolder.Text)+ItemLLItem.BuildType+Ext
+		    
+		    If Exist(ZippedOut) Then 
+		      ButtonImportSize.Visible = True
+		    Else
+		      ButtonImportSize.Visible = False
+		    End If
+		    
+		  Else
+		    ZippedOut = ""
+		    CheckGetSizeComp.Enabled = False 'Fully disable it, not possible to do automated unless I extract the whole damn thing
+		    CheckGetSizeComp.Value = False
+		    
+		    ButtonImportSize.Visible = False
+		  End If
+		  
 		  
 		  Populating = False 'Now you can edit without overwriting the Item Data.
 		End Sub
@@ -5992,6 +6112,10 @@ End
 
 	#tag Property, Flags = &h0
 		SSCategoriesApps(2048) As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		ZippedOut As String
 	#tag EndProperty
 
 
@@ -7119,11 +7243,71 @@ End
 		Sub SelectionChanged(item As DesktopMenuItem)
 		  SelectionChangedLoadCats (Item)
 		  
+		  Select Case ComboBuildType.Text
+		  Case "ppApp"
+		    CheckGetSizeComp.Enabled = True
+		    If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given
+		  Case "ppGame"
+		    CheckGetSizeComp.Enabled = True
+		    If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given
+		  Case "LLGame"
+		    CheckGetSizeComp.Enabled = True
+		    If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given
+		  Case "LLApp", "ssApp"
+		    CheckGetSizeComp.Enabled = True
+		    'If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given 'As these are often not able to be used, I'll not auto select them
+		  Case Else
+		    CheckGetSizeComp.Enabled = True
+		    'If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given 'As these are often not able to be used, I'll not auto select them
+		  End Select
 		  
 		End Sub
 	#tag EndEvent
 	#tag Event
 		Sub TextChanged()
+		  Dim Ext As String
+		  Select Case ComboBuildType.Text
+		  Case "ppApp"
+		    CheckGetSizeComp.Enabled = True
+		    If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given
+		  Case "ppGame"
+		    CheckGetSizeComp.Enabled = True
+		    If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given
+		  Case "LLGame"
+		    CheckGetSizeComp.Enabled = True
+		    If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given
+		  Case "LLApp", "ssApp"
+		    CheckGetSizeComp.Enabled = True
+		    'If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given 'As these are often not able to be used, I'll not auto select them
+		  Case Else
+		    CheckGetSizeComp.Enabled = True
+		    'If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given 'As these are often not able to be used, I'll not auto select them
+		  End Select
+		  
+		  
+		  If Not ItemLLItem.Compressed Then ' Can Do it
+		    Select Case ComboBuildType.Text
+		    Case "ssApp", "ppApp", "ppGame"
+		      Ext = ".7z"
+		    Case "LLApp", "LLGame"
+		      Ext = ".tar.gz"
+		    End Select
+		    
+		    ZippedOut = Slash(TextBuildToFolder.Text)+ComboBuildType.Text+Ext
+		    
+		    If Exist(ZippedOut) Then 
+		      ButtonImportSize.Visible = True
+		    Else
+		      ButtonImportSize.Visible = False
+		    End If
+		    
+		  Else
+		    ZippedOut = ""
+		    CheckGetSizeComp.Enabled = False 'Fully disable it, not possible to do automated unless I extract the whole damn thing
+		    CheckGetSizeComp.Value = False
+		    
+		    ButtonImportSize.Visible = False
+		  End If
 		  
 		End Sub
 	#tag EndEvent
@@ -7243,6 +7427,12 @@ End
 	#tag Event
 		Sub TextChanged()
 		  ItemLLItem.InstallSize = Me.Text.Trim.ToInteger
+		  
+		  'If Me.Text.ToInteger < 0 Then
+		  'CheckGetSizeComp.Value = True
+		  'Else
+		  'CheckGetSizeComp.Value = False
+		  'End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -7251,46 +7441,11 @@ End
 		Sub Pressed()
 		  'Get the install size from either the archive if compressed or calculate based on existing files provided (not good for ssApps or NoInstall items as these grab from the net and need to manually be written)
 		  
-		  Dim CompFile As String
+		  TextInstalledSize.Text = GetUnCompressedSize(ZippedOut)
 		  
-		  If ItemLLItem.Compressed = True Then 'Grab Size from inside the Archive (*** This wont work as I only extract the Pics and LLFile, I don't extract the .tar.gz or ppGame.7z etc so need to do that first?)
-		    
-		    'CompFile = LLApp.IncludeFolder.Text & "LLGame.tar.gz"
-		    'If Not Exist(CompFile) Then CompFile = LLApp.IncludeFolder.Text & "LLApp.tar.gz"
-		    'If Exist(CompFile) Then       
-		    ''Get it from inside the tar.gz file if it exists else grab the whole Include Folder
-		    'Shell "tar tzvf " & CompFile & " | awk '{s+=$3} END{print (s/1024), MB}'" To Test
-		    'TotalSize = Test
-		    
-		    If TargetWindows Then
-		    Else 'Linux OS getting size
-		      Select Case ItemLLItem.BuildType
-		      Case "LLApp", "LLGame"
-		        
-		      Case "ppApp", "ppGame"
-		        
-		      Case "ssApp" 'Not able to get installed size using this as it gets bigger
-		      End Select
-		      
-		    End If
-		    
-		    'TextInstalledSize.Text = 
-		    MsgBox "Not Yet Implemented Import Size from Compressed items"
-		  Else 'Uncompressed, get InstallFrom
-		    
-		    'If Exist(LLApp.IncludeFolder.Text) Then      
-		    'Shell "du -k " & LLApp.IncludeFolder.Text To TotalSize
-		    'TotalSize = Trim(Left(TotalSize, InStr(TotalSize, "/") - 2)) ' Takes off file name      
-		    ''''TotalSize = Str(Val(TotalSize) * 1024) 'Convert to Bytes
-		    'InstallSizeText.Text = TotalSize      
-		    
-		    'Get size from TextIncludeFolder, this gets set by the user and if you're editing one it sets this path to the same as TextBuildToFolder anyway, so only need to test that one path
-		    'TextIncludeFolder.Text
-		    'TextInstalledSize.Text =
-		    
-		    MsgBox "Not Yet Implemented Import Size from Uncompressed items"
-		  End If
+		  If TextInstalledSize.Text.ToInteger > 0 Then CheckGetSizeComp.Value = False 'If valid size, then no need to reget it.
 		  
+		  Return
 		End Sub
 	#tag EndEvent
 #tag EndEvents
