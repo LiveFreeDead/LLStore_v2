@@ -3809,6 +3809,16 @@ Protected Module LLMod
 		        ItemLnk(I).Title = ItemLnk(I).Title.ReplaceAll("{#1}", "") 'Remove Dual Arch leftovers
 		        ItemLnk(I).Title = ItemLnk(I).Title.Trim ' Need to trim away the space so can use it for the Link Name
 		        
+		        'Make sure it's part of Shortcut Names Keep if that is used, else just skip making that Link
+		        
+		        If ItemLLItem.ShortCutNamesKeep <> "" Then
+		          If ItemLLItem.ShortCutNamesKeep.IndexOf(ItemLnk(I).Title) >=0 Then
+		          Else
+		            Continue 'If Keep Shortcuts is used and the title of the current shortcut isn't in the list, skip over it.
+		          End If
+		        End If
+		        
+		        
 		        ItemLnk(I).Link.IconLocation = ExpPath(ItemLnk(I).Link.IconLocation)
 		        'Windows does NOT use .png's for icons at ALL, a blank one is prefered
 		        ''''''If Not Exist(ItemLnk(I).Link.IconLocation) Then ItemLnk(I).Link.IconLocation = "" 'Remove Dodgy Icon and use something ' NO, Uses the default icon from the .exe pointed at if nothing supplied, all good
