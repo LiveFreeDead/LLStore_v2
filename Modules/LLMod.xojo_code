@@ -3814,7 +3814,9 @@ Protected Module LLMod
 		        If ItemLLItem.ShortCutNamesKeep <> "" Then
 		          If ItemLLItem.ShortCutNamesKeep.IndexOf(ItemLnk(I).Title) >=0 Then
 		          Else
-		            Continue 'If Keep Shortcuts is used and the title of the current shortcut isn't in the list, skip over it.
+		            If ItemLLItem.Flags.IndexOf("keepall") < 0 Then 'If KeepAll is set then keep every single shortcut, the ShortcutsToKeep is more for removing them off the desktop :)
+		              Continue 'If Keep Shortcuts is used and the title of the current shortcut isn't in the list, skip over it.
+		            End If
 		          End If
 		        End If
 		        
