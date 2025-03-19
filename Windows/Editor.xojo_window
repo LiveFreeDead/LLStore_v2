@@ -51,7 +51,7 @@ Begin DesktopWindow Editor
       Top             =   0
       Transparent     =   False
       Underline       =   False
-      Value           =   5
+      Value           =   0
       Visible         =   True
       Width           =   630
       Begin DesktopLabel LabelTitle
@@ -5046,6 +5046,7 @@ Begin DesktopWindow Editor
          Top             =   246
          Transparent     =   False
          Underline       =   False
+         Value           =   False
          Visible         =   True
          VisualState     =   0
          Width           =   135
@@ -7049,6 +7050,10 @@ End
 		  If Not TextDE.Text.IndexOf(ComboDE.Text) >= 0 Then
 		    TextDE.Text = TextDE.Text.Trim + " "+ComboDE.Text
 		    TextDE.Text = TextDE.Text.Trim
+		    
+		    If ComboDE.Text = "Explorer" Then
+		      If TextPM.Text = "" Then TextPM.Text = "winget"
+		    End If
 		  End If
 		  
 		End Sub
@@ -7779,6 +7784,14 @@ End
 		Group="Behavior"
 		InitialValue="False"
 		Type="Boolean"
+		EditorType=""
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="ZippedOut"
+		Visible=false
+		Group="Behavior"
+		InitialValue=""
+		Type="String"
 		EditorType=""
 	#tag EndViewProperty
 #tag EndViewBehavior
