@@ -6084,6 +6084,22 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		PosHeight As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		PosLeft As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		PosTop As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		PosWidth As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		ppApps As String
 	#tag EndProperty
 
@@ -6201,6 +6217,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		ScreenRes As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		ScreenShotCounter As Integer = 0
 	#tag EndProperty
 
 	#tag Property, Flags = &h0

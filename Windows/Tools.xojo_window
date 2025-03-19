@@ -9,8 +9,8 @@ Begin DesktopWindow Tools
    HasCloseButton  =   True
    HasFullScreenButton=   False
    HasMaximizeButton=   False
-   HasMinimizeButton=   True
-   Height          =   400
+   HasMinimizeButton=   False
+   Height          =   194
    ImplicitInstance=   True
    MacProcID       =   0
    MaximumHeight   =   32000
@@ -23,7 +23,7 @@ Begin DesktopWindow Tools
    Title           =   "LLStore Tools"
    Type            =   0
    Visible         =   False
-   Width           =   600
+   Width           =   290
    Begin DesktopButton ButtonInstallLLStore
       AllowAutoDeactivate=   True
       Bold            =   False
@@ -37,23 +37,23 @@ Begin DesktopWindow Tools
       Height          =   40
       Index           =   -2147483648
       Italic          =   False
-      Left            =   467
-      LockBottom      =   True
+      Left            =   70
+      LockBottom      =   False
       LockedInPosition=   False
-      LockLeft        =   False
-      LockRight       =   True
-      LockTop         =   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
       MacButtonStyle  =   0
       Scope           =   0
       TabIndex        =   0
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "Install LLStore to the current OS"
-      Top             =   349
+      Top             =   114
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   130
+      Width           =   150
    End
    Begin DesktopButton ForceUpdate
       AllowAutoDeactivate=   True
@@ -68,19 +68,19 @@ Begin DesktopWindow Tools
       Height          =   40
       Index           =   -2147483648
       Italic          =   False
-      Left            =   320
-      LockBottom      =   True
+      Left            =   151
+      LockBottom      =   False
       LockedInPosition=   False
-      LockLeft        =   False
-      LockRight       =   True
-      LockTop         =   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
       MacButtonStyle  =   0
       Scope           =   0
       TabIndex        =   1
       TabPanelIndex   =   0
       TabStop         =   True
-      Tooltip         =   "DOwnloades the lastest full release and writes over the top of current version"
-      Top             =   349
+      Tooltip         =   "Downloades the lastest full release and writes over the top of current version"
+      Top             =   62
       Transparent     =   False
       Underline       =   False
       Visible         =   True
@@ -99,19 +99,19 @@ Begin DesktopWindow Tools
       Height          =   40
       Index           =   -2147483648
       Italic          =   False
-      Left            =   178
-      LockBottom      =   True
+      Left            =   9
+      LockBottom      =   False
       LockedInPosition=   False
-      LockLeft        =   False
-      LockRight       =   True
-      LockTop         =   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
       MacButtonStyle  =   0
       Scope           =   0
       TabIndex        =   2
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "download the latest EXE from github"
-      Top             =   349
+      Top             =   62
       Transparent     =   False
       Underline       =   False
       Visible         =   True
@@ -121,7 +121,7 @@ Begin DesktopWindow Tools
       AllowAutoDeactivate=   True
       Bold            =   False
       Cancel          =   False
-      Caption         =   "Delete Repository"
+      Caption         =   "Delete Repository Cache"
       Default         =   True
       Enabled         =   True
       FontName        =   "Arial"
@@ -130,7 +130,7 @@ Begin DesktopWindow Tools
       Height          =   40
       Index           =   -2147483648
       Italic          =   False
-      Left            =   20
+      Left            =   70
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -142,11 +142,11 @@ Begin DesktopWindow Tools
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "This deletes the downloaded items you have on your local system in ~/zLastOSRepository, you can delete them manually, or copy them out to USB to install again"
-      Top             =   20
+      Top             =   10
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   130
+      Width           =   150
    End
 End
 #tag EndDesktopWindow
@@ -202,7 +202,14 @@ End
 	#tag Event
 		Sub Pressed()
 		  Tools.Hide
-		  Main.Hide
+		  'Store Windows Position to restore after window returns
+		  PosLeft = Main.Left
+		  PosTop = Main.Top
+		  PosWidth = Main.Width
+		  PosHeight = Main.Height
+		  
+		  Main.Visible = False 'Hide main form
+		  App.DoEvents(4) 'Wait .004 of a second
 		  
 		  Loading.Left = (screen(0).AvailableWidth - Loading.Width) / 2
 		  Loading.Top = (screen(0).AvailableHeight - Loading.Height) / 2
@@ -212,7 +219,22 @@ End
 		  Loading.CheckForLLStoreUpdates
 		  ForceFullUpdate = False
 		  Loading.Hide
-		  Main.Show
+		  'Restore Position
+		  If PosWidth <> 0 Then
+		    Main.Left = PosLeft
+		    Main.Top = PosTop
+		    Main.Width = PosWidth
+		    Main.Height = PosHeight
+		  End If
+		  
+		  Main.Visible = True ' Show Main Form Again
+		  
+		  If PosWidth <> 0 Then
+		    Main.Left = PosLeft
+		    Main.Top = PosTop
+		    Main.Width = PosWidth
+		    Main.Height = PosHeight
+		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -220,7 +242,14 @@ End
 	#tag Event
 		Sub Pressed()
 		  Tools.Hide
-		  Main.Hide
+		  'Store Windows Position to restore after window returns
+		  PosLeft = Main.Left
+		  PosTop = Main.Top
+		  PosWidth = Main.Width
+		  PosHeight = Main.Height
+		  
+		  Main.Visible = False 'Hide main form
+		  App.DoEvents(4) 'Wait .004 of a second
 		  
 		  Loading.Left = (screen(0).AvailableWidth - Loading.Width) / 2
 		  Loading.Top = (screen(0).AvailableHeight - Loading.Height) / 2
@@ -230,7 +259,22 @@ End
 		  Loading.CheckForLLStoreUpdates
 		  ForceExeUpdate = False
 		  Loading.Hide
-		  Main.Show
+		  'Restore Position
+		  If PosWidth <> 0 Then
+		    Main.Left = PosLeft
+		    Main.Top = PosTop
+		    Main.Width = PosWidth
+		    Main.Height = PosHeight
+		  End If
+		  
+		  Main.Visible = True ' Show Main Form Again
+		  
+		  If PosWidth <> 0 Then
+		    Main.Left = PosLeft
+		    Main.Top = PosTop
+		    Main.Width = PosWidth
+		    Main.Height = PosHeight
+		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -248,7 +292,14 @@ End
 		  If Res = 6 Then
 		    
 		    Tools.Hide
-		    Main.Hide
+		    'Store Windows Position to restore after window returns
+		    PosLeft = Main.Left
+		    PosTop = Main.Top
+		    PosWidth = Main.Width
+		    PosHeight = Main.Height
+		    
+		    Main.Visible = False 'Hide main form
+		    App.DoEvents(4) 'Wait .004 of a second
 		    
 		    'Delete Local Repository path
 		    #Pragma BreakOnExceptions Off
@@ -268,7 +319,22 @@ End
 		      ChMod(Slash(RepositoryPathLocal), "-R 777")
 		    End If
 		  End If
-		  Main.Show
+		  'Restore Position
+		  If PosWidth <> 0 Then
+		    Main.Left = PosLeft
+		    Main.Top = PosTop
+		    Main.Width = PosWidth
+		    Main.Height = PosHeight
+		  End If
+		  
+		  Main.Visible = True ' Show Main Form Again
+		  
+		  If PosWidth <> 0 Then
+		    Main.Left = PosLeft
+		    Main.Top = PosTop
+		    Main.Width = PosWidth
+		    Main.Height = PosHeight
+		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents

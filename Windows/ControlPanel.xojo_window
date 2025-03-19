@@ -10,20 +10,20 @@ Begin DesktopWindow ControlPanel
    HasFullScreenButton=   False
    HasMaximizeButton=   False
    HasMinimizeButton=   False
-   Height          =   400
+   Height          =   206
    ImplicitInstance=   True
    MacProcID       =   0
    MaximumHeight   =   400
    MaximumWidth    =   600
    MenuBar         =   ""
    MenuBarVisible  =   False
-   MinimumHeight   =   400
-   MinimumWidth    =   600
+   MinimumHeight   =   206
+   MinimumWidth    =   306
    Resizeable      =   False
    Title           =   "Control Panel"
    Type            =   0
    Visible         =   False
-   Width           =   600
+   Width           =   306
    Begin DesktopComboBox ComboMenuStyle
       AllowAutoComplete=   False
       AllowAutoDeactivate=   True
@@ -38,7 +38,7 @@ Begin DesktopWindow ControlPanel
       Index           =   -2147483648
       InitialValue    =   "ComboMenuStyle"
       Italic          =   False
-      Left            =   344
+      Left            =   122
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -50,11 +50,11 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   ""
-      Top             =   12
+      Top             =   98
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   198
+      Width           =   122
    End
    Begin DesktopButton ButtonSetMenuStyle
       AllowAutoDeactivate=   True
@@ -69,7 +69,7 @@ Begin DesktopWindow ControlPanel
       Height          =   26
       Index           =   -2147483648
       Italic          =   False
-      Left            =   550
+      Left            =   256
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -81,7 +81,7 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "This applies to Windows only (not used by Linux)"
-      Top             =   10
+      Top             =   98
       Transparent     =   False
       Underline       =   False
       Visible         =   True
@@ -97,7 +97,7 @@ Begin DesktopWindow ControlPanel
       Height          =   24
       Index           =   -2147483648
       Italic          =   False
-      Left            =   121
+      Left            =   15
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -110,14 +110,14 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   False
       Text            =   "Current Menu:"
-      TextAlignment   =   3
+      TextAlignment   =   1
       TextColor       =   &c000000
       Tooltip         =   ""
-      Top             =   12
+      Top             =   69
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   102
+      Width           =   95
    End
    Begin DesktopLabel SetMenuStyle
       AllowAutoDeactivate=   True
@@ -129,7 +129,7 @@ Begin DesktopWindow ControlPanel
       Height          =   24
       Index           =   -2147483648
       Italic          =   False
-      Left            =   238
+      Left            =   125
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -145,11 +145,11 @@ Begin DesktopWindow ControlPanel
       TextAlignment   =   1
       TextColor       =   &c000000
       Tooltip         =   ""
-      Top             =   12
+      Top             =   69
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   102
+      Width           =   122
    End
    Begin DesktopCheckBox CheckCleanUp
       AllowAutoDeactivate=   True
@@ -162,7 +162,7 @@ Begin DesktopWindow ControlPanel
       Height          =   24
       Index           =   -2147483648
       Italic          =   False
-      Left            =   13
+      Left            =   7
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -173,19 +173,19 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "Removes Empty Folders"
-      Top             =   12
+      Top             =   96
       Transparent     =   False
       Underline       =   False
       Value           =   False
       Visible         =   True
       VisualState     =   1
-      Width           =   103
+      Width           =   86
    End
    Begin DesktopButton ButtonSetLinuxMenuSorting
       AllowAutoDeactivate=   True
       Bold            =   False
       Cancel          =   False
-      Caption         =   "Enable Linux Menu Sorting"
+      Caption         =   "Linux Menu Sorting"
       Default         =   True
       Enabled         =   True
       FontName        =   "Arial"
@@ -194,7 +194,7 @@ Begin DesktopWindow ControlPanel
       Height          =   26
       Index           =   -2147483648
       Italic          =   False
-      Left            =   364
+      Left            =   168
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -206,17 +206,17 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   ""
-      Top             =   86
+      Top             =   167
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   226
+      Width           =   128
    End
    Begin DesktopButton ButtonCleanDudLinuxMenuItems
       AllowAutoDeactivate=   True
       Bold            =   False
       Cancel          =   False
-      Caption         =   "Cleanup Dud Linux Menu Items"
+      Caption         =   "Find Dud Menu Items"
       Default         =   True
       Enabled         =   True
       FontName        =   "Arial"
@@ -225,7 +225,7 @@ Begin DesktopWindow ControlPanel
       Height          =   26
       Index           =   -2147483648
       Italic          =   False
-      Left            =   126
+      Left            =   15
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -237,11 +237,11 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "This tests all linux shortcuts and removes if broken"
-      Top             =   86
+      Top             =   167
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   226
+      Width           =   135
    End
    Begin DesktopCheckBox CheckRegenerate
       AllowAutoDeactivate=   True
@@ -254,7 +254,7 @@ Begin DesktopWindow ControlPanel
       Height          =   24
       Index           =   -2147483648
       Italic          =   False
-      Left            =   13
+      Left            =   7
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -265,19 +265,19 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "Regenerate ppApps/ppGames when you set the menu style"
-      Top             =   48
+      Top             =   127
       Transparent     =   False
       Underline       =   False
       Value           =   False
       Visible         =   True
       VisualState     =   1
-      Width           =   103
+      Width           =   101
    End
    Begin DesktopButton ButtonRegenerateItems
       AllowAutoDeactivate=   True
       Bold            =   False
       Cancel          =   False
-      Caption         =   "Regenerate Items"
+      Caption         =   "Regen"
       Default         =   True
       Enabled         =   True
       FontName        =   "Arial"
@@ -286,7 +286,7 @@ Begin DesktopWindow ControlPanel
       Height          =   26
       Index           =   -2147483648
       Italic          =   False
-      Left            =   128
+      Left            =   243
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -298,11 +298,11 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "Regenerate ppApps/ppGames"
-      Top             =   50
+      Top             =   128
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   226
+      Width           =   53
    End
    Begin DesktopLabel LabelMenu1
       AllowAutoDeactivate=   True
@@ -330,11 +330,11 @@ Begin DesktopWindow ControlPanel
       TextAlignment   =   3
       TextColor       =   &c000000
       Tooltip         =   ""
-      Top             =   133
+      Top             =   7
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   102
+      Width           =   93
    End
    Begin DesktopComboBox ComboppAppDrive
       AllowAutoComplete=   False
@@ -362,11 +362,11 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   ""
-      Top             =   133
+      Top             =   6
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   102
+      Width           =   123
    End
    Begin DesktopLabel LabelMenu2
       AllowAutoDeactivate=   True
@@ -378,7 +378,7 @@ Begin DesktopWindow ControlPanel
       Height          =   24
       Index           =   -2147483648
       Italic          =   False
-      Left            =   250
+      Left            =   0
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -394,11 +394,11 @@ Begin DesktopWindow ControlPanel
       TextAlignment   =   3
       TextColor       =   &c000000
       Tooltip         =   ""
-      Top             =   133
+      Top             =   35
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   102
+      Width           =   93
    End
    Begin DesktopComboBox ComboppGameDrive
       AllowAutoComplete=   False
@@ -414,7 +414,7 @@ Begin DesktopWindow ControlPanel
       Index           =   -2147483648
       InitialValue    =   "ComboppAppDrive"
       Italic          =   False
-      Left            =   371
+      Left            =   121
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -426,11 +426,11 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   ""
-      Top             =   133
+      Top             =   34
       Transparent     =   False
       Underline       =   False
       Visible         =   True
-      Width           =   102
+      Width           =   123
    End
    Begin DesktopButton ButtonSetppDrives
       AllowAutoDeactivate=   True
@@ -445,7 +445,7 @@ Begin DesktopWindow ControlPanel
       Height          =   26
       Index           =   -2147483648
       Italic          =   False
-      Left            =   550
+      Left            =   256
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -457,7 +457,7 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "Apply pp Drive Letters"
-      Top             =   133
+      Top             =   35
       Transparent     =   False
       Underline       =   False
       Visible         =   True
@@ -467,7 +467,7 @@ Begin DesktopWindow ControlPanel
       AllowAutoDeactivate=   True
       Bold            =   False
       Cancel          =   False
-      Caption         =   "R"
+      Caption         =   "O"
       Default         =   True
       Enabled         =   True
       FontName        =   "Arial"
@@ -476,7 +476,7 @@ Begin DesktopWindow ControlPanel
       Height          =   26
       Index           =   -2147483648
       Italic          =   False
-      Left            =   502
+      Left            =   256
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -488,7 +488,7 @@ Begin DesktopWindow ControlPanel
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "Refresh Available Drive Letters"
-      Top             =   133
+      Top             =   6
       Transparent     =   False
       Underline       =   False
       Visible         =   True
@@ -794,11 +794,15 @@ End
 		  Dim MenuName As String
 		  Dim Sp() As String
 		  
+		  ComboppAppDrive.Text = "C:"
+		  ComboppGameDrive.Text = "C:"
+		  
 		  
 		  If Not TargetWindows Then 'Disable it all for Linux for now
 		    ButtonSetMenuStyle.Enabled = False
 		    ComboMenuStyle.Enabled = False
 		    CheckCleanUp.Enabled = False
+		    CheckRegenerate.Enabled = False
 		  Else 'Running in Windows
 		    ButtonSetLinuxMenuSorting.Enabled = False
 		    ButtonCleanDudLinuxMenuItems.Enabled = False
@@ -1107,11 +1111,11 @@ End
 		    ButtonSetMenuStyle.Enabled = True
 		    ComboMenuStyle.Enabled = True
 		    CheckCleanUp.Enabled = True
+		    
 		  End If
 		  
-		  CheckRegenerate.Enabled = True
 		  ButtonRegenerateItems.Enabled = True
-		  
+		  CheckRegenerate.Enabled = True
 		  
 		  
 		  #Pragma BreakOnExceptions On

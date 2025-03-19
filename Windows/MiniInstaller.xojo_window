@@ -58,7 +58,7 @@ Begin DesktopWindow MiniInstaller
       LockRight       =   True
       LockTop         =   True
       RequiresSelection=   False
-      RowSelectionType=   0
+      RowSelectionType=   1
       Scope           =   0
       TabIndex        =   0
       TabPanelIndex   =   0
@@ -169,7 +169,6 @@ Begin DesktopWindow MiniInstaller
       Width           =   56
    End
    Begin Thread InstallItems
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Priority        =   5
@@ -179,7 +178,6 @@ Begin DesktopWindow MiniInstaller
       Type            =   0
    End
    Begin Timer UpdateUI
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -260,7 +258,14 @@ End
 		  QuitInstaller = False
 		  
 		  'Hide main form as it messes up the drawing of the list anyway
-		  Main.Hide
+		  'Store Windows Position to restore after window returns
+		  PosLeft = Main.Left
+		  PosTop = Main.Top
+		  PosWidth = Main.Width
+		  PosHeight = Main.Height
+		  
+		  Main.Visible = False 'Hide main form
+		  App.DoEvents(4) 'Wait .004 of a second
 		  
 		  'Sort the Installation Order
 		  HasLinuxSudo = False
@@ -402,7 +407,22 @@ End
 		  'Bring back main form, if enabled to
 		  MiniInstaller.Hide ' Hide the installer
 		  MiniInstallerShowing = False 'Make it invisible again
-		  Main.Show
+		  'Restore Position
+		  If PosWidth <> 0 Then
+		    Main.Left = PosLeft
+		    Main.Top = PosTop
+		    Main.Width = PosWidth
+		    Main.Height = PosHeight
+		  End If
+		  
+		  Main.Visible = True ' Show Main Form Again
+		  
+		  If PosWidth <> 0 Then
+		    Main.Left = PosLeft
+		    Main.Top = PosTop
+		    Main.Width = PosWidth
+		    Main.Height = PosHeight
+		  End If
 		  QuitInstaller = False
 		  
 		End Sub
@@ -444,6 +464,34 @@ End
 		  
 		  'Call thread and lets hope I got it right
 		  InstallItems.Start
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub ToggleSkip()
+		  Dim MiniSelectedPass, I As Integer
+		  If MiniSelected >=0 Then
+		    If Debugging Then Debug(">>> Skip Pressed: "+Items.CellTextAt(MiniSelected, 0))
+		    For I = 0 To MiniInstaller.Items.RowCount-1
+		      If Items.RowSelectedAt(I) = True Then
+		        MiniSelectedPass = I
+		        If Items.CellTextAt(MiniSelectedPass, 1) = "Installing" Then
+		          Items.CellTextAt(MiniSelectedPass, 1) = "Skip"
+		          If Downloading Then CancelDownloading = True
+		          SkippedInstalling = True
+		        Else
+		          If Items.CellTextAt(MiniSelectedPass, 1) = "" Then
+		            Items.CellTextAt(MiniSelectedPass, 1) = "Skip"
+		            SkipItem(MiniSelectedPass) = True
+		          ElseIf Items.CellTextAt(MiniSelectedPass, 1) = "Skip" Then
+		            Items.CellTextAt(MiniSelectedPass, 1) = "" 'Set to install again
+		            SkipItem(MiniSelectedPass) = False
+		          End If
+		        End If
+		      End If
+		    Next
+		  End If
+		  Items.Refresh
 		End Sub
 	#tag EndMethod
 
@@ -639,6 +687,11 @@ End
 		  #Pragma BreakOnExceptions On
 		End Function
 	#tag EndEvent
+	#tag Event
+		Sub DoublePressed()
+		  ToggleSkip()
+		End Sub
+	#tag EndEvent
 #tag EndEvents
 #tag Events Pause
 	#tag Event
@@ -658,23 +711,8 @@ End
 #tag Events Skip
 	#tag Event
 		Sub Pressed()
-		  If MiniSelected >=0 Then
-		    If Debugging Then Debug(">>> Skip Pressed: "+Items.CellTextAt(MiniSelected, 0))
-		    If Items.CellTextAt(MiniSelected, 1) = "Installing" Then
-		      Items.CellTextAt(MiniSelected, 1) = "Skip"
-		      If Downloading Then CancelDownloading = True
-		      SkippedInstalling = True
-		    Else
-		      If Items.CellTextAt(MiniSelected, 1) = "" Then
-		        Items.CellTextAt(MiniSelected, 1) = "Skip"
-		        SkipItem(MiniSelected) = True
-		      ElseIf Items.CellTextAt(MiniSelected, 1) = "Skip" Then
-		        Items.CellTextAt(MiniSelected, 1) = "" 'Set to install again
-		        SkipItem(MiniSelected) = False
-		      End If
-		    End If
-		  End If
-		  Items.Refresh
+		  ToggleSkip()
+		  
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -754,7 +792,22 @@ End
 		      End If
 		    End If
 		    
-		    Main.Show
+		    'Restore Position
+		    If PosWidth <> 0 Then
+		      Main.Left = PosLeft
+		      Main.Top = PosTop
+		      Main.Width = PosWidth
+		      Main.Height = PosHeight
+		    End If
+		    
+		    Main.Visible = True ' Show Main Form Again
+		    
+		    If PosWidth <> 0 Then
+		      Main.Left = PosLeft
+		      Main.Top = PosTop
+		      Main.Width = PosWidth
+		      Main.Height = PosHeight
+		    End If
 		    QuitInstaller = False
 		    Exit'Don't Continue this Sub after Quitting
 		    

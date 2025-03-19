@@ -317,15 +317,44 @@ End
 
 #tag WindowCode
 	#tag Event
+		Sub Activated()
+		  'Store Windows Position to restore after window returns
+		  PosLeft = Main.Left
+		  PosTop = Main.Top
+		  PosWidth = Main.Width
+		  PosHeight = Main.Height
+		  
+		  Main.Visible = False 'Hide main form
+		  App.DoEvents(4) 'Wait .004 of a second
+		End Sub
+	#tag EndEvent
+
+	#tag Event
 		Function CancelClosing(appQuitting As Boolean) As Boolean
 		  'Resort Data by Ref or it fails to work
 		  'Sort the Data (Need to be in order added once done sorting manually)
 		  Data.Items.SortingColumn = 0
 		  Data.Items.ColumnSortDirectionAt(0) = DesktopListBox.SortDirections.Ascending
 		  Data.Items.Sort ()
+		  'Restore Position
+		  If PosWidth <> 0 Then
+		    Main.Left = PosLeft
+		    Main.Top = PosTop
+		    Main.Width = PosWidth
+		    Main.Height = PosHeight
+		  End If
+		  
+		  Main.Visible = True ' Show Main Form Again
+		  
+		  If PosWidth <> 0 Then
+		    Main.Left = PosLeft
+		    Main.Top = PosTop
+		    Main.Width = PosWidth
+		    Main.Height = PosHeight
+		  End If
 		  
 		  If ForceQuit = False Then
-		    Me.Hide
+		    Me.Visible = False
 		    Return True
 		  Else
 		    Return False
@@ -335,6 +364,22 @@ End
 
 	#tag Event
 		Sub Closing()
+		  'Restore Position
+		  If PosWidth <> 0 Then
+		    Main.Left = PosLeft
+		    Main.Top = PosTop
+		    Main.Width = PosWidth
+		    Main.Height = PosHeight
+		  End If
+		  
+		  Main.Visible = True ' Show Main Form Again
+		  
+		  If PosWidth <> 0 Then
+		    Main.Left = PosLeft
+		    Main.Top = PosTop
+		    Main.Width = PosWidth
+		    Main.Height = PosHeight
+		  End If
 		  Debug("-- Data Closed")
 		End Sub
 	#tag EndEvent
@@ -745,5 +790,13 @@ End
 		InitialValue=""
 		Type="String"
 		EditorType="MultiLineEditor"
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="ItemRow"
+		Visible=false
+		Group="Behavior"
+		InitialValue=""
+		Type="Integer"
+		EditorType=""
 	#tag EndViewProperty
 #tag EndViewBehavior

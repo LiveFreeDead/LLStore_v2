@@ -25,6 +25,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -65,6 +66,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -73,6 +75,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -81,6 +84,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -1717,11 +1721,14 @@ End
 		  
 		  Dim FlagsIn As String
 		  Dim FadeFile As String
-		  
-		  While Not inputStream.EndOfFile 'If Empty file this skips it
-		    RL = inputStream.ReadAll 
-		  Wend
-		  inputStream.Close
+		  Try
+		    While Not inputStream.EndOfFile 'If Empty file this skips it
+		      RL = inputStream.ReadAll 
+		    Wend
+		    inputStream.Close
+		  Catch
+		    Return 'The DB Load failed, Return to calling Sub and try the next one instead
+		  End Try
 		  
 		  If FullPathGiven = True Then 'Only Online DB's use this
 		    RL = RL .ReplaceAll("%URLPath%", NoSlash(CurrentDBURL)) 'This is to point to the Online DB rather than the local cache, I'll have to convert them to RepositoryLocalDB 'Do All at once, must be faster than doing one at a time
@@ -2229,7 +2236,14 @@ End
 		Sub RefreshDBs()
 		  ForceRefreshDBs = True
 		  Loading.Visible = True
-		  Main.Visible = False
+		  'Store Windows Position to restore after window returns
+		  PosLeft = Main.Left
+		  PosTop = Main.Top
+		  PosWidth = Main.Width
+		  PosHeight = Main.Height
+		  
+		  Main.Visible = False 'Hide main form
+		  App.DoEvents(4) 'Wait .004 of a second
 		  Loading.FirstRunTime.RunMode = Timer.RunModes.Single
 		End Sub
 	#tag EndMethod
@@ -2924,7 +2938,22 @@ End
 		    App.DoEvents(1)'Make it hide before showing the main form (Less redraw)
 		    
 		    'Show main form
-		    Main.Visible = True
+		    'Restore Position
+		    If PosWidth <> 0 Then
+		      Main.Left = PosLeft
+		      Main.Top = PosTop
+		      Main.Width = PosWidth
+		      Main.Height = PosHeight
+		    End If
+		    
+		    Main.Visible = True ' Show Main Form Again
+		    
+		    If PosWidth <> 0 Then
+		      Main.Left = PosLeft
+		      Main.Top = PosTop
+		      Main.Width = PosWidth
+		      Main.Height = PosHeight
+		    End If
 		    App.DoEvents(1)'Make sure it draws before doing other stuff that would make it draw ugly
 		    Main.ResizeMainForm 'Just check again as sometimes it's wrong
 		    App.DoEvents(1)'Make sure it draws before doing other stuff that would make it draw ugly

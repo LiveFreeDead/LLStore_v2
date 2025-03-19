@@ -372,7 +372,6 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -429,7 +428,6 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -438,7 +436,6 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -454,7 +451,14 @@ End
 		Function CancelClosing(appQuitting As Boolean) As Boolean
 		  If ForceQuit = False Then
 		    If StoreMode = 0 Or StoreMode = 1 Then Loading.SavePosition 'Only save if Store or Launcher
-		    Main.Hide
+		    'Store Windows Position to restore after window returns
+		    PosLeft = Main.Left
+		    PosTop = Main.Top
+		    PosWidth = Main.Width
+		    PosHeight = Main.Height
+		    
+		    Main.Visible = False 'Hide main form
+		    App.DoEvents(4) 'Wait .004 of a second
 		    PreQuitApp
 		    QuitApp
 		    Return False
@@ -511,7 +515,14 @@ End
 		      StoreMode = 0
 		    End If
 		    ForceRefreshDBs = False
-		    Main.Visible = False
+		    'Store Windows Position to restore after window returns
+		    PosLeft = Main.Left
+		    PosTop = Main.Top
+		    PosWidth = Main.Width
+		    PosHeight = Main.Height
+		    
+		    Main.Visible = False 'Hide main form
+		    App.DoEvents(4) 'Wait .004 of a second
 		    
 		    Dim RL As String
 		    Dim F As FolderItem
@@ -815,6 +826,8 @@ End
 
 	#tag Method, Flags = &h0
 		Sub ChangeItem(CurrentItemIn As Integer)
+		  ScreenShotCounter = 0 ' Always Reset this
+		  
 		  If FirstRun = False Then Return  'Ignore doing this until the main form is shown and the Default text is set
 		  
 		  Dim WebWall As String
@@ -871,16 +884,7 @@ End
 		  Else
 		    WebWall = WebWall.ReplaceAll("\","/")
 		  End If
-		  F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
-		  If Exist(WebWall) Then
-		    ScreenShotCurrent = Picture.Open(F)
-		  Else
-		    ScreenShotCurrent = New Picture(Screen(0).AvailableWidth,Screen(0).AvailableHeight, 32)
-		    ScreenShotCurrent.Graphics.DrawingColor = &C000000
-		    ScreenShotCurrent.Graphics.FillRectangle(0,0,ScreenShotCurrent.Width,ScreenShotCurrent.Height)
-		  End If
-		  ScaleScreenShot
-		  ScreenShot.Visible = True 'Show it again as default
+		  LoadScreenShot(WebWall)
 		  
 		  'Fader
 		  WebWall = Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("FileFader"))
@@ -1216,7 +1220,14 @@ End
 		    End If
 		    ForceRefreshDBs = False
 		    App.DoEvents(1)
-		    Main.Visible = False
+		    'Store Windows Position to restore after window returns
+		    PosLeft = Main.Left
+		    PosTop = Main.Top
+		    PosWidth = Main.Width
+		    PosHeight = Main.Height
+		    
+		    Main.Visible = False 'Hide main form
+		    App.DoEvents(4) 'Wait .004 of a second
 		    Loading.LoadSettings() 'Due to changing store mode, we need to change the scan paths
 		    Loading.FirstRunTime.RunMode = Timer.RunModes.Single
 		    Return 'Quit Main Loop and start it again
@@ -1619,6 +1630,25 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub LoadScreenShot(WebWall As String)
+		  Dim F As FolderItem
+		  Try
+		    F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
+		    If Exist(WebWall) Then
+		      ScreenShotCurrent = Picture.Open(F)
+		    Else
+		      ScreenShotCurrent = New Picture(Screen(0).AvailableWidth,Screen(0).AvailableHeight, 32)
+		      ScreenShotCurrent.Graphics.DrawingColor = &C000000
+		      ScreenShotCurrent.Graphics.FillRectangle(0,0,ScreenShotCurrent.Width,ScreenShotCurrent.Height)
+		    End If
+		  Catch
+		  End Try
+		  ScaleScreenShot
+		  ScreenShot.Visible = True 'Show it again as default
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub MakeDesktopShortcut()
 		  If CurrentItemID <= -1 Then Return 'Nothing picked
 		  
@@ -1858,7 +1888,6 @@ End
 		  RunningGame = True
 		  If GameIDIn = -1 Then Return 'No Item given
 		  
-		  Dim PosLeft, PosTop, PosWidth, PosHeight As Integer
 		  Dim Exe, BT As String
 		  Dim Sh As New Shell
 		  Dim ShWait As New Shell
@@ -1898,9 +1927,8 @@ End
 		  PosTop = Main.Top
 		  PosWidth = Main.Width
 		  PosHeight = Main.Height
-		  
 		  'Hide Main Form
-		  Main.Hide 'Hide main form
+		  Main.Visible = False 'Hide main form
 		  App.DoEvents(4) 'Wait .004 of a second
 		  
 		  WinWid = Screen(0).AvailableWidth.ToString
@@ -2033,19 +2061,21 @@ End
 		  'App.DoEvents(40) 'Wait .04 of a second
 		  
 		  'Restore Position
-		  Main.Left = PosLeft
-		  Main.Top = PosTop
-		  Main.Width = PosWidth
-		  Main.Height = PosHeight
+		  If PosWidth <> 0 Then
+		    Main.Left = PosLeft
+		    Main.Top = PosTop
+		    Main.Width = PosWidth
+		    Main.Height = PosHeight
+		  End If
 		  
-		  'App.DoEvents(40) 'Wait .04 of a second
-		  Main.Show
-		  'App.DoEvents(40) 'Wait .04 of a second
-		  'Restore Position
-		  Main.Left = PosLeft
-		  Main.Top = PosTop
-		  Main.Width = PosWidth
-		  Main.Height = PosHeight
+		  Main.Visible = True ' Show Main Form Again
+		  
+		  If PosWidth <> 0 Then
+		    Main.Left = PosLeft
+		    Main.Top = PosTop
+		    Main.Width = PosWidth
+		    Main.Height = PosHeight
+		  End If
 		  
 		  RunningGame = False 'Set this to false so it will play the movie next time you click an item, may be buggy and need disable
 		  
@@ -2425,6 +2455,37 @@ End
 
 #tag EndWindowCode
 
+#tag Events ScreenShot
+	#tag Event
+		Sub MouseUp(x As Integer, y As Integer)
+		  Dim PathIn As String
+		  Dim PathImage As String
+		  Dim BT As String
+		  If CurrentItemID >= 0 Then
+		    PathIn = Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("PathINI"))
+		    BT = Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("BuildType"))
+		    If Right(PathIn,1) = "/" Or Right(PathIn,1) = "\" Then
+		      ScreenShotCounter = ScreenShotCounter + 1
+		      PathImage = PathIn+BT
+		      If ScreenShotCounter > 0 Then PathImage = PathImage + ScreenShotCounter.ToString
+		      PathImage = PathImage +".jpg"
+		      If Exist (PathImage) And ScreenShotCounter >= 1 Then
+		        LoadScreenShot(PathImage)
+		      Else
+		        ScreenShotCounter = 0 'Jump back to first Image
+		        PathImage = Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("FileScreenshot"))
+		        LoadScreenShot(PathImage)
+		      End If
+		    End If
+		  End If
+		End Sub
+	#tag EndEvent
+	#tag Event
+		Function MouseDown(x As Integer, y As Integer) As Boolean
+		  Return True
+		End Function
+	#tag EndEvent
+#tag EndEvents
 #tag Events Items
 	#tag Event
 		Function PaintCellText(g as Graphics, row as Integer, column as Integer, x as Integer, y as Integer) As Boolean
@@ -2861,8 +2922,12 @@ End
 	#tag EndEvent
 	#tag Event
 		Sub MouseUp(x As Integer, y As Integer)
-		  StartPushed()
-		  
+		  'ItemsLabel.Text = X.ToString+" "+Y.ToString
+		  If X >= 0 And X <= StartButton.Width Then
+		    If Y >= 0 And Y <= StartButton.Height Then
+		      StartPushed()
+		    End If
+		  End If
 		  
 		End Sub
 	#tag EndEvent
