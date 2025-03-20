@@ -231,7 +231,7 @@ End
 		    Main.Height = PosHeight
 		  End If
 		  
-		  Main.Visible = True ' Show Main Form Again
+		  If StoreMode <> 99 Then Main.Visible = True ' Show Main Form Again
 		  
 		  If PosWidth <> 0 Then
 		    Main.Left = PosLeft
@@ -271,7 +271,7 @@ End
 		    Main.Height = PosHeight
 		  End If
 		  
-		  Main.Visible = True ' Show Main Form Again
+		  If StoreMode <> 99 Then Main.Visible = True ' Show Main Form Again
 		  
 		  If PosWidth <> 0 Then
 		    Main.Left = PosLeft
@@ -331,7 +331,7 @@ End
 		    Main.Height = PosHeight
 		  End If
 		  
-		  Main.Visible = True ' Show Main Form Again
+		  If StoreMode <> 99 Then Main.Visible = True ' Show Main Form Again
 		  
 		  If PosWidth <> 0 Then
 		    Main.Left = PosLeft

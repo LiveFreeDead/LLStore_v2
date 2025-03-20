@@ -25,7 +25,6 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,7 +65,6 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -75,7 +73,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -84,7 +81,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -802,7 +798,7 @@ End
 		    Data.Items.AddRow(Data.Items.RowCount.ToString("000000")) 'This adds the Leading 0's or prefixes it to 6 digits as it sort Alphabettical, fixed 1,10,100,2 to 001,002,010,100 for example
 		    
 		    'Reference Only Keep
-		    'LocalDBHeader = " BuildType Compressed HiddenAlways ShowAlways ShowSetupOnly Arch OS TitleName Version Categories Description URL Priority PathApp PathINI FileINI FileCompressed FileIcon FileScreenshot FileFader FileMovie Flags Tags Publisher Language Rating Additional Players License ReleaseVersion ReleaseDate RequiredRuntimes Builder InstalledSize LnkTitle LnkComment LnkDescription LnkCategories LnkRunPath LnkExec LnkArguments LnkFlags LnkAssociations LnkTerminal LnkMultiple LnkIcon LnkOSCompatible LnkDECompatible LnkPMCompatible ArchCompatible  NoInstall OSCompatible DECompatible PMCompatible ArchCompatible UniqueName Dependencies ""
+		    'LocalDBHeader = " BuildType Compressed HiddenAlways ShowAlways ShowSetupOnly Arch OS TitleName Version Categories Catalog Description URL Priority PathApp PathINI FileINI FileCompressed FileIcon FileScreenshot FileFader FileMovie Flags Tags Publisher Language Rating Additional Players License ReleaseVersion ReleaseDate RequiredRuntimes Builder InstalledSize LnkTitle LnkComment LnkDescription LnkCategories LnkRunPath LnkExec LnkArguments LnkFlags LnkAssociations LnkTerminal LnkMultiple LnkIcon LnkOSCompatible LnkDECompatible LnkPMCompatible ArchCompatible  NoInstall OSCompatible DECompatible PMCompatible ArchCompatible UniqueName Dependencies ""
 		    
 		    For I = 1 To Data.Items.ColumnCount
 		      Select Case  Data.Items.HeaderAt(I)
@@ -1278,6 +1274,8 @@ End
 		  
 		  Sp() = OnlineDBs.Split(Chr(13)) 'Text Areas use Chr (13) In Windows
 		  
+		  'MsgBox OnlineDBs.Trim
+		  
 		  'Clean Up
 		  Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
 		  
@@ -1290,33 +1288,45 @@ End
 		      UniqueName = UniqueName.ReplaceAll("/","")
 		      UniqueName = UniqueName.ReplaceAll(".","")
 		      UniqueName = "00-"+UniqueName+".lldbini"
-		      
-		      If Exist(Slash(RepositoryPathLocal)+UniqueName) Then Deltree(Slash(RepositoryPathLocal)+UniqueName) 'Remove Cached download (Might add a check/setting for doing this, ignore if exists? seem pointless as if your not online, it's gonna skip it anyway
-		      CurrentDBURL = Sp(I).ReplaceAll(".lldb/lldb.ini", "") 'Only want the parent, not the sub path and file
-		      If Left (Sp(I).Trim,1) = "#" Then Continue 'Skip remarked Repo's
-		      GetOnlineFile (Sp(I), Slash(RepositoryPathLocal)+UniqueName)
-		      
-		      TimeOut = System.Microseconds + (15 *1000000) 'Set Timeout after 15 seconds
-		      CancelDownloading = False
-		      
-		      While Downloading
-		        App.DoEvents(1)
+		      'MsgBox ForceNoOnlineDBUpdates.ToString
+		      If ForceNoOnlineDBUpdates = False Then 'Don't redownload if Ctrl held in, will add a flag to never update unless you press f5
 		        
-		        If System.Microseconds >= TimeOut Then
-		          CancelDownloading = True
-		          Exit 'Timeout after 15 seconds, incase net is slow, I give extra seconds to skip each of them
-		        End If
+		        If Exist(Slash(RepositoryPathLocal)+UniqueName) Then Deltree(Slash(RepositoryPathLocal)+UniqueName) 'Remove Cached download (Might add a check/setting for doing this, ignore if exists? seem pointless as if your not online, it's gonna skip it anyway
+		        CurrentDBURL = Sp(I).ReplaceAll(".lldb/lldb.ini", "") 'Only want the parent, not the sub path and file
+		        If Left (Sp(I).Trim,1) = "#" Then Continue 'Skip remarked Repo's
+		        GetOnlineFile (Sp(I), Slash(RepositoryPathLocal)+UniqueName)
 		        
-		        If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
-		          Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
-		          Exit
-		        End If
-		      Wend
+		        TimeOut = System.Microseconds + (15 *1000000) 'Set Timeout after 15 seconds
+		        CancelDownloading = False
+		        
+		        While Downloading
+		          App.DoEvents(1)
+		          
+		          If System.Microseconds >= TimeOut Then
+		            CancelDownloading = True
+		            Exit 'Timeout after 15 seconds, incase net is slow, I give extra seconds to skip each of them
+		          End If
+		          
+		          If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
+		            Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
+		            Exit
+		          End If
+		        Wend
+		        
+		      Else ' Just configure the URL path to work
+		        CurrentDBURL = Sp(I).ReplaceAll(".lldb/lldb.ini", "") 'Only want the parent, not the sub path and file
+		        If Left (Sp(I).Trim,1) = "#" Then Continue 'Skip remarked Repo's
+		        
+		      End If
 		      
-		      'Try to load the downloaded DB
+		      'Try to load the downloaded DB (even if old one)
 		      LoadDB(Slash(RepositoryPathLocal)+UniqueName, True) 'The true allows full DB path to be given, so can use Unique DB names
 		    Next
 		  End If
+		  
+		  
+		  If ForceNoOnlineDBUpdates = True Then ForceNoOnlineDBUpdates = False ' Only block it the first run, not for refresh
+		  
 		  
 		  ''Get Remote WebLinks to use 'Disabled for now due to Google stopping API use with wget
 		  GetOnlineFile ("https://raw.githubusercontent.com/LiveFreeDead/LLStore_v2/refs/heads/main/WebLinks.ini",Slash(RepositoryPathLocal)+"RemoteWebLinks.db")
@@ -1794,6 +1804,18 @@ End
 		                Data.Items.CellTextAt(ItemCount,DataHeadID) = ItemSP(J)
 		              End If
 		            End Select
+		            
+		            'Fallback if no Category is set
+		            #Pragma BreakOnExceptions Off
+		            Try
+		              If Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Categories")) = "" Then
+		                If Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Catalog")) <> "" Then
+		                  Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Categories")) = Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Catalog"))
+		                End If
+		              End If
+		            Catch
+		            End Try
+		            #Pragma BreakOnExceptions On
 		          Next
 		        End If
 		      Next
@@ -1993,6 +2015,9 @@ End
 		      If LineData <> "" Then Settings.SetAlwaysShowRes.Value = IsTrue(LineData)
 		    Case "recoverscreenres"
 		      If LineData <> "" Then Settings.SetRecoverScreenRes.Value = IsTrue(LineData)
+		    Case "noupdateonlinedbonstart"
+		      ForceNoOnlineDBUpdates = IsTrue(LineData)
+		      Settings.SetNoUpdateDBOnStart.Value = IsTrue(LineData)
 		    End Select
 		  Next
 		  App.DoEvents(1)' Update the Settings Form with the new Check values before we do anything, might fix it, else I'll need to use Variables
@@ -2304,6 +2329,10 @@ End
 		          For K = 0 To Data.Items.ColumnCount -2 'Changed this from -1 to -2 to ignore the Sorting Column
 		            'Add each item (May Be slow) but a DB if enabled is faster once built.
 		            Select Case Data.Items.HeaderAt(K)
+		              
+		              'The first line below only writes data, doesn't comp it's paths etc
+		            Case "URL", "BuildType", "Compressed", "Hidden", "HiddenAlways", "ShowAlways", "ShowSetupOnly", "Installed", "Arch", "OS", "TitleName", "Version", "Categories", "Catalog", "Description", "Priority", "IconRef", "Flags", "Tags", "Publisher", "Language", "Rating", "Additional", "Players", "License", "ReleaseVersion", "ReleaseDate", "RequiredRuntimes", "Builder", "InstalledSize", "LnkTitle", "LnkComment", "LnkDescription", "LnkCategories", "LnkFlags", "LnkAssociations", "LnkTerminal", "LnkMultiple", "LnkParentRef", "LnkIcon", "LnkOSCompatible", "LnkDECompatible", "LnkPMCompatible", "LnkArchCompatible", "NoInstall", "OSCompatible", "DECompatible", "PMCompatible", "ArchCompatible", "UniqueName", "Dependencies", "Sorting" ' Don't Comp URL's and others, just write as is
+		              DataOut = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),K)
 		            Case "FileINI" 'If doing INIFile, we need to change to %dbpath%
 		              DataOut = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),K)
 		              DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
@@ -2546,6 +2575,9 @@ End
 		  RL = RL + "UseManualLocations=" + Str(Settings.SetUseManualLocations.Value) + Chr(10)
 		  RL = RL + "UseOnlineRepositiories=" + Str(Settings.SetUseOnlineRepos.Value) + Chr(10)
 		  
+		  RL = RL + "NoUpdateOnlineDBOnStart=" + Str(Settings.SetNoUpdateDBOnStart.Value) + Chr(10)
+		  
+		  
 		  RL = RL + "DebugEnabled=" + Str(Settings.SetDebugEnabled.Value) + Chr(10)
 		  
 		  RL = RL + "AlwaysShowRes=" + Str(Settings.SetAlwaysShowRes.Value) + Chr(10)
@@ -2745,14 +2777,23 @@ End
 		    If StoreMode = 0 Then
 		      OnlineDBs = LoadDataFromFile(Slash(AppPath)+"LLL_Repos.ini").ReplaceAll(Chr(10), Chr(13)) ' Convert to standard format so it works in Windows and Linux
 		      If OnlineDBs.Trim <> "" Then Settings.SetOnlineRepos.Text = OnlineDBs.Trim
-		      
+		      'MsgBox "Here 1"
 		      If Settings.SetUseOnlineRepos.Value = True Then
+		        'MsgBox "Here 2"
 		        CheckingForDatabases = True
-		        Loading.Status.Text = "Downloading Online Databases..."
+		        If ForceNoOnlineDBUpdates = True Then
+		          Loading.Status.Text = "Using Offline Databases..."
+		        Else
+		          Loading.Status.Text = "Downloading Online Databases..."
+		        End If
 		        Loading.Refresh
 		        App.DoEvents(1)
-		        GetOnlineDBs 'Only do this when in Installation mode
-		        CheckingForDatabases = True
+		        
+		        GetOnlineDBs() 'Only do this when in Installation mode
+		        CheckingForDatabases = False
+		        Loading.Status.Text = "Databases Loaded..."
+		        Loading.Refresh
+		        App.DoEvents(1)
 		      End If
 		    End If
 		    'Disabled Weblinks for now while I find an alternative as google API is blocked by wget for non logged in users.
@@ -2946,7 +2987,7 @@ End
 		      Main.Height = PosHeight
 		    End If
 		    
-		    Main.Visible = True ' Show Main Form Again
+		    If StoreMode <> 99 Then Main.Visible = True ' Show Main Form Again
 		    
 		    If PosWidth <> 0 Then
 		      Main.Left = PosLeft
@@ -3114,9 +3155,15 @@ End
 		            End If
 		            'MiniInstaller.Stats.Text = "Downloading "+ DownloadPercentage
 		            If CheckingForUpdates = True Then Loading.Status.Text = "Check For Store Updates: "+DownloadPercentage
-		            If CheckingForDatabases = True Then Loading.Status.Text = "Downloading Online Databases: "+DownloadPercentage
+		            If CheckingForDatabases = True Then
+		               If ForceNoOnlineDBUpdates = True Then
+		                Loading.Status.Text = "Using Offline Databases..."
+		              Else
+		                Loading.Status.Text = "Downloading Online Databases: "+DownloadPercentage
+		                
+		              End If
+		            End If
 		          End If
-		          
 		          
 		        Wend
 		        
@@ -3188,12 +3235,15 @@ End
 	#tag Event
 		Sub Action()
 		  Dim QuitNow As Boolean = False 'This allows multiple jobs to be done before it quits (useful for the command line arguments)
+		  Dim OriginalStoreMode As Integer
 		  
 		  App.AllowAutoQuit = True 'Makes it close if no windows are open
 		  
 		  If ForceQuit = True Then Return 'Don't bother even opening if set to quit
 		  
 		  If Keyboard.AsyncShiftKey Then ForceRefreshDBsShift = True
+		  
+		  If Keyboard.AsyncControlKey Then ForceNoOnlineDBUpdates = True
 		  
 		  VeryFirstRunTimer.RunMode = Timer.RunModes.Off ' Disable this timer again
 		  
@@ -3836,13 +3886,15 @@ End
 		  If Debugging Then Debug("CommandLineFile: " + CommandLineFile)
 		  If Debugging Then Debug("EditorOnly: " + EditorOnly.ToString +" Build: " + Build.ToString +" Compress: " + Compress.ToString)
 		  
+		  OriginalStoreMode = StoreMode ' Because I set it to hide main with 99, I use a backup of it
+		  
 		  'Move from FirstRunTimer to here
 		  GetAdminMode
 		  
 		  If Debugging Then Debug("Admin Enabled: " + AdminEnabled.ToString)
 		  
 		  'Install Store Mode
-		  If StoreMode = 4 Or InstallStore = True Then
+		  If OriginalStoreMode = 4 Or InstallStore = True Then
 		    Loading.Hide
 		    InstallLLStore
 		    'PreQuitApp ' Save Debug etc
@@ -3852,7 +3904,7 @@ End
 		  End If
 		  
 		  'Install Item Mode
-		  If StoreMode = 2 Then
+		  If OriginalStoreMode = 2 Then
 		    Loading.Hide
 		    SudoAsNeeded = True 'As your only installing one item, there is no benefit to asking for SUDO if it isn't needed, so don't
 		    InstallOnly = True
@@ -3899,7 +3951,7 @@ End
 		  End If
 		  
 		  'Editor Mode
-		  If StoreMode = 3 Then
+		  If OriginalStoreMode = 3 Then
 		    Loading.Hide
 		    'MsgBox "Loading: " + CommandLineFile
 		    #Pragma BreakOnExceptions Off
@@ -3945,14 +3997,14 @@ End
 		  End If
 		  
 		  'Show Loading Screen here if the Store Mode is 0
-		  If StoreMode = 0 Then 
+		  If OriginalStoreMode = 0 Then 
 		    If SortMenuStyle = False Then
 		      Loading.Visible = True 'Show the loading form here
 		    End If
 		  End If
 		  
 		  'Check if Send To and Associations are applied (if store is installed)
-		  If TargetWindows And StoreMode = 0 And AdminEnabled = True Then 'Only do as Admin so the File Associations work
+		  If TargetWindows And OriginalStoreMode = 0 And AdminEnabled = True Then 'Only do as Admin so the File Associations work
 		    Dim OutPath As String
 		    Dim Target, TargetPath As String
 		    'Make Shortcuts to SendTo and Start Menu

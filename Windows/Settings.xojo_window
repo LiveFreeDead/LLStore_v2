@@ -824,6 +824,36 @@ Begin DesktopWindow Settings
       VisualState     =   1
       Width           =   149
    End
+   Begin DesktopCheckBox SetNoUpdateDBOnStart
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Caption         =   "Don't Update Online DB's on Start"
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   27
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   343
+      LockBottom      =   True
+      LockedInPosition=   False
+      LockLeft        =   False
+      LockRight       =   True
+      LockTop         =   False
+      Scope           =   0
+      TabIndex        =   25
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "Hides items in the list that do not have the Working Desktop Environment Set"
+      Top             =   292
+      Transparent     =   False
+      Underline       =   False
+      Value           =   False
+      Visible         =   True
+      VisualState     =   0
+      Width           =   224
+   End
 End
 #tag EndDesktopWindow
 
@@ -919,6 +949,13 @@ End
 		Sub ValueChanged()
 		  Main.HideUnsetFlags = SetHideUnsetFlags.Value
 		  Main.GenerateItems()
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events SetNoUpdateDBOnStart
+	#tag Event
+		Sub ValueChanged()
+		  
 		End Sub
 	#tag EndEvent
 #tag EndEvents

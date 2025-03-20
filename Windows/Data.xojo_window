@@ -344,7 +344,7 @@ End
 		    Main.Height = PosHeight
 		  End If
 		  
-		  Main.Visible = True ' Show Main Form Again
+		  If StoreMode <> 99 Then Main.Visible = True ' Show Main Form Again
 		  
 		  If PosWidth <> 0 Then
 		    Main.Left = PosLeft
@@ -372,7 +372,7 @@ End
 		    Main.Height = PosHeight
 		  End If
 		  
-		  Main.Visible = True ' Show Main Form Again
+		  If StoreMode <> 99 Then Main.Visible = True ' Show Main Form Again
 		  
 		  If PosWidth <> 0 Then
 		    Main.Left = PosLeft
@@ -417,7 +417,7 @@ End
 		  ItemLLItem = BlankItem
 		  
 		  'Just embed it for now, the external file isn't needed, Requires the Last space at the very end to split correctly
-		  RL = "RefID Selected BuildType Compressed Hidden HiddenAlways ShowAlways ShowSetupOnly Installed Arch OS TitleName Version Categories Description URL Priority PathApp PathINI FileINI FileCompressed FileIcon IconRef FileScreenshot FileFader FileMovie Flags Tags Publisher Language Rating Additional Players License ReleaseVersion ReleaseDate RequiredRuntimes Builder InstalledSize LnkTitle LnkComment LnkDescription LnkCategories LnkRunPath LnkExec LnkArguments LnkFlags LnkAssociations LnkTerminal LnkMultiple LnkParentRef LnkIcon LnkOSCompatible LnkDECompatible LnkPMCompatible LnkArchCompatible NoInstall OSCompatible DECompatible PMCompatible ArchCompatible UniqueName Dependencies Sorting "
+		  RL = "RefID Selected BuildType Compressed Hidden HiddenAlways ShowAlways ShowSetupOnly Installed Arch OS TitleName Version Categories Catalog Description URL Priority PathApp PathINI FileINI FileCompressed FileIcon IconRef FileScreenshot FileFader FileMovie Flags Tags Publisher Language Rating Additional Players License ReleaseVersion ReleaseDate RequiredRuntimes Builder InstalledSize LnkTitle LnkComment LnkDescription LnkCategories LnkRunPath LnkExec LnkArguments LnkFlags LnkAssociations LnkTerminal LnkMultiple LnkParentRef LnkIcon LnkOSCompatible LnkDECompatible LnkPMCompatible LnkArchCompatible NoInstall OSCompatible DECompatible PMCompatible ArchCompatible UniqueName Dependencies Sorting "
 		  
 		  SP()=RL.Split
 		  
@@ -474,7 +474,7 @@ End
 		  CurrentColumn = 0
 		  
 		  'Just embed it for now, the external file isn't needed, Requires the Last space at the very end to split correctly
-		  LocalDBHeader = "BuildType Compressed HiddenAlways ShowAlways ShowSetupOnly Arch OS TitleName Version Categories Description URL Priority PathApp PathINI FileINI FileCompressed FileIcon FileScreenshot FileFader FileMovie Flags Tags Publisher Language Rating Additional Players License ReleaseVersion ReleaseDate RequiredRuntimes Builder InstalledSize LnkTitle LnkComment LnkDescription LnkCategories LnkRunPath LnkExec LnkArguments LnkFlags LnkAssociations LnkTerminal LnkMultiple LnkIcon LnkOSCompatible LnkDECompatible LnkPMCompatible LnkArchCompatible NoInstall OSCompatible DECompatible PMCompatible ArchCompatible UniqueName Dependencies "
+		  LocalDBHeader = "BuildType Compressed HiddenAlways ShowAlways ShowSetupOnly Arch OS TitleName Version Categories Catalog Description URL Priority PathApp PathINI FileINI FileCompressed FileIcon FileScreenshot FileFader FileMovie Flags Tags Publisher Language Rating Additional Players License ReleaseVersion ReleaseDate RequiredRuntimes Builder InstalledSize LnkTitle LnkComment LnkDescription LnkCategories LnkRunPath LnkExec LnkArguments LnkFlags LnkAssociations LnkTerminal LnkMultiple LnkIcon LnkOSCompatible LnkDECompatible LnkPMCompatible LnkArchCompatible NoInstall OSCompatible DECompatible PMCompatible ArchCompatible UniqueName Dependencies "
 		  
 		  SP()=LocalDBHeader.Split
 		  

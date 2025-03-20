@@ -169,7 +169,6 @@ Begin DesktopWindow MiniInstaller
       Width           =   56
    End
    Begin Thread InstallItems
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Priority        =   5
@@ -179,7 +178,6 @@ Begin DesktopWindow MiniInstaller
       Type            =   0
    End
    Begin Timer UpdateUI
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -805,7 +803,7 @@ End
 		      Main.Height = PosHeight
 		    End If
 		    
-		    Main.Visible = True ' Show Main Form Again
+		    If StoreMode <> 99 Then Main.Visible = True ' Show Main Form Again
 		    
 		    If PosWidth <> 0 Then
 		      Main.Left = PosLeft

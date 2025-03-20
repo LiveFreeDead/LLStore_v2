@@ -1549,6 +1549,9 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Function FixCatalog(CatIn As String) As String
+		  Dim Game As Boolean
+		  If CatIn.IndexOf("Game") >=0 Then Game = True
+		  
 		  CatIn = CatIn.ReplaceAll("Games"+Chr(92), "")
 		  CatIn = CatIn.ReplaceAll("Gamess", "Games")
 		  CatIn = CatIn.ReplaceAll("|", "; ")
@@ -1568,6 +1571,14 @@ Protected Module LLMod
 		  CatIn = CatIn.ReplaceAll("Tower Defense", "TowerDefense")
 		  CatIn = CatIn.ReplaceAll("Farming & Crafting", "Farming; Crafting")
 		  
+		  
+		  CatIn = CatIn.ReplaceAll("Mini Game", "Game")
+		  CatIn = CatIn.ReplaceAll("MiniGame", "Game")
+		  CatIn = CatIn.ReplaceAll("ppGame", "Game")
+		  
+		  If CatIn = "" Then ' If Empty then it's a game, just say so
+		    if Game = True Then CatIn = "Game; "
+		  End If
 		  Return CatIn
 		End Function
 	#tag EndMethod
@@ -4570,6 +4581,8 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Sub QuitApp()
+		  StoreMode = 99 'Forces it to NOT show Main again
+		  
 		  If Debugging Then Debug("--- Quitting LLStore ---")
 		  ForceQuit = True
 		  Quit
@@ -5908,6 +5921,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		ForceFullUpdate As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		ForceNoOnlineDBUpdates As Boolean = False
 	#tag EndProperty
 
 	#tag Property, Flags = &h0

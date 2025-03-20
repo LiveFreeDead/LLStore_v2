@@ -372,6 +372,7 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -428,6 +429,7 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -436,6 +438,7 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -1407,7 +1410,13 @@ End
 		    'If CurrentCat = "Favorites" Then Hidden = False 'Show all on Favs as they get hidden by the scan below
 		    
 		    If CurrentCat = "Games" Then
-		      If Data.Items.CellTextAt(I, ColBuildType) = "ppGame" Or Data.Items.CellTextAt(I, ColBuildType) = "LLGame" Then  Hidden = False
+		      Select Case Data.Items.CellTextAt(I, ColBuildType)
+		      Case"ppGame", "LLGame"
+		        Hidden = False
+		      Case Else
+		        If Data.Items.CellTextAt(I, Data.GetDBHeader("Categories")).IndexOf ("Game") >= 0 Then  Hidden = False ' Any App with a Game Category listed, should be shown in Games also
+		      End Select
+		      
 		    End If
 		    
 		    If CurrentCat = "Linux" Then
@@ -2068,7 +2077,7 @@ End
 		    Main.Height = PosHeight
 		  End If
 		  
-		  Main.Visible = True ' Show Main Form Again
+		  If StoreMode <> 99 Then Main.Visible = True ' Show Main Form Again
 		  
 		  If PosWidth <> 0 Then
 		    Main.Left = PosLeft
