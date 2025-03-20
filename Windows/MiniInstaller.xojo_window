@@ -169,6 +169,7 @@ Begin DesktopWindow MiniInstaller
       Width           =   56
    End
    Begin Thread InstallItems
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Priority        =   5
@@ -178,6 +179,7 @@ Begin DesktopWindow MiniInstaller
       Type            =   0
    End
    Begin Timer UpdateUI
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -747,6 +749,9 @@ End
 #tag Events UpdateUI
 	#tag Event
 		Sub Action()
+		  If StoreMode >= 1 Then Return
+		  If FirstRun = False Then Return ' Hasn't setup the main form, don't flash it up on the screen (because the counter will be => than items count every time
+		  
 		  If MiniInstaller.Visible = False Then QuitInstaller = True
 		  
 		  If MiniUpTo+1 > MiniInstaller.Items.RowCount Then 'Past the end of the installer

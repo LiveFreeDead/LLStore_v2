@@ -3134,6 +3134,13 @@ Protected Module LLMod
 		    ItemLLItem.LnkCount = LnkCount
 		  End If
 		  
+		  'Check if Category is set, else revert to Catalog, we need it sorted somehow
+		  If ItemLLItem.Categories = "" Then 
+		    If ItemLLItem.Catalog <> "" Then ItemLLItem.Categories = ItemLLItem.Catalog
+		  End If
+		  
+		  
+		  
 		  'Get Screenshots, Faders and Icons ***********************
 		  
 		  Dim MediaPath As String
@@ -7771,6 +7778,46 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue=""
 			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="PosHeight"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="PosLeft"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="PosTop"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="PosWidth"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="ScreenShotCounter"
+			Visible=false
+			Group="Behavior"
+			InitialValue="0"
+			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
