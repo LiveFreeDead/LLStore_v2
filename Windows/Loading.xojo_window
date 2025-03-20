@@ -2619,36 +2619,43 @@ End
 		  Dim WebWall As String
 		  Dim UN As String
 		  
-		  'Get UN Name (Universal Name)
-		  UN = UniversalName(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("TitleName"))+Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("BuildType")))
-		  
-		  If  Exist(Slash(RepositoryPathLocal)+".lldb/"+UN+".jpg") Then 'Screenshot
-		    WebWall = Slash(RepositoryPathLocal)+".lldb/"+UN+".jpg" 'Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("FileScreenshot"))
-		    If WebWall = "" Or Not Exist(WebWall) Then
-		      WebWall = Slash(ThemePath) + "Screenshot.jpg" 'Default Theme Wallpaper used if no other given (could do Category Screenshots here if wanted)
-		    End If
+		  Try
+		    'Get UN Name (Universal Name)
+		    UN = UniversalName(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("TitleName"))+Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("BuildType")))
 		    
-		    F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
-		    ScreenShotCurrent = Picture.Open(F)
-		    Main.ScaleScreenShot
-		  End If
-		  If Exist(Slash(RepositoryPathLocal)+".lldb/"+UN+".png") Then 'Fader
-		    WebWall = Slash(RepositoryPathLocal)+".lldb/"+UN+".png" 'Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("FileFader"))
-		    If WebWall = "" Or Not Exist(WebWall) Then
-		      WebWall = Slash(ThemePath) + "Icon.png" 'Default Theme Icon  used if no other given (could do Category Icons here if wanted)
+		    If  Exist(Slash(RepositoryPathLocal)+".lldb/"+UN+".jpg") Then 'Screenshot
+		      WebWall = Slash(RepositoryPathLocal)+".lldb/"+UN+".jpg" 'Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("FileScreenshot"))
+		      If WebWall = "" Or Not Exist(WebWall) Then
+		        WebWall = Slash(ThemePath) + "Screenshot.jpg" 'Default Theme Wallpaper used if no other given (could do Category Screenshots here if wanted)
+		      End If
+		      
+		      F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
+		      ScreenShotCurrent = Picture.Open(F)
+		      Main.ScaleScreenShot
 		    End If
-		    F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
-		    CurrentFader = Picture.Open(F)
-		    
-		    'Clone From Wallpaper to Icon BG
-		    If Main.ItemFaderPic.Backdrop <> Nil And Main.Backdrop <> Nil Then ' Only do if Valid
-		      Main.ItemFaderPic.Backdrop.Graphics.DrawPicture(Main.Backdrop,0,0,Main.ItemFaderPic.Width, Main.ItemFaderPic.Height, Main.ItemFaderPic.Left, Main.ItemFaderPic.Top, Main.ItemFaderPic.Width, Main.ItemFaderPic.Height)
-		      'Draw Fader Icon on BG
-		      Main.ItemFaderPic.Backdrop.Graphics.DrawPicture(CurrentFader,0,0,Main.ItemFaderPic.Width, Main.ItemFaderPic.Height,0,0,CurrentFader.Width, CurrentFader.Height)
-		      Main.ItemFaderPic.Refresh
+		  Catch
+		  End Try
+		  Try
+		    If Exist(Slash(RepositoryPathLocal)+".lldb/"+UN+".png") Then 'Fader
+		      WebWall = Slash(RepositoryPathLocal)+".lldb/"+UN+".png" 'Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("FileFader"))
+		      If WebWall = "" Or Not Exist(WebWall) Then
+		        WebWall = Slash(ThemePath) + "Icon.png" 'Default Theme Icon  used if no other given (could do Category Icons here if wanted)
+		      End If
+		      F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
+		      CurrentFader = Picture.Open(F)
+		      
+		      'Clone From Wallpaper to Icon BG
+		      If CurrentFader <> Nil Then
+		        If Main.ItemFaderPic.Backdrop <> Nil And Main.Backdrop <> Nil Then ' Only do if Valid
+		          Main.ItemFaderPic.Backdrop.Graphics.DrawPicture(Main.Backdrop,0,0,Main.ItemFaderPic.Width, Main.ItemFaderPic.Height, Main.ItemFaderPic.Left, Main.ItemFaderPic.Top, Main.ItemFaderPic.Width, Main.ItemFaderPic.Height)
+		          'Draw Fader Icon on BG
+		          Main.ItemFaderPic.Backdrop.Graphics.DrawPicture(CurrentFader,0,0,Main.ItemFaderPic.Width, Main.ItemFaderPic.Height,0,0,CurrentFader.Width, CurrentFader.Height)
+		          Main.ItemFaderPic.Refresh
+		        End If
+		      End If
 		    End If
-		  End If
-		  
+		  Catch
+		  End Try
 		End Sub
 	#tag EndMethod
 
