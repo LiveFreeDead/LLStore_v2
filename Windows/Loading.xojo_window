@@ -25,7 +25,6 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,7 +65,6 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -75,7 +73,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -84,7 +81,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -3982,7 +3978,8 @@ End
 		            Loading.Hide
 		            Notify ("LLStore Installing Menu Style", "Installing Menu Style: "+CommandLineFile, "", -1) 'Mini Installer can't call this and wouldn't want to.
 		            ControlPanel.ComboMenuStyle.Text = CommandLineFile
-		            ControlPanel.SetPressed() ' Do the Task
+		            If ControlPanel.SetPressed() Then' Do the Task
+		            End If
 		            Exit
 		          End If
 		        Next

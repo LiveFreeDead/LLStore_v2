@@ -172,6 +172,10 @@ End
 	#tag Event
 		Sub Opening()
 		  ButtonInstallLLStore.Visible = True
+		  
+		  'Center Form
+		  Tools.Left = (screen(0).AvailableWidth - Tools.Width) / 2
+		  Tools.top = (screen(0).AvailableHeight - Tools.Height) / 2
 		End Sub
 	#tag EndEvent
 

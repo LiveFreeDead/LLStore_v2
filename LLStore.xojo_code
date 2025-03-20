@@ -3,7 +3,12 @@ Protected Class LLStore
 Inherits DesktopApplication
 	#tag Event
 		Sub Closing()
-		  If mMutex <> Nil Then mMutex.Leave
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    If mMutex <> Nil Then mMutex.Leave
+		  Catch
+		  End Try
+		  #Pragma BreakOnExceptions On
 		  Debug("-- LLStore Closed")
 		End Sub
 	#tag EndEvent

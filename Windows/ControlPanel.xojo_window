@@ -1,11 +1,11 @@
 #tag DesktopWindow
 Begin DesktopWindow ControlPanel
    Backdrop        =   0
-   BackgroundColor =   &c00000000
+   BackgroundColor =   &cFFFFFF00
    Composite       =   False
    DefaultLocation =   2
    FullScreen      =   False
-   HasBackgroundColor=   True
+   HasBackgroundColor=   False
    HasCloseButton  =   True
    HasFullScreenButton=   False
    HasMaximizeButton=   False
@@ -753,6 +753,69 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub DisableButtons()
+		  Try
+		    
+		    'Disable them until done
+		    ButtonSetMenuStyle.Enabled = False
+		    ComboMenuStyle.Enabled = False
+		    CheckCleanUp.Enabled = False
+		    CheckRegenerate.Enabled = False
+		    
+		    ComboppAppDrive.Enabled = False
+		    ComboppGameDrive.Enabled = False
+		    ButtonSetppDrives.Enabled = False
+		    ButtonRefreshppDrives.Enabled = False
+		    
+		    ButtonRegenerateItems.Enabled = False
+		    
+		  Catch
+		  End Try
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub EnableButtons()
+		  'Enable Them Again
+		  Try
+		    
+		    If TargetWindows  Then
+		      ButtonSetMenuStyle.Enabled = True
+		      ComboMenuStyle.Enabled = True
+		      CheckCleanUp.Enabled = True
+		      CheckRegenerate.Enabled = True
+		      ButtonSetLinuxMenuSorting.Enabled = False
+		      ButtonCleanDudLinuxMenuItems.Enabled = False
+		      
+		      ComboppAppDrive.Enabled = True
+		      ComboppGameDrive.Enabled = True
+		      ButtonSetppDrives.Enabled = True
+		      ButtonRefreshppDrives.Enabled = True
+		      
+		    Else 'Running in Linux
+		      ButtonSetLinuxMenuSorting.Enabled = True
+		      ButtonCleanDudLinuxMenuItems.Enabled = True
+		      
+		      ButtonSetMenuStyle.Enabled = False
+		      ComboMenuStyle.Enabled = False
+		      CheckCleanUp.Enabled = False
+		      CheckRegenerate.Enabled = False
+		      
+		      ComboppAppDrive.Enabled = False
+		      ComboppGameDrive.Enabled = False
+		      ButtonSetppDrives.Enabled = False
+		      ButtonRefreshppDrives.Enabled = False
+		      
+		    End If
+		    
+		    ButtonRegenerateItems.Enabled = True
+		    
+		  Catch
+		  End Try
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function ExpDefaults(Data As String) As String
 		  Dim StartPath As String
 		  
@@ -797,16 +860,12 @@ End
 		  ComboppAppDrive.Text = "C:"
 		  ComboppGameDrive.Text = "C:"
 		  
+		  'Center Form
+		  ControlPanel.Left = (screen(0).AvailableWidth - ControlPanel.Width) / 2
+		  ControlPanel.top = (screen(0).AvailableHeight - ControlPanel.Height) / 2
 		  
-		  If Not TargetWindows Then 'Disable it all for Linux for now
-		    ButtonSetMenuStyle.Enabled = False
-		    ComboMenuStyle.Enabled = False
-		    CheckCleanUp.Enabled = False
-		    CheckRegenerate.Enabled = False
-		  Else 'Running in Windows
-		    ButtonSetLinuxMenuSorting.Enabled = False
-		    ButtonCleanDudLinuxMenuItems.Enabled = False
-		  End If
+		  'Enable Valid Buttons
+		  EnableButtons()
 		  
 		  ComboMenuStyle.RemoveAllRows
 		  ComboMenuStyle.AddRow("UnSorted")
@@ -859,12 +918,7 @@ End
 		  ComboMenuStyle.Text = MenuStyle
 		  
 		  'List Drives available to use as ppDrives
-		  If TargetLinux Then 'Disable this for Linux
-		    ComboppAppDrive.Enabled = False
-		    ComboppGameDrive.Enabled = False
-		    ButtonSetppDrives.Enabled = False
-		    ButtonRefreshppDrives.Enabled = False
-		  Else 'Windows
+		  If TargetWindows Then 'Disable this for Linux
 		    RefreshppDrives()
 		  End If
 		  
@@ -918,14 +972,8 @@ End
 		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
 		  Sh.TimeOut =  -1
 		  
-		  If TargetLinux Then
-		    ButtonSetMenuStyle.Enabled = False
-		    ComboMenuStyle.Enabled = False
-		    CheckCleanUp.Enabled = False
-		  End If
-		  
-		  CheckRegenerate.Enabled = False
-		  ButtonRegenerateItems.Enabled = False
+		  'Disable Buttons
+		  DisableButtons()
 		  
 		  If TargetWindows Then
 		    
@@ -1106,17 +1154,8 @@ End
 		    End If
 		  End If
 		  
-		  'Enabler Them Again
-		  If TargetLinux Then
-		    ButtonSetMenuStyle.Enabled = True
-		    ComboMenuStyle.Enabled = True
-		    CheckCleanUp.Enabled = True
-		    
-		  End If
-		  
-		  ButtonRegenerateItems.Enabled = True
-		  CheckRegenerate.Enabled = True
-		  
+		  'Enable Them Again
+		  EnableButtons()
 		  
 		  #Pragma BreakOnExceptions On
 		  
@@ -1234,14 +1273,18 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub SetPressed()
-		  'Disable them until done
-		  ButtonSetMenuStyle.Enabled = False
-		  ComboMenuStyle.Enabled = False
-		  CheckCleanUp.Enabled = False
+		Function SetPressed() As Boolean
+		  'Don't allow clicking it again until it's done
+		  DisableButtons()
 		  
-		  CheckRegenerate.Enabled = False
-		  ButtonRegenerateItems.Enabled = False
+		  If TargetLinux Then
+		    MsgBox "Get out of here!"
+		    
+		    'Enable Them Again
+		    EnableButtons()
+		    
+		    Return False
+		  End If
 		  
 		  
 		  Dim I As Integer
@@ -1324,7 +1367,7 @@ End
 		          SetMenuStyle.Text = MenuStyle 'Update GUI to how new menu style
 		        Else
 		          MsgBox ComboMenuStyle.Text+" not available to use as Menu"
-		          Return
+		          Return True
 		        End If
 		      End If
 		    End If
@@ -1499,12 +1542,7 @@ End
 		  End If
 		  
 		  'Enable Them Again
-		  ButtonSetMenuStyle.Enabled = True
-		  ComboMenuStyle.Enabled = True
-		  CheckCleanUp.Enabled = True
-		  
-		  CheckRegenerate.Enabled = True
-		  ButtonRegenerateItems.Enabled = True
+		  EnableButtons()
 		  
 		  If Loading.SortMenuStyle = False Then ' Only show if not called from command line
 		    If CheckRegenerate.Value = False Then ' Don't show message box 1/2 way through the task and make it wait!
@@ -1515,7 +1553,9 @@ End
 		      End If
 		    End If
 		  End If
-		End Sub
+		  
+		  Return True
+		End Function
 	#tag EndMethod
 
 
@@ -1524,8 +1564,9 @@ End
 #tag Events ButtonSetMenuStyle
 	#tag Event
 		Sub Pressed()
-		  SetPressed()
-		  If CheckRegenerate.Value = True Then RegenerateItems() 'Do this when pressing button and check enabled
+		  If SetPressed() = True Then ' Only do if valid results
+		    If CheckRegenerate.Value = True Then RegenerateItems() 'Do this when pressing button and check enabled
+		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents
