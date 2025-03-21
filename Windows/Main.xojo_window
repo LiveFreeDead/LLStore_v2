@@ -372,7 +372,6 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -429,7 +428,6 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -438,7 +436,6 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -2446,6 +2443,10 @@ End
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		RowHeights As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		SelectsCount As Integer
 	#tag EndProperty
 
@@ -2575,6 +2576,7 @@ End
 		  'g.FillRectangle(0,0,g.Width, g.Height)
 		  
 		  'Draw Wallpaper (Transparent)
+		  RowHeights = me.RowHeight
 		  g.DrawPicture ScaledWallpaper, -Items.Left, (-Items.Top)-(row*me.RowHeight) +(Me.ScrollPosition*me.RowHeight)
 		  
 		  'Get Item
@@ -2630,6 +2632,8 @@ End
 		  End Try
 		  '#Pragma BreakOnExceptions On
 		  
+		  'ItemsLabel.Text = X.ToString
+		  
 		  If CLI >= 0 Then
 		    CurrentItemID = CLI
 		    ChangeItem(CLI)
@@ -2638,6 +2642,20 @@ End
 		  End If
 		  
 		  MultiOldItem = Row
+		  
+		  If X < RowHeights Then
+		    If StoreMode = 0 Then 'Select items to install
+		      If IsTrue(Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("Selected"))) Then
+		        Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("Selected")) = "F"
+		      Else
+		        Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("Selected")) = "T"
+		      End If
+		      
+		      Items.Refresh 'Force Redraw
+		      
+		      UpdateStats 'Recount
+		    End If
+		  End If
 		  
 		End Function
 	#tag EndEvent

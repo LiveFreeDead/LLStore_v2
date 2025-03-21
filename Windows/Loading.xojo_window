@@ -88,6 +88,14 @@ Begin DesktopWindow Loading
       Scope           =   0
       TabPanelIndex   =   0
    End
+   Begin Timer DownloadScreenAndIcon
+      Index           =   -2147483648
+      LockedInPosition=   False
+      Period          =   100
+      RunMode         =   0
+      Scope           =   0
+      TabPanelIndex   =   0
+   End
 End
 #tag EndDesktopWindow
 
@@ -414,6 +422,52 @@ End
 		      Data.ScanPaths.AddRow(FixPath(F.NativePath))
 		      If Debugging Then Debug("Adding Item Path: "+ FixPath(F.NativePath))
 		    End If
+		  Catch
+		  End Try
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub DownScreen()
+		  'Dim Down As Boolean
+		  'Download the Screenshot and Stuff all at once in the background
+		  
+		  Var socket As New URLConnection
+		  
+		  'Var http As New URLConnection
+		  'Dim Heads As String
+		  
+		  Var F as FolderItem = GetFolderItem(DownloadScreenshotLocal, FolderItem.PathTypeNative)
+		  
+		  ''Make sure file exists or just skip
+		  '#Pragma BreakOnExceptions Off
+		  'Try
+		  'http.Send("HEAD", DownloadScreenshot) ' Timeout of 1 second
+		  ''MessageBox("URL exists!")
+		  'While http.HTTPStatusCode = 0
+		  'App.DoEvents(1)
+		  'Wend
+		  'Down = True
+		  'Catch e As NetworkException
+		  ''MessageBox("URL does not exist: " + e.Message)
+		  'Down = False
+		  'End Try
+		  '#Pragma BreakOnExceptions On
+		  
+		  
+		  Try
+		    'If Down = True Then
+		    socket.Send("GET", DownloadScreenshot, F, 30)
+		    
+		    PubSock = socket
+		    TimerCounts = 0 'Reset counter, needs 10 counts to display the screenshot
+		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Multiple
+		    'While socket.HTTPStatusCode = 0
+		    'Main.ItemsLabel.Text = socket.HTTPStatusCode.ToString
+		    'App.DoEvents(100)
+		    'Wend
+		    'ShowDownloadImages ' Show whats available
+		    'End If
 		  Catch
 		  End Try
 		End Sub
@@ -2661,11 +2715,31 @@ End
 
 
 	#tag Property, Flags = &h0
+		DownloadScreenshot As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		DownloadScreenshotLocal As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		DownScreen As Shell
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		PubSock As URLConnection
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		Regenerate As Boolean
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
 		SortMenuStyle As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		TimerCounts As Integer
 	#tag EndProperty
 
 
@@ -3059,6 +3133,17 @@ End
 		    'Get Weblinks and substitute URL's if found
 		    GetURL = QueueURL(QueueUpTo)
 		    
+		    'Use Inbuilt Downloader to get Screenshot all at the same damn time
+		    If Right(GetURL, 4) = ".jpg" Or Right(GetURL, 4) = ".png" Then
+		      DownloadScreenshot = GetURL
+		      DownloadScreenshotLocal = QueueLocal(QueueUpTo)
+		      DownScreen()'Use a new call every time
+		      QueueUpTo = QueueUpTo + 1
+		      Continue ' Loop back to the next item
+		    End If
+		    
+		    
+		    
 		    'Add Weblinks back in to get from there instead of the repo's
 		    If WebLinksCount >= 1 Then
 		      For I = 0 To WebLinksCount - 1
@@ -3106,7 +3191,7 @@ End
 		        DownloadPercentage = "" 'Clear Percentage
 		        
 		        While Not Exist(Slash(RepositoryPathLocal) + "DownloadDone")
-		          App.DoEvents(1)
+		          App.DoEvents(10)
 		          If ForceQuit Then
 		            DownloadShell.Close
 		            If TargetWindows Then
@@ -3163,7 +3248,7 @@ End
 		            'MiniInstaller.Stats.Text = "Downloading "+ DownloadPercentage
 		            If CheckingForUpdates = True Then Loading.Status.Text = "Check For Store Updates: "+DownloadPercentage
 		            If CheckingForDatabases = True Then
-		               If ForceNoOnlineDBUpdates = True Then
+		              If ForceNoOnlineDBUpdates = True Then
 		                Loading.Status.Text = "Using Offline Databases..."
 		              Else
 		                Loading.Status.Text = "Downloading Online Databases: "+DownloadPercentage
@@ -3215,6 +3300,7 @@ End
 		      End If
 		    End If    
 		    QueueUpTo = QueueUpTo + 1
+		    App.DoEvents(10)
 		  Wend
 		  QueueUpTo = 0
 		  QueueCount = 0
@@ -3304,6 +3390,7 @@ End
 		  '
 		  'MyLink = GetShortcut("C:\Users\Public\Desktop\LL Store.lnk")
 		  'MsgBox MyLink.TargetPath
+		  
 		  'Quit
 		  
 		  'Sudo Shell Loop waits forever to run Sudo Tasks without needing to type password constantly
@@ -4099,6 +4186,28 @@ End
 		End Sub
 	#tag EndEvent
 #tag EndEvents
+#tag Events DownloadScreenAndIcon
+	#tag Event
+		Sub Action()
+		  If TimerCounts > 26 Then ' Just over 2 1/2 seconds since last item clicked?
+		    TimerCounts = 0
+		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Off
+		    ShowDownloadImages ' Show whats available
+		  Else
+		    TimerCounts = TimerCounts + 1
+		  End If
+		  
+		  
+		  'If PubSock.HTTPStatusCode = 0 Then
+		  'DownloadScreenAndIcon.RunMode = Timer.RunModes.Single
+		  'Else 'Has a result
+		  'If PubSock.HTTPStatusCode = 200 Then
+		  'ShowDownloadImages ' Show whats available
+		  'End If
+		  'End If
+		End Sub
+	#tag EndEvent
+#tag EndEvents
 #tag ViewBehavior
 	#tag ViewProperty
 		Name="Name"
@@ -4350,5 +4459,21 @@ End
 		InitialValue=""
 		Type="Boolean"
 		EditorType=""
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="DownloadScreenshot"
+		Visible=false
+		Group="Behavior"
+		InitialValue=""
+		Type="String"
+		EditorType="MultiLineEditor"
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="DownloadScreenshotLocal"
+		Visible=false
+		Group="Behavior"
+		InitialValue=""
+		Type="String"
+		EditorType="MultiLineEditor"
 	#tag EndViewProperty
 #tag EndViewBehavior
