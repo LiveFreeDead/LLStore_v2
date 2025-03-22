@@ -3523,6 +3523,8 @@ Protected Module LLMod
 		  Dim GameCatFound As Boolean
 		  Dim GameCat As String
 		  
+		  Dim FoundNewCat As Boolean
+		  
 		  Dim Sh As New Shell
 		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
 		  
@@ -3891,6 +3893,7 @@ Protected Module LLMod
 		          
 		          
 		          For J = 0 To CatalogCount
+		            'If Debugging Then Debug ("Checking Catalog: "+Catalog(J))
 		            Catalog(J) = Catalog(J).Trim
 		            GameCat = "Game " + Catalog(J) 'This is how games get detected
 		            If Catalog(J) = "ppGame" Then Catalog(J) = "Game" 'Some of my older items have ppGame instead of Game, this fixes that
@@ -3899,6 +3902,22 @@ Protected Module LLMod
 		              
 		              'Trying to use proper Catalog converted in Windows
 		              If StartMenuUsed >=0 Then '*************************************************** StartMenu Used ************************************
+		                FoundNewCat = False
+		                For K = 0 To StartMenuLocationsCount(StartMenuUsed) ' Quickly rush through and make sure the category we are testing exist (only needs one), else set it to Other below
+		                  If Catalog(J) = StartMenuLocations(K, StartMenuUsed).Catalog Or GameCat = StartMenuLocations(K, StartMenuUsed).Catalog Then 'Or GameCatFound = True <-No longer needed
+		                    'If Debugging Then Debug ("Found New Catalog: "+ Catalog(J)+"=>"+ StartMenuLocations(K, StartMenuUsed).Path)
+		                    FoundNewCat = True
+		                    Exit
+		                  End If
+		                Next
+		                If FoundNewCat = False Then 'Put in Other Category
+		                  If ItemLLItem.BuildType = "ppGame" Then 'The lines below fixed the Game Categories
+		                    Catalog(J) = "Game Other"
+		                  Else ' App
+		                    Catalog(J) = "Other"
+		                  End If
+		                End If
+		                
 		                For K = 0 To StartMenuLocationsCount(StartMenuUsed)
 		                  If ItemLLItem.BuildType = "ppGame" Then 'The lines below fixed the Game Categories
 		                    If GameCat = StartMenuLocations(K, StartMenuUsed).Catalog Then Catalog(J) = GameCat 'This will ensure the correct Category is used for ppGames
@@ -3906,7 +3925,6 @@ Protected Module LLMod
 		                  
 		                  If Catalog(J) = StartMenuLocations(K, StartMenuUsed).Catalog Then 'Or GameCatFound = True <-No longer needed
 		                    If Debugging Then Debug ("Found New Catalog: "+ Catalog(J)+"=>"+ StartMenuLocations(K, StartMenuUsed).Path)
-		                    
 		                    'If Debugging Then Debug ("Not First Item ~~~ Checkpoint")
 		                    
 		                    LinkOutPath = StartPath+StartMenuLocations(K, StartMenuUsed).Path 'StartPath is where Writable
@@ -3942,6 +3960,7 @@ Protected Module LLMod
 		                    End If
 		                    Continue 'Use Continue not exit so it jumps out of a loop, it was quitting the whole routine
 		                  End If
+		                  
 		                Next K
 		              Else '*************************************************** No StartMenu Style used ************************************************
 		                If Debugging Then Debug ("No Menu Sorting Set ~~~ Doing Unsorted")
@@ -7835,6 +7854,14 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue="0"
 			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="ForceNoOnlineDBUpdates"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
