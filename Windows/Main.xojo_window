@@ -10,6 +10,7 @@ Begin DesktopWindow Main
    HasFullScreenButton=   False
    HasMaximizeButton=   True
    HasMinimizeButton=   True
+   HasTitleBar     =   True
    Height          =   720
    ImplicitInstance=   True
    MacProcID       =   0
@@ -372,6 +373,7 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -428,6 +430,7 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -436,6 +439,7 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -931,7 +935,7 @@ End
 		  If TargetLinux Then Description.Text = Description.Text + Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)+ Chr(13)
 		  
 		  Dim InstSize As Double
-		  Dim License, Installed, InstSizeText, Categories, IsOnline As String
+		  Dim License, Installed, InstSizeText, Categories, IsOnlineCheck As String
 		  License = "Unknown" '0
 		  If Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("License")) = "1" Then License = "Paid"
 		  If Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("License")) = "2" Then License = "Free"
@@ -956,8 +960,8 @@ End
 		  
 		  'If InstSize > 0 Then
 		  
-		  IsOnline = "No"
-		  If Left(Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("PathIni")), 2) = "ht" Then IsOnline = "Yes"
+		  IsOnlineCheck = "No"
+		  If Left(Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("PathIni")), 2) = "ht" Then IsOnlineCheck = "Yes"
 		  
 		  'Meta Data
 		  MetaData.RemoveAllRows
@@ -966,7 +970,7 @@ End
 		  MetaData.AddRow ("License:   " + Chr(9) + License)
 		  MetaData.AddRow ("Installed:   " + Chr(9) + Installed)
 		  MetaData.AddRow ("Size:            " + Chr(9) + InstSizeText)
-		  MetaData.AddRow ("Online:      " + Chr(9) + IsOnline)
+		  MetaData.AddRow ("Online:      " + Chr(9) + IsOnlineCheck)
 		  
 		  
 		End Sub
@@ -3123,6 +3127,14 @@ End
 #tag EndEvents
 #tag ViewBehavior
 	#tag ViewProperty
+		Name="HasTitleBar"
+		Visible=true
+		Group="Frame"
+		InitialValue="True"
+		Type="Boolean"
+		EditorType=""
+	#tag EndViewProperty
+	#tag ViewProperty
 		Name="Name"
 		Visible=true
 		Group="ID"
@@ -3527,6 +3539,14 @@ End
 	#tag EndViewProperty
 	#tag ViewProperty
 		Name="MultiNewItem"
+		Visible=false
+		Group="Behavior"
+		InitialValue=""
+		Type="Integer"
+		EditorType=""
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="RowHeights"
 		Visible=false
 		Group="Behavior"
 		InitialValue=""

@@ -10,6 +10,7 @@ Begin DesktopWindow Loading
    HasFullScreenButton=   False
    HasMaximizeButton=   False
    HasMinimizeButton=   False
+   HasTitleBar     =   True
    Height          =   200
    ImplicitInstance=   True
    MacProcID       =   0
@@ -25,6 +26,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -65,6 +67,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -73,6 +76,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -81,6 +85,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -89,6 +94,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -126,6 +132,50 @@ End
 		End Sub
 	#tag EndEvent
 
+
+	#tag Method, Flags = &h0
+		Sub AreWeOnline()
+		  'Check if Online
+		  IsOnline = True
+		  'ShellFast.Execute("curl -fsS http://google.com > /dev/null" )
+		  Dim Test As String
+		  'If TargetWindows Then
+		  ShellFast.Execute("curl --head --silent --fail " + Chr(34) + "http://www.google.com" + Chr(34))
+		  'Else
+		  'ShellFast.Execute("curl --head --silent " + Chr(34) + "http://www.google.com" + Chr(34)) '+" > /dev/null")
+		  'End If
+		  Test = Left(ShellFast.Result.Trim, 30)
+		  'MsgBox Test
+		  If Test.IndexOf("200 ") >=0 Then
+		    'MsgBox ("Online")
+		    IsOnline = True
+		  ElseIf Test.IndexOf("201 ") >=0 Then
+		    'MsgBox ("Online")
+		    IsOnline = True
+		  ElseIf Test.IndexOf("202 ") >=0 Then
+		    'MsgBox ("Online")
+		    IsOnline = True
+		  ElseIf Test.IndexOf("203 ") >=0 Then
+		    'MsgBox ("Online")
+		    IsOnline = True
+		  ElseIf Test.IndexOf("204 ") >=0 Then
+		    'MsgBox ("Online")
+		    IsOnline = True
+		  ElseIf Test.IndexOf("205 ") >=0 Then
+		    'MsgBox ("Online")
+		    IsOnline = True
+		  ElseIf Test.IndexOf("206 ") >=0 Then
+		    'MsgBox ("Online")
+		    IsOnline = True
+		  Else
+		    'MsgBox ("Offline")
+		    IsOnline = False
+		  End If
+		  'If  ShellFast.Result.Trim <> "" Then IsOnline = False
+		  'If Test.Trim = "" Then IsOnline = False
+		  
+		End Sub
+	#tag EndMethod
 
 	#tag Method, Flags = &h0
 		Sub CheckCompatible()
@@ -193,9 +243,7 @@ End
 		  ForceQuit = False ' Need to do this if using downloader as that aborts if it's set
 		  
 		  'Check if Online
-		  IsOnline = True
-		  ShellFast.Execute("curl -fsS http://google.com > /dev/null")
-		  If  ShellFast.Result.Trim <> "" Then IsOnline = False
+		  AreWeOnline()
 		  
 		  If IsOnline = False Then
 		    If ForceFullUpdate = True Or ForceExeUpdate = True Then
@@ -212,6 +260,8 @@ End
 		  'Cleanup Updated Store
 		  If Exist(Slash(AppPath)+"llstoreold") Then Deltree Slash(AppPath)+"llstoreold"
 		  If Exist(Slash(AppPath)+"llstoreold.exe") Then Deltree Slash(AppPath)+"llstoreold.exe"
+		  
+		  If Exist(Slash(AppPath)+"XojoGUIFramework64old.dll") Then Deltree Slash(AppPath)+"XojoGUIFramework64old.dll"
 		  
 		  'Check Version
 		  If App.MajorVersion = 1 Then
@@ -280,6 +330,8 @@ End
 		      'Do Windows .exe
 		      If Exist(Slash(TmpPath)+"llstore_latest.zip") Then
 		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"llstore.exe"+Chr(34) + " "+"llstoreold.exe") 'Rename
+		        
+		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"XojoGUIFramework64.dll"+Chr(34) + " "+"XojoGUIFramework64old.dll") 'Rename file that wont overwrite
 		        
 		        'Extract full package here now I've renamed the main executable that is in use (Libraries may still crash things, we'll see)
 		        Success = Extract(Slash(TmpPath)+"llstore_latest.zip",AppPath, "")
@@ -3915,43 +3967,8 @@ End
 		  End If
 		  
 		  'Check if Online
-		  IsOnline = True
-		  'ShellFast.Execute("curl -fsS http://google.com > /dev/null" )
-		  Dim Test As String
-		  'If TargetWindows Then
-		  ShellFast.Execute("curl --head --silent --fail " + Chr(34) + "http://www.google.com" + Chr(34))
-		  'Else
-		  'ShellFast.Execute("curl --head --silent " + Chr(34) + "http://www.google.com" + Chr(34)) '+" > /dev/null")
-		  'End If
-		  Test = Left(ShellFast.Result.Trim, 30)
-		  'MsgBox Test
-		  If Test.IndexOf("200 ") >=0 Then
-		    'MsgBox ("Online")
-		    IsOnline = True
-		  ElseIf Test.IndexOf("201 ") >=0 Then
-		    'MsgBox ("Online")
-		    IsOnline = True
-		  ElseIf Test.IndexOf("202 ") >=0 Then
-		    'MsgBox ("Online")
-		    IsOnline = True
-		  ElseIf Test.IndexOf("203 ") >=0 Then
-		    'MsgBox ("Online")
-		    IsOnline = True
-		  ElseIf Test.IndexOf("204 ") >=0 Then
-		    'MsgBox ("Online")
-		    IsOnline = True
-		  ElseIf Test.IndexOf("205 ") >=0 Then
-		    'MsgBox ("Online")
-		    IsOnline = True
-		  ElseIf Test.IndexOf("206 ") >=0 Then
-		    'MsgBox ("Online")
-		    IsOnline = True
-		  Else
-		    'MsgBox ("Offline")
-		    IsOnline = False
-		  End If
-		  'If  ShellFast.Result.Trim <> "" Then IsOnline = False
-		  'If Test.Trim = "" Then IsOnline = False
+		  AreWeOnline()
+		  
 		  
 		  If Debugging Then Debug("--- Debugging Starts Here ---")
 		  If Debugging Then Debug("Store Mode: "+StoreMode.ToString)
@@ -4209,6 +4226,14 @@ End
 	#tag EndEvent
 #tag EndEvents
 #tag ViewBehavior
+	#tag ViewProperty
+		Name="HasTitleBar"
+		Visible=true
+		Group="Frame"
+		InitialValue="True"
+		Type="Boolean"
+		EditorType=""
+	#tag EndViewProperty
 	#tag ViewProperty
 		Name="Name"
 		Visible=true
@@ -4475,5 +4500,13 @@ End
 		InitialValue=""
 		Type="String"
 		EditorType="MultiLineEditor"
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="TimerCounts"
+		Visible=false
+		Group="Behavior"
+		InitialValue=""
+		Type="Integer"
+		EditorType=""
 	#tag EndViewProperty
 #tag EndViewBehavior
