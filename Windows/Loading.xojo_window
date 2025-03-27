@@ -263,6 +263,18 @@ End
 		  
 		  If Exist(Slash(AppPath)+"XojoGUIFramework64old.dll") Then Deltree Slash(AppPath)+"XojoGUIFramework64old.dll"
 		  
+		  If Exist(Slash(AppPath)+"icudt73old.dll") Then Deltree Slash(AppPath)+"icudt73old.dll"
+		  If Exist(Slash(AppPath)+"icuin73old.dll") Then Deltree Slash(AppPath)+"icuin73old.dll"
+		  If Exist(Slash(AppPath)+"icuuc73old.dll") Then Deltree Slash(AppPath)+"icuuc73old.dll"
+		  If Exist(Slash(AppPath)+"msvcr120old.dll") Then Deltree Slash(AppPath)+"msvcr120old.dll"
+		  If Exist(Slash(AppPath)+"prntvptold.dll") Then Deltree Slash(AppPath)+"prntvptold.dll"
+		  If Exist(Slash(AppPath)+"vcruntime140old.dll") Then Deltree Slash(AppPath)+"vcruntime140old.dll"
+		  If Exist(Slash(AppPath)+"vcruntime140_1old.dll") Then Deltree Slash(AppPath)+"vcruntime140_1old.dll"
+		  If Exist(Slash(AppPath)+"llstore Libs\Cryptox64old.dll") Then Deltree Slash(AppPath)+"llstore Libs\Cryptox64old.dll"
+		  If Exist(Slash(AppPath)+"llstore Libs\GZipx64old.dll") Then Deltree Slash(AppPath)+"llstore Libs\GZipx64old.dll"
+		  If Exist(Slash(AppPath)+"llstore Libs\Internet Encodingsx64old.dll") Then Deltree Slash(AppPath)+"llstore Libs\Internet Encodingsx64old.dll"
+		  If Exist(Slash(AppPath)+"LLStore\llstore Libs\Shellx64old.dll") Then Deltree Slash(AppPath)+"LLStore\llstore Libs\Shellx64old.dll"
+		  
 		  'Check Version
 		  If App.MajorVersion = 1 Then
 		    GetOnlineFile ("https://github.com/LiveFreeDead/LLStore/raw/refs/heads/main/version.ini",Slash(TmpPath)+"version.ini")
@@ -332,6 +344,23 @@ End
 		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"llstore.exe"+Chr(34) + " "+"llstoreold.exe") 'Rename
 		        
 		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"XojoGUIFramework64.dll"+Chr(34) + " "+"XojoGUIFramework64old.dll") 'Rename file that wont overwrite
+		        
+		        
+		        
+		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"icudt73.dll"+Chr(34) + " "+"icudt73old.dll") 'Rename file that wont overwrite
+		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"icuin73.dll"+Chr(34) + " "+"icuin73old.dll") 'Rename file that wont overwrite
+		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"icuuc73.dll"+Chr(34) + " "+"icuuc73old.dll") 'Rename file that wont overwrite
+		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"llstore Libs\Cryptox64.dll"+Chr(34) + " "+"Cryptox64old.dll") 'Rename file that wont overwrite
+		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"llstore Libs\GZipx64.dll"+Chr(34) + " "+"GZipx64old.dll") 'Rename file that wont overwrite
+		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"llstore Libs\Internet Encodingsx64.dll"+Chr(34) + " "+"Internet Encodingsx64old.dll") 'Rename file that wont overwrite
+		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"llstore Libs\Shellx64.dll"+Chr(34) + " "+"Shellx64old.dll") 'Rename file that wont overwrite
+		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"msvcr120.dll"+Chr(34) + " "+"msvcr120old.dll") 'Rename file that wont overwrite
+		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"prntvpt.dll"+Chr(34) + " "+"prntvptold.dll") 'Rename file that wont overwrite
+		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"vcruntime140.dll"+Chr(34) + " "+"vcruntime140old.dll") 'Rename file that wont overwrite
+		        ShellFast.Execute ("ren "+Chr(34)+Slash(AppPath).ReplaceAll("/","\")+"vcruntime140_1.dll"+Chr(34) + " "+"vcruntime140_1old.dll") 'Rename file that wont overwrite
+		        
+		        
+		        
 		        
 		        'Extract full package here now I've renamed the main executable that is in use (Libraries may still crash things, we'll see)
 		        Success = Extract(Slash(TmpPath)+"llstore_latest.zip",AppPath, "")
