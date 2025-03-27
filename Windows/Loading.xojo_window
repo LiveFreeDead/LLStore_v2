@@ -26,7 +26,6 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -67,7 +66,6 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -76,7 +74,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -85,7 +82,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -94,7 +90,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -258,22 +253,20 @@ End
 		  Dim F As FolderItem
 		  
 		  'Cleanup Updated Store
-		  If Exist(Slash(AppPath)+"llstoreold") Then Deltree Slash(AppPath)+"llstoreold"
-		  If Exist(Slash(AppPath)+"llstoreold.exe") Then Deltree Slash(AppPath)+"llstoreold.exe"
-		  
-		  If Exist(Slash(AppPath)+"XojoGUIFramework64old.dll") Then Deltree Slash(AppPath)+"XojoGUIFramework64old.dll"
-		  
-		  If Exist(Slash(AppPath)+"icudt73old.dll") Then Deltree Slash(AppPath)+"icudt73old.dll"
-		  If Exist(Slash(AppPath)+"icuin73old.dll") Then Deltree Slash(AppPath)+"icuin73old.dll"
-		  If Exist(Slash(AppPath)+"icuuc73old.dll") Then Deltree Slash(AppPath)+"icuuc73old.dll"
-		  If Exist(Slash(AppPath)+"msvcr120old.dll") Then Deltree Slash(AppPath)+"msvcr120old.dll"
-		  If Exist(Slash(AppPath)+"prntvptold.dll") Then Deltree Slash(AppPath)+"prntvptold.dll"
-		  If Exist(Slash(AppPath)+"vcruntime140old.dll") Then Deltree Slash(AppPath)+"vcruntime140old.dll"
-		  If Exist(Slash(AppPath)+"vcruntime140_1old.dll") Then Deltree Slash(AppPath)+"vcruntime140_1old.dll"
-		  If Exist(Slash(AppPath)+"llstore Libs\Cryptox64old.dll") Then Deltree Slash(AppPath)+"llstore Libs\Cryptox64old.dll"
-		  If Exist(Slash(AppPath)+"llstore Libs\GZipx64old.dll") Then Deltree Slash(AppPath)+"llstore Libs\GZipx64old.dll"
-		  If Exist(Slash(AppPath)+"llstore Libs\Internet Encodingsx64old.dll") Then Deltree Slash(AppPath)+"llstore Libs\Internet Encodingsx64old.dll"
-		  If Exist(Slash(AppPath)+"LLStore\llstore Libs\Shellx64old.dll") Then Deltree Slash(AppPath)+"LLStore\llstore Libs\Shellx64old.dll"
+		  Deltree Slash(AppPath)+"llstoreold"
+		  Deltree Slash(AppPath)+"llstoreold.exe"
+		  Deltree Slash(AppPath)+"XojoGUIFramework64old.dll"
+		  Deltree Slash(AppPath)+"icudt73old.dll"
+		  Deltree Slash(AppPath)+"icuin73old.dll"
+		  Deltree Slash(AppPath)+"icuuc73old.dll"
+		  Deltree Slash(AppPath)+"msvcr120old.dll"
+		  Deltree Slash(AppPath)+"prntvptold.dll"
+		  Deltree Slash(AppPath)+"vcruntime140old.dll"
+		  Deltree Slash(AppPath)+"vcruntime140_1old.dll"
+		  Deltree Slash(AppPath)+"llstore Libs\Cryptox64old.dll"
+		  Deltree Slash(AppPath)+"llstore Libs\GZipx64old.dll"
+		  Deltree Slash(AppPath)+"llstore Libs\Internet Encodingsx64old.dll"
+		  Deltree Slash(AppPath)+"llstore Libs\Shellx64old.dll"
 		  
 		  'Check Version
 		  If App.MajorVersion = 1 Then
