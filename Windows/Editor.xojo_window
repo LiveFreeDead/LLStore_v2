@@ -10,6 +10,7 @@ Begin DesktopWindow Editor
    HasFullScreenButton=   False
    HasMaximizeButton=   True
    HasMinimizeButton=   True
+   HasTitleBar     =   True
    Height          =   520
    ImplicitInstance=   True
    MacProcID       =   0
@@ -5223,7 +5224,7 @@ End
 		        Status.Text =  "Compressing Patch..."
 		        SevenZip = Linux7z
 		        If TargetWindows Then SevenZip = Win7z
-		        Commands = SevenZip +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFolder+"Patch.7z"+Chr(34)+" "+Slash(OutFolder+"Patch")+"*"  ' -m0=lzma2 -mx=2  Faster but less compressed
+		        Commands = SevenZip +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFolder+"Patch.7z"+Chr(34)+" "+Chr(34)+Slash(OutFolder+"Patch")+"*"+Chr(34)  ' -m0=lzma2 -mx=2  Faster but less compressed
 		        If Debugging Then Debug (Commands)
 		        Res = RunCommandResults(Commands)
 		        If Debugging Then Debug (Res)
@@ -5403,7 +5404,7 @@ End
 		                If BT <> "ssApp" Then 'ssApp is Windows NoInstall
 		                  Status.Text =  "Compressing Files..."
 		                  Status.Text =  "Compressing to " + CompressedFileOut
-		                  Commands = Win7z +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+InFolder+"* "+"-x!"+BT+".*" ' -m0=lzma2 -mx=2  Faster but less compressed
+		                  Commands = Win7z +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+Chr(34)+InFolder+"*"+Chr(34)+" -x!"+BT+".*" ' -m0=lzma2 -mx=2  Faster but less compressed
 		                  If Debugging Then Debug (Commands)
 		                  Res = RunCommandResults(Commands)
 		                  If Debugging Then Debug (Res)
@@ -5424,7 +5425,7 @@ End
 		              If ItemLLItem.NoInstall = False Then 
 		                Status.Text =  "Compressing Files..."
 		                'Commands = Win7z +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+InFolder+"* "+"-x!"+BT+".* "+"-x!"+"*.jpg "+"-x!"+"*.png "+"-x!"+"*.mp4 "+"-x!"+"*.svg "+"-x!"+"*.ico" ' -m0=lzma2 -mx=2  Faster but less compressed
-		                Commands = Win7z +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+InFolder+"* "+"-x!"+BT+".* " ' -m0=lzma2 -mx=2  Faster but less compressed
+		                Commands = Win7z +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+Chr(34)+InFolder+"*"+Chr(34)+" -x!"+BT+".* " ' -m0=lzma2 -mx=2  Faster but less compressed
 		                If Debugging Then Debug (Commands)
 		                Res = RunCommandResults(Commands)
 		                If Debugging Then Debug (Res)
@@ -5524,7 +5525,7 @@ End
 		          
 		          Status.Text =  "Compressing to " + CompressedFileOut
 		          
-		          Commands = Win7z +" a -mx0 "+Chr(34)+CompressedFileOut+Chr(34)+" "+InputFolder+"*" '-mx0 is store
+		          Commands = Win7z +" a -mx0 "+Chr(34)+CompressedFileOut+Chr(34)+" "+Chr(34)+InputFolder+"*"+Chr(34) '-mx0 is store
 		          If Debugging Then Debug (Commands)
 		          Res = RunCommandResults(Commands)
 		          If Debugging Then Debug (Res)
@@ -6170,6 +6171,12 @@ End
 	#tag Event
 		Sub TextChanged()
 		  ItemLLItem.Categories = ComboCategory.Text
+		  
+		End Sub
+	#tag EndEvent
+	#tag Event
+		Sub SelectionChanged(item As DesktopMenuItem)
+		  If ItemLnk(0).Categories = "" Then ItemLnk(0).Categories = ComboCategory.Text ' If you pick a Category set the default Catalog to be the same, it's easy to modify if it's wrong.
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -7250,15 +7257,19 @@ End
 		  
 		  Select Case ComboBuildType.Text
 		  Case "ppApp"
+		    ItemLLItem.BuildType = ComboBuildType.Text
 		    CheckGetSizeComp.Enabled = True
 		    If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given
 		  Case "ppGame"
+		    ItemLLItem.BuildType = ComboBuildType.Text
 		    CheckGetSizeComp.Enabled = True
 		    If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given
 		  Case "LLGame"
+		    ItemLLItem.BuildType = ComboBuildType.Text
 		    CheckGetSizeComp.Enabled = True
 		    If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given
 		  Case "LLApp", "ssApp"
+		    ItemLLItem.BuildType = ComboBuildType.Text
 		    CheckGetSizeComp.Enabled = True
 		    'If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given 'As these are often not able to be used, I'll not auto select them
 		  Case Else
@@ -7273,15 +7284,19 @@ End
 		  Dim Ext As String
 		  Select Case ComboBuildType.Text
 		  Case "ppApp"
+		    ItemLLItem.BuildType = ComboBuildType.Text
 		    CheckGetSizeComp.Enabled = True
 		    If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given
 		  Case "ppGame"
+		    ItemLLItem.BuildType = ComboBuildType.Text
 		    CheckGetSizeComp.Enabled = True
 		    If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given
 		  Case "LLGame"
+		    ItemLLItem.BuildType = ComboBuildType.Text
 		    CheckGetSizeComp.Enabled = True
 		    If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given
 		  Case "LLApp", "ssApp"
+		    ItemLLItem.BuildType = ComboBuildType.Text
 		    CheckGetSizeComp.Enabled = True
 		    'If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given 'As these are often not able to be used, I'll not auto select them
 		  Case Else
@@ -7535,6 +7550,14 @@ End
 	#tag EndEvent
 #tag EndEvents
 #tag ViewBehavior
+	#tag ViewProperty
+		Name="HasTitleBar"
+		Visible=true
+		Group="Frame"
+		InitialValue="True"
+		Type="Boolean"
+		EditorType=""
+	#tag EndViewProperty
 	#tag ViewProperty
 		Name="Name"
 		Visible=true
@@ -7792,6 +7815,6 @@ End
 		Group="Behavior"
 		InitialValue=""
 		Type="String"
-		EditorType=""
+		EditorType="MultiLineEditor"
 	#tag EndViewProperty
 #tag EndViewBehavior
