@@ -658,7 +658,7 @@ Protected Module LLMod
 		          
 		          If Exist(Slash(ToolPath)+"run-1080p") Then
 		            'If Not Exist("/usr/bin/run-1080p") Then 'Disabled check, just do it every time so I can easily update it.
-		            RunSudo("cp -f "+Slash(ToolPath)+"run-1080p /usr/bin/run-1080p && chmod +x /usr/bin/run-1080p") 'Make run-1080p available if it's not already
+		            RunSudo("cp -f "+chr(34)+Slash(ToolPath)+"run-1080p"+chr(34)+"  /usr/bin/run-1080p&& chmod +x /usr/bin/run-1080p") 'Make run-1080p available if it's not already
 		            'End If
 		          End If
 		          

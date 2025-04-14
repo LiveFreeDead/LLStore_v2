@@ -3558,7 +3558,7 @@ End
 		    SysDrive = "C:"
 		    SysRoot = "C:/Windows/"
 		    ToolPath = Slash(Slash(AppPath) +"Tools")
-		    ShellFast.Execute(Slash(AppPath)+"Tools/DefaultTerminal.sh")
+		    ShellFast.Execute(Chr(34)+Slash(AppPath)+"Tools/DefaultTerminal.sh"+Chr(34))
 		    SysTerminal = ShellFast.Result
 		    SysTerminal = SysTerminal.ReplaceAll(Chr(10),"")
 		    SysTerminal = SysTerminal.ReplaceAll(Chr(13),"")
