@@ -26,6 +26,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,6 +67,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -74,6 +76,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -82,6 +85,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -90,6 +94,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -3524,9 +3529,10 @@ End
 		    End If
 		  End If
 		  
-		  'If TargetLinux Then
-		  'ShellFast.Execute("echo "+Chr(34)+AppPath+Chr(34) + " > "+Slash(HomePath)+"Desktop/Debugger2.txt")
-		  'End If
+		  If TargetLinux Then
+		    'ShellFast.Execute("echo "+Chr(34)+AppPath+Chr(34) + " > "+Slash(HomePath)+"Desktop/Debugger2.txt")
+		    MakeAllExec(AppPath)
+		  End If
 		  
 		  If TargetWindows Then 'Need to add Windows ppGames and Apps drives here
 		    HomePath = Slash(FixPath(SpecialFolder.UserHome.NativePath))
@@ -3558,6 +3564,9 @@ End
 		    SysDrive = "C:"
 		    SysRoot = "C:/Windows/"
 		    ToolPath = Slash(Slash(AppPath) +"Tools")
+		    
+		    MakeAllExec(ToolPath)
+		    
 		    ShellFast.Execute(Chr(34)+Slash(AppPath)+"Tools/DefaultTerminal.sh"+Chr(34))
 		    SysTerminal = ShellFast.Result
 		    SysTerminal = SysTerminal.ReplaceAll(Chr(10),"")

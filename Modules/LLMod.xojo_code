@@ -644,6 +644,8 @@ Protected Module LLMod
 		        'Added -E to the following to pass Env Variables to the Sudo scripts.
 		        If SysTerminal.Trim = "gnome-terminal" Then
 		          SudoShellLoop.Execute(SysTerminal.Trim+" --wait -e "+"'sudo -E "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)+"'") 'A fix for the Folder Item not working as expected is to make it trimmed, it's having problems with Extra Spaces etc?
+		        ElseIf SysTerminal.Trim = "kde-ptyxis" Then
+		          SudoShellLoop.Execute(SysTerminal.Trim+" -x "+"'sudo -E "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)+"'") 'A fix for the Folder Item not working as expected is to make it trimmed, it's having problems with Extra Spaces etc?
 		        Else
 		          SudoShellLoop.Execute(SysTerminal.Trim+" -e "+"sudo -E "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)) 
 		        End If
