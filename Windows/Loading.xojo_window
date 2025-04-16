@@ -3056,7 +3056,7 @@ End
 		    Main.Description.StyledText.TextColor(0, Len(Main.Description.Text)) = ColDescription 'Make sure it's the right colour in Linux
 		    
 		    If StoreMode = 1 Then
-		      Main.Title = "LL Laucher"
+		      Main.Title = "LL Launcher"
 		      
 		      Main.Description.Text = "Select a Game and press Start to Play it, if no games are shown the Launcher only shows items installed with LLStore." +chr(13) +chr(13) _
 		      +"If you hold in Shift you can set the Screen Resolution of the game." + chr(13) _
