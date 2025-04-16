@@ -2721,19 +2721,22 @@ End
 	#tag EndEvent
 	#tag Event
 		Sub DoublePressed()
-		  If StoreMode = 0 Then 'Select items to install
-		    If IsTrue(Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("Selected"))) Then
-		      Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("Selected")) = "F"
-		    Else
-		      Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("Selected")) = "T"
+		  Try ' Disable Errors
+		    If StoreMode = 0 Then 'Select items to install
+		      If IsTrue(Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("Selected"))) Then
+		        Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("Selected")) = "F"
+		      Else
+		        Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("Selected")) = "T"
+		      End If
+		      
+		      Items.Refresh 'Force Redraw
+		      
+		      UpdateStats 'Recount
+		    Else 'Run a game
+		      RunGame (CurrentItemID)
 		    End If
-		    
-		    Items.Refresh 'Force Redraw
-		    
-		    UpdateStats 'Recount
-		  Else 'Run a game
-		    RunGame (CurrentItemID)
-		  End If
+		  Catch
+		  End Try
 		End Sub
 	#tag EndEvent
 	#tag Event
@@ -2830,9 +2833,14 @@ End
 		  End Try
 		  
 		  If CurrentCat <> "" Then ChangeCat(CurrentCat)
+		  Try
+		    If Items.RowCount >= 1 Then
+		      Items.SelectedRowIndex = 0
+		      Items.SetFocus
+		    End If
+		  Catch
+		  End Try
 		  
-		  Items.SelectedRowIndex = 0
-		  Items.SetFocus
 		End Function
 	#tag EndEvent
 	#tag Event
