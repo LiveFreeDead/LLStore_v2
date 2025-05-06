@@ -8,10 +8,13 @@ EMERGE_CMD=$(type -P emerge 2>/dev/null)
 EOPKG_CMD=$(type -P eopkg 2>/dev/null)
 APK_CMD=$(type -P apk 2>/dev/null)
 PACMAN_CMD=$(type -P pacman 2>/dev/null)
+PAMAC_CMD=$(type -P pamac 2>/dev/null)
 ZYPPER_CMD=$(type -P zypper 2>/dev/null)
 YUM_CMD=$(type -P yum 2>/dev/null)
 
-if [[ ! -z $DNF_CMD ]]; then
+if [[ ! -z $PAMAC_CMD ]]; then
+    sudo $PAMAC_CMD install --no-confirm $*
+elif [[ ! -z $DNF_CMD ]]; then
     sudo $DNF_CMD -y install $*
 elif [[ ! -z $APT_CMD ]]; then
     sudo $APT_CMD -y install $*
@@ -52,6 +55,7 @@ EMERGE_CMD=$(type -P emerge 2>/dev/null)
 EOPKG_CMD=$(type -P eopkg 2>/dev/null)
 APK_CMD=$(type -P apk 2>/dev/null)
 PACMAN_CMD=$(type -P pacman 2>/dev/null)
+PAMAC_CMD=$(type -P pamac 2>/dev/null)
 ZYPPER_CMD=$(type -P zypper 2>/dev/null)
 YUM_CMD=$(type -P yum 2>/dev/null)
 
@@ -63,7 +67,10 @@ echo "Desktop Environment: $XDG_SESSION_DESKTOP"
 
 #Use below sections to put update/upgrade repository or add PPA or repo's
 PM=""
-if [[ ! -z $DNF_CMD ]]; then #dnf
+if [[ ! -z $PAMAC_CMD ]]; then #pamac
+    PM=pamac
+    echo "Package Manager: pamac"
+elif [[ ! -z $DNF_CMD ]]; then #dnf
     PM=dnf
     echo "Package Manager: dnf"
 elif [[ ! -z $APT_CMD ]]; then #apt
@@ -111,6 +118,9 @@ case $ID in
     ;;
 
   arch|endeavouros)
+    ;;
+
+  biglinux)
     ;;
 
   solus)

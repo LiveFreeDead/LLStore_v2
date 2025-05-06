@@ -38,6 +38,9 @@ case $ID in
   arch|endeavouros)
     ;;
 
+  biglinux)
+    ;;
+
   solus)
     ;;
 
