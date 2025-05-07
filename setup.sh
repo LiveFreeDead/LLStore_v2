@@ -12,17 +12,20 @@ EMERGE_CMD=$(type -P emerge 2>/dev/null)
 EOPKG_CMD=$(type -P eopkg 2>/dev/null)
 APK_CMD=$(type -P apk 2>/dev/null)
 PACMAN_CMD=$(type -P pacman 2>/dev/null)
+PAMAC_CMD=$(type -P pamac 2>/dev/null)
 ZYPPER_CMD=$(type -P zypper 2>/dev/null)
 YUM_CMD=$(type -P yum 2>/dev/null)
 
-if [[ ! -z $APT_CMD ]]; then
-    sudo $APT_CMD -y install $PACKAGES
+if [[ ! -z $PAMAC_CMD ]]; then
+    sudo $PAMAC_CMD install --no-confirm $PACKAGES
 elif [[ ! -z $DNF_CMD ]]; then
     sudo $DNF_CMD -y install $PACKAGES
+elif [[ ! -z $APT_CMD ]]; then
+    sudo $APT_CMD -y install $PACKAGES
 elif [[ ! -z $EMERGE_CMD ]]; then
     sudo $EMERGE_CMD $PACKAGES
 elif [[ ! -z $EOPKG_CMD ]]; then
-    sudo $EOPKG_CMD -y install $*
+    sudo $EOPKG_CMD -y install $PACKAGES
 elif [[ ! -z $APK_CMD ]]; then
     sudo $APK_CMD add install $PACKAGES
 elif [[ ! -z $PACMAN_CMD ]]; then
