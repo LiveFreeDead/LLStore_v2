@@ -10,6 +10,7 @@ Begin DesktopWindow MiniInstaller
    HasFullScreenButton=   False
    HasMaximizeButton=   False
    HasMinimizeButton=   True
+   HasTitleBar     =   True
    Height          =   440
    ImplicitInstance=   True
    MacProcID       =   0
@@ -226,6 +227,7 @@ End
 		    If Downloading Then CancelDownloading = True
 		    SkippedInstalling = True
 		    MiniUpTo = 99999
+		    Deltree(Slash(RepositoryPathLocal)+"UpTo.ini") ' Delete previous install queue if user aborted
 		    Me.Hide
 		    Return True
 		  Else
@@ -750,6 +752,9 @@ End
 		  If StoreMode >= 1 Then Return
 		  If FirstRun = False Then Return ' Hasn't setup the main form, don't flash it up on the screen (because the counter will be => than items count every time
 		  
+		  Dim I As Integer
+		  Dim InstData As String
+		  
 		  If MiniInstaller.Visible = False Then QuitInstaller = True
 		  
 		  If MiniUpTo+1 > MiniInstaller.Items.RowCount Then 'Past the end of the installer
@@ -766,7 +771,6 @@ End
 		    
 		    'Select None, Also need to recheck installed items etc (may be better to rescan for items instead)
 		    Main.SelectsCount = 0
-		    Dim I As Integer
 		    For I = 0 To Data.Items.RowCount - 1 ' Unselect everything
 		      Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F" ' Un-Select Items
 		    Next I
@@ -870,9 +874,23 @@ End
 		      Catch
 		      End Try
 		      #Pragma BreakOnExceptions On
-		      
-		      If MiniUpTo - 1 >= 0 Then 
-		        If Items.CellTextAt(MiniUpTo-1, 1) = "" Then Items.CellTextAt(MiniUpTo - 1, 1) = "Installed" 'Make the first Item changed to Installed, can add Fail check here too
+		      If MiniUpTo <> LastMiniUpTo Then 'Only save once per move item
+		        LastMiniUpTo = MiniUpTo
+		        If MiniUpTo - 1 >= 0 Then 
+		          If Items.CellTextAt(MiniUpTo-1, 1) = "" Then Items.CellTextAt(MiniUpTo - 1, 1) = "Installed" 'Make the first Item changed to Installed, can add Fail check here too
+		          InstData = ""
+		          Try
+		            If MiniUpTo + 1 <= Items.RowCount - 1 Then
+		              For I = MiniUpTo + 1 To Items.RowCount - 1 ' Skip the current item as it's already attempting to install
+		                InstData = InstData + Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(I, 0), Data.GetDBHeader("UniqueName"))+Chr(10)
+		              Next I
+		              SaveDataToFile (InstData, Slash(RepositoryPathLocal)+"UpTo.ini")
+		            Else
+		              Deltree (Slash(RepositoryPathLocal)+"UpTo.ini")
+		            End If
+		          Catch
+		          End Try
+		        End If
 		      End If
 		    Catch
 		    End Try
@@ -964,6 +982,14 @@ End
 	#tag EndEvent
 #tag EndEvents
 #tag ViewBehavior
+	#tag ViewProperty
+		Name="HasTitleBar"
+		Visible=true
+		Group="Frame"
+		InitialValue="True"
+		Type="Boolean"
+		EditorType=""
+	#tag EndViewProperty
 	#tag ViewProperty
 		Name="Name"
 		Visible=true

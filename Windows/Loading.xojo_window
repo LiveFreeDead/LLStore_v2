@@ -26,6 +26,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,6 +67,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -74,6 +76,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -82,6 +85,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -90,6 +94,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -3098,6 +3103,23 @@ End
 		    End If
 		    #Pragma BreakOnExceptions True
 		    '--------------
+		    
+		    'Check if UpTo Exists and load that in to continue if found
+		    Dim Ret As Integer
+		    If Exist(Slash(RepositoryPathLocal)+"UpTo.ini") Then
+		      Ret = MsgBox ("Found Previous Installation Queue, Continue Installing?", 52)
+		      
+		      If Ret = 7 Then
+		        'MsgBox ("No Ret "+ Ret.ToString)
+		        Deltree(Slash(RepositoryPathLocal)+"UpTo.ini") ' Delete previous install queue
+		      Else 'Not closed or pressed no (So YES)
+		        'MsgBox ("Yes Ret "+ Ret.ToString)
+		        CommandLineFile = Slash(RepositoryPathLocal)+"UpTo.ini"
+		        LoadPresetFile = True
+		        InstallArg = True  ' Auto Install continue
+		        'MsgBox ("Loading: "+ CommandLineFile)
+		      End If
+		    End if
 		    
 		    'Load The Preset specified
 		    If LoadPresetFile = True Then

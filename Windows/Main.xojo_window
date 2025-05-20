@@ -373,7 +373,6 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -430,7 +429,6 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -439,7 +437,6 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -2336,6 +2333,7 @@ End
 		  ForceDERefresh = False 'Clear this so it's not pre applied if only installing one item (if it doesn't do the Mini Installer)
 		  
 		  If StoreMode = 0 Then 'Installer
+		    LastMiniUpTo = -1 ' Reset the current item so that it can save the UpTo.ini file
 		    If SelectsCount >= 1 Then ' Must have selected one item
 		      'GlennGlennGlennGlenn - Saves Current Install as a preset, so can reload if it fails
 		      SaveToPreset (Slash(RepositoryPathLocal)+"Current_LLStore_Install.ini")

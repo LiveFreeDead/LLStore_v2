@@ -6037,6 +6037,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		LastMiniUpTo As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		LastUsedCategory As String
 	#tag EndProperty
 
