@@ -170,6 +170,7 @@ Begin DesktopWindow MiniInstaller
       Width           =   56
    End
    Begin Thread InstallItems
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Priority        =   5
@@ -179,6 +180,7 @@ Begin DesktopWindow MiniInstaller
       Type            =   0
    End
    Begin Timer UpdateUI
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -257,6 +259,8 @@ End
 		  Dim SortCol, ItemToAdd As String
 		  Dim BT As Integer
 		  
+		  Dim ColBuildType As Integer = Data.GetDBHeader("BuildType") ' Get Column Number once
+		  
 		  QuitInstaller = False
 		  
 		  'Hide main form as it messes up the drawing of the list anyway
@@ -302,6 +306,42 @@ End
 		  ItemsToInstall = 0
 		  For I = 0 To Data.Items.RowCount - 1 'Get Items to Install
 		    If Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "T" Then
+		      
+		      'Skip adding items that are hidden (except if ran from Command Line Preset)
+		      If Not InstallArg = True Then 'Only skip adding items from Preset if not done from command Line
+		        
+		        ' 1. Basic Hidden Flags:
+		        If IsTrue(Data.Items.CellTextAt(I, Data.GetDBHeader("Hidden"))) Then Continue
+		        If IsTrue(Data.Items.CellTextAt(I, Data.GetDBHeader("HiddenAlways"))) Then Continue
+		        
+		        If Data.Items.CellTextAt(I, Data.GetDBHeader("Installed")) = "T" And Main.HideInstalled = True Then Continue
+		        If Data.Items.CellTextAt(I, Data.GetDBHeader("Installed")) = "F" And Main.HideNotInstalled = True Then Continue
+		        If Left(Data.Items.CellTextAt(I, Data.GetDBHeader("PathIni")), 2) = "ht" And Main.HideOnline = True Then Continue
+		        If Left(Data.Items.CellTextAt(I, Data.GetDBHeader("PathIni")), 2) <> "ht" And Main.HideLocal = True Then Continue
+		        If Data.Items.CellTextAt(I, Data.GetDBHeader("Flags")).IndexOf("internetrequired") >=0 And HideInternetInstaller = True Then Continue
+		        
+		        If Data.Items.CellTextAt(I, ColBuildType) = "LLApp" And Main.HideLLApps = True Then Continue
+		        If Data.Items.CellTextAt(I, ColBuildType) = "LLGame" And Main.HideLLGames = True Then Continue
+		        If Data.Items.CellTextAt(I, ColBuildType) = "ssApp" And Main.HidessApps = True Then Continue
+		        If Data.Items.CellTextAt(I, ColBuildType) = "ppApp" And Main.HideppApps = True Then Continue
+		        If Data.Items.CellTextAt(I, ColBuildType) = "ppGame" And Main.HideppGames = True Then Continue
+		        
+		        ' 5. License Filters:
+		        If Data.Items.CellTextAt(I, Data.GetDBHeader("License")) = "1" And Main.HidePaid = True Then Continue
+		        If Data.Items.CellTextAt(I, Data.GetDBHeader("License")) = "2" And Main.HideFree = True Then Continue
+		        If Data.Items.CellTextAt(I, Data.GetDBHeader("License")) = "3" And Main.HideOpen = True Then Continue
+		        
+		      End If
+		      
+		      If TargetWindows Then ' Skip linux items in Windows (Even from Command Line)
+		        If Data.Items.CellTextAt(I, ColBuildType) = "LLApp" Or Data.Items.CellTextAt(I, ColBuildType) = "LLGame" Or Data.Items.CellTextAt(I, ColBuildType) = "LLFile" Then Continue
+		      End If
+		      
+		      ' 6. OS Compatibility Filter:
+		      If Data.Items.CellTextAt(I, Data.GetDBHeader("OSCompatible")) = "F" Then Continue
+		      If Data.Items.CellTextAt(I, Data.GetDBHeader("DECompatible")) = "" And Main.HideUnsetFlags = True Then Continue
+		      
+		      'Passed add Item
 		      ItemToAdd = Data.Items.CellTextAt(I, Data.GetDBHeader("TitleName")) 
 		      If Data.Items.CellTextAt(I, Data.GetDBHeader("Version")) <> "" Then ItemToAdd = ItemToAdd + " " + Data.Items.CellTextAt(I, Data.GetDBHeader("Version"))
 		      
