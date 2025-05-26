@@ -2198,6 +2198,7 @@ End
 		  Main.MetaData.FontSize = 12
 		  
 		  ThemePath = AppPath+"Themes/"+ThemeName+"/"
+		  LastTheme = ThemeName
 		  
 		  ImgPath = ThemePath+"Loading.png"
 		  F=GetFolderItem(ImgPath, FolderItem.PathTypeNative)
@@ -2672,6 +2673,7 @@ End
 	#tag Method, Flags = &h0
 		Sub SaveSettings()
 		  If Debugging Then Debug("--- Starting Save Settings ---")
+		  
 		  If SettingsLoaded = False Then Return
 		  If SettingsChanged = False Then Return 'Don't save if not edited them (so Switches don't get saved)
 		  

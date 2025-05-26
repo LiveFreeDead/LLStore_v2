@@ -10,6 +10,7 @@ Begin DesktopWindow Settings
    HasFullScreenButton=   False
    HasMaximizeButton=   False
    HasMinimizeButton=   True
+   HasTitleBar     =   True
    Height          =   430
    ImplicitInstance=   True
    MacProcID       =   0
@@ -95,7 +96,7 @@ Begin DesktopWindow Settings
       Height          =   27
       Index           =   -2147483648
       Italic          =   False
-      Left            =   311
+      Left            =   642
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -106,11 +107,11 @@ Begin DesktopWindow Settings
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   ""
-      Top             =   11
+      Top             =   77
       Transparent     =   False
       Underline       =   False
       Value           =   False
-      Visible         =   True
+      Visible         =   False
       VisualState     =   0
       Width           =   152
    End
@@ -131,7 +132,7 @@ Begin DesktopWindow Settings
       Hint            =   ""
       Index           =   -2147483648
       Italic          =   False
-      Left            =   466
+      Left            =   663
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -148,11 +149,11 @@ Begin DesktopWindow Settings
       TextAlignment   =   2
       TextColor       =   &c000000
       Tooltip         =   ""
-      Top             =   11
+      Top             =   57
       Transparent     =   False
       Underline       =   False
       ValidationMask  =   ""
-      Visible         =   True
+      Visible         =   False
       Width           =   37
    End
    Begin DesktopLabel VideoVolumeLabel
@@ -165,7 +166,7 @@ Begin DesktopWindow Settings
       Height          =   27
       Index           =   -2147483648
       Italic          =   False
-      Left            =   515
+      Left            =   642
       LockBottom      =   False
       LockedInPosition=   False
       LockLeft        =   True
@@ -181,10 +182,10 @@ Begin DesktopWindow Settings
       TextAlignment   =   1
       TextColor       =   &c000000
       Tooltip         =   ""
-      Top             =   11
+      Top             =   38
       Transparent     =   False
       Underline       =   False
-      Visible         =   True
+      Visible         =   False
       Width           =   141
    End
    Begin DesktopCheckBox SetUseLocalDBFiles
@@ -854,13 +855,90 @@ Begin DesktopWindow Settings
       VisualState     =   0
       Width           =   224
    End
+   Begin DesktopComboBox ThemeCombo
+      AllowAutoComplete=   True
+      AllowAutoDeactivate=   False
+      AllowFocusRing  =   True
+      Bold            =   False
+      Enabled         =   True
+      FontName        =   "System"
+      FontSize        =   0.0
+      FontUnit        =   0
+      Height          =   26
+      Hint            =   ""
+      Index           =   -2147483648
+      InitialValue    =   "No Theme"
+      Italic          =   False
+      Left            =   433
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      Scope           =   0
+      SelectedRowIndex=   -1
+      TabIndex        =   26
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   ""
+      Top             =   11
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   260
+   End
+   Begin DesktopLabel Label1
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   0.0
+      FontUnit        =   0
+      Height          =   20
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   311
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      Multiline       =   False
+      Scope           =   0
+      Selectable      =   False
+      TabIndex        =   27
+      TabPanelIndex   =   0
+      TabStop         =   False
+      Text            =   "LLStore Theme:"
+      TextAlignment   =   0
+      TextColor       =   &c000000
+      Tooltip         =   ""
+      Top             =   15
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   110
+   End
 End
 #tag EndDesktopWindow
 
 #tag WindowCode
 	#tag Event
 		Sub Activated()
+		  Dim I As Integer
+		  
 		  SettingsChanged = True
+		  
+		  If LastTheme <> "" Then
+		    If ThemeCombo.RowCount >= 1 Then
+		      For I = 0 to ThemeCombo.RowCount-1
+		        If ThemeCombo.RowTextAt(I) = LastTheme Then
+		          ThemeCombo.SelectedRowIndex = I
+		          ThemeCombo.Text = LastTheme
+		        End If
+		      Next
+		    End If
+		  End If
 		End Sub
 	#tag EndEvent
 
@@ -885,6 +963,35 @@ End
 		Sub Opening()
 		  If Debugging Then Debug("--- Starting Settings Opening ---")
 		  If ForceQuit = True Then Return 'Don't bother even opening if set to quit
+		  
+		  'Get Available Themes
+		  ThemeCombo.RemoveAllRows
+		  
+		  Dim F As FolderItem
+		  Dim I, D As Integer
+		  Dim DirToCheck As String
+		  Dim ItemPath As String
+		  
+		  DirToCheck = NoSlash(AppPath)+"/Themes"
+		  
+		  'DirToCheck = Left(DirToCheck, InStrRev(DirToCheck, "/",-1)) ' Checks up one level from the LastOSLinux Store    
+		  
+		  If TargetWindows Then
+		    F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative)
+		  Else
+		    F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
+		  End If
+		  If F.IsFolder And F.IsReadable Then
+		    If F.Count > 0 Then
+		      For D = 1 To F.Count
+		        ItemPath = Slash(FixPath(F.Item(D).NativePath))
+		        If Exist(ItemPath+"Style.ini") Then
+		          ItemPath = NoSlash(ItemPath)
+		          ThemeCombo.AddRow(Right(ItemPath,Len(ItemPath)-InStrRev(ItemPath,"/",-1)))
+		        End If
+		      Next D
+		    End If
+		  End If
 		  
 		End Sub
 	#tag EndEvent
@@ -959,7 +1066,34 @@ End
 		End Sub
 	#tag EndEvent
 #tag EndEvents
+#tag Events ThemeCombo
+	#tag Event
+		Sub SelectionChanged(item As DesktopMenuItem)
+		  Loading.LoadTheme (ThemeCombo.Text)
+		  Main.ResizeMainForm()
+		  'LastTheme = ThemeCombo.Text
+		  'Save Theme here, GlennGlenn
+		  
+		  If LastTheme <> "" Then
+		    If StoreMode = 0 Then
+		      SaveDataToFile(LastTheme, Slash(AppPath)+"Themes/Theme.ini")
+		    Else ' Launcher Mode
+		      SaveDataToFile(LastTheme, Slash(AppPath)+"Themes/ThemeLauncher.ini")
+		    End If
+		    'MsgBox Slash(AppPath)+"Themes/Theme.ini" + " Theme: "+ LastTheme
+		  End If
+		End Sub
+	#tag EndEvent
+#tag EndEvents
 #tag ViewBehavior
+	#tag ViewProperty
+		Name="HasTitleBar"
+		Visible=true
+		Group="Frame"
+		InitialValue="True"
+		Type="Boolean"
+		EditorType=""
+	#tag EndViewProperty
 	#tag ViewProperty
 		Name="Name"
 		Visible=true

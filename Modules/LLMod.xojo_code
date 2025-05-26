@@ -5308,6 +5308,8 @@ Protected Module LLMod
 		    FileIn = FileIn.ReplaceAll("\","/")
 		  End If
 		  
+		  'MsgBox "HERE" +FileIn +" = " +Data
+		  
 		  If Debugging Then Debug("- Save Data To File: "+ FileIn)
 		  
 		  Dim F As FolderItem
@@ -6038,6 +6040,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		LastMiniUpTo As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		LastTheme As String
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -7868,6 +7874,14 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue="False"
 			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="LastMiniUpTo"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
