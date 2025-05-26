@@ -530,24 +530,25 @@ End
 		    Dim InputStream As TextInputStream
 		    
 		    'Get theme
-		    If StoreMode = 0 Then
-		      ThemePath = AppPath+"Themes/Theme.ini"
-		      F = GetFolderItem(ThemePath,FolderItem.PathTypeNative)
-		      InputStream = TextInputStream.Open(F)
-		      RL = InputStream.ReadLine.Trim
-		      inputStream.Close
-		      ThemePath = AppPath+"Themes/"+RL+"/"
-		      Loading.LoadTheme (RL)
-		      Loading.Visible = True 'Show the loading form here
-		    ElseIf StoreMode = 1 Then
-		      ThemePath = AppPath+"Themes/ThemeLauncher.ini"
-		      F = GetFolderItem(ThemePath,FolderItem.PathTypeNative)
-		      InputStream = TextInputStream.Open(F)
-		      RL = InputStream.ReadLine.Trim
-		      inputStream.Close
-		      ThemePath = AppPath+"Themes/"+RL+"/"
-		      Loading.LoadTheme (RL)
-		    End If
+		    Loading.GetTheme()
+		    'If StoreMode = 0 Then
+		    'ThemePath = AppPath+"Themes/Theme.ini"
+		    'F = GetFolderItem(ThemePath,FolderItem.PathTypeNative)
+		    'InputStream = TextInputStream.Open(F)
+		    'RL = InputStream.ReadLine.Trim
+		    'inputStream.Close
+		    'ThemePath = AppPath+"Themes/"+RL+"/"
+		    'Loading.LoadTheme (RL)
+		    'Loading.Visible = True 'Show the loading form here
+		    'ElseIf StoreMode = 1 Then
+		    'ThemePath = AppPath+"Themes/ThemeLauncher.ini"
+		    'F = GetFolderItem(ThemePath,FolderItem.PathTypeNative)
+		    'InputStream = TextInputStream.Open(F)
+		    'RL = InputStream.ReadLine.Trim
+		    'inputStream.Close
+		    'ThemePath = AppPath+"Themes/"+RL+"/"
+		    'Loading.LoadTheme (RL)
+		    'End If
 		    
 		    'Load Settings
 		    Loading.LoadSettings
@@ -2947,11 +2948,16 @@ End
 		  End If
 		  
 		  'Clone From Wallpaper to Icon BG
-		  StartButton.Backdrop.Graphics.DrawPicture(Main.Backdrop,0,0,StartButton.Width, StartButton.Height, StartButton.Left, StartButton.Top, StartButton.Width, StartButton.Height)
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    StartButton.Backdrop.Graphics.DrawPicture(Main.Backdrop,0,0,StartButton.Width, StartButton.Height, StartButton.Left, StartButton.Top, StartButton.Width, StartButton.Height)
+		    
+		    StartButton.Backdrop.Graphics.DrawPicture(DefaultStartButtonHover,0,0,StartButton.Width, StartButton.Height,0,0,DefaultStartButtonHover.Width, DefaultStartButtonHover.Height)
+		    StartButton.Refresh
+		  Catch
+		  End Try
 		  
-		  StartButton.Backdrop.Graphics.DrawPicture(DefaultStartButtonHover,0,0,StartButton.Width, StartButton.Height,0,0,DefaultStartButtonHover.Width, DefaultStartButtonHover.Height)
-		  StartButton.Refresh
-		  
+		  #Pragma BreakOnExceptions On
 		  
 		End Sub
 	#tag EndEvent
@@ -2962,11 +2968,19 @@ End
 		    StartButton.Backdrop = New Picture(StartButton.Width,StartButton.Height, 32)
 		  End If
 		  
-		  'Clone From Wallpaper to Icon BG
-		  StartButton.Backdrop.Graphics.DrawPicture(Main.Backdrop,0,0,StartButton.Width, StartButton.Height, StartButton.Left, StartButton.Top, StartButton.Width, StartButton.Height)
+		  #Pragma BreakOnExceptions Off
 		  
-		  StartButton.Backdrop.Graphics.DrawPicture(DefaultStartButton,0,0,StartButton.Width, StartButton.Height,0,0,DefaultStartButton.Width, DefaultStartButton.Height)
-		  StartButton.Refresh
+		  Try
+		    'Clone From Wallpaper to Icon BG
+		    StartButton.Backdrop.Graphics.DrawPicture(Main.Backdrop,0,0,StartButton.Width, StartButton.Height, StartButton.Left, StartButton.Top, StartButton.Width, StartButton.Height)
+		    
+		    StartButton.Backdrop.Graphics.DrawPicture(DefaultStartButton,0,0,StartButton.Width, StartButton.Height,0,0,DefaultStartButton.Width, DefaultStartButton.Height)
+		    StartButton.Refresh
+		    
+		  Catch
+		  End Try
+		  
+		  #Pragma BreakOnExceptions On
 		End Sub
 	#tag EndEvent
 	#tag Event

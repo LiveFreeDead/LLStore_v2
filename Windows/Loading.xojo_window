@@ -26,7 +26,6 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -67,7 +66,6 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -76,7 +74,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -85,7 +82,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -94,7 +90,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -1724,6 +1719,12 @@ End
 		  Catch
 		    'No Theme files found
 		    If Debugging Then Debug("* Error: Theme Not Found: "+ThemePath)
+		    
+		    If StoreMode = 0 Then RL = "LastLinux"
+		    If StoreMode = 1 Then RL = "LastLinuxLauncher"
+		    ThemePath = AppPath+"Themes/"+RL+"/"
+		    LoadTheme (RL)
+		    
 		  End Try
 		  #Pragma BreakOnExceptions On
 		End Sub
@@ -2208,9 +2209,17 @@ End
 		    Loading.Backdrop = New Picture(Loading.Width+1,Loading.Height, 32)
 		  End If
 		  
-		  App.DoEvents(1)
-		  Loading.Backdrop.Graphics.DrawPicture(DefaultLoadingWallpaper,0,0,Loading.Width+1, Loading.Height,0,0,DefaultLoadingWallpaper.Width, DefaultLoadingWallpaper.Height)
+		  #Pragma BreakOnExceptions Off
 		  
+		  App.DoEvents(1)
+		  Try
+		    Loading.Backdrop.Graphics.DrawPicture(DefaultLoadingWallpaper,0,0,Loading.Width+1, Loading.Height,0,0,DefaultLoadingWallpaper.Width, DefaultLoadingWallpaper.Height)
+		  Catch
+		    Loading.Backdrop.Graphics.DrawingColor = &C000000
+		    Loading.Backdrop.Graphics.FillRectangle(0,0,Loading.Width,Loading.Height)
+		  End Try
+		  
+		  #Pragma BreakOnExceptions On
 		  'Below stops the first draw issue in Linux (It's ugly)
 		  If FirstRun = False Then Loading.Show 'Show as soon as it's Themed, then it draws right :)
 		  
@@ -2249,8 +2258,13 @@ End
 		    Main.StartButton.Backdrop = New Picture(Main.StartButton.Width,Main.StartButton.Height, 32)
 		  End If
 		  
-		  Main.StartButton.Backdrop.Graphics.DrawPicture(DefaultFader,0,0,Main.StartButton.Width, Main.StartButton.Height,0,0,DefaultStartButton.Width, DefaultStartButton.Height)
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    Main.StartButton.Backdrop.Graphics.DrawPicture(DefaultFader,0,0,Main.StartButton.Width, Main.StartButton.Height,0,0,DefaultStartButton.Width, DefaultStartButton.Height)
+		  Catch
+		  End Try
 		  
+		  #Pragma BreakOnExceptions On
 		  
 		  Data.Icons.AddRow
 		  Data.Icons.RowImageAt(0) = DefaultFader
@@ -2258,13 +2272,13 @@ End
 		  
 		  'Load in whole file at once (Fastest Method)
 		  F = GetFolderItem(ThemePath+"Style.ini",FolderItem.PathTypeNative)
-		  inputStream = TextInputStream.Open(F)
 		  
 		  Dim RL As String
 		  Dim Sp() As String
 		  Dim Lin, LineID, LineData As String
 		  Dim EqPos As Integer
 		  If  F.Exists Then 
+		    inputStream = TextInputStream.Open(F)
 		    While Not inputStream.EndOfFile 'If Empty file this skips it
 		      RL = inputStream.ReadAll
 		    Wend
@@ -2388,6 +2402,8 @@ End
 		  'ColDual = Color.RGB(((ColHiLite.Red + ColSelect.Red) /2),((ColHiLite.Green + ColSelect.Green)/2),((ColHiLite.Blue + ColSelect.Blue) /2)) 'Average
 		  
 		  If Debugging Then Debug("- Loaded Theme: "+ThemeName)
+		  
+		  #Pragma BreakOnExceptions On
 		  
 		End Sub
 	#tag EndMethod
