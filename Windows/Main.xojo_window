@@ -1750,6 +1750,23 @@ End
 		  'Description.FontName = "Ubuntu"
 		  'Stats.FontName = "Ubuntu"
 		  
+		  'Labels
+		  Main.TitleLabel.TextColor = ColTitle
+		  Main.CategoriesLabel.TextColor = ColTitle
+		  Main.ItemsLabel.TextColor = ColTitle
+		  
+		  Main.TitleLabel.FontName = FontTitle
+		  Main.CategoriesLabel.FontName = FontTitle
+		  Main.ItemsLabel.FontName = FontTitle
+		  
+		  Main.TitleLabel.Bold = BoldTitle
+		  Main.CategoriesLabel.Bold = BoldTitle
+		  Main.ItemsLabel.Bold = BoldTitle
+		  
+		  'Stats
+		  Main.Stats.TextColor = ColStats
+		  Main.Stats.FontName = FontStats
+		  
 		  
 		  CategoriesLabel.FontSize = (CategoriesLabel.Height/4.5)+8
 		  ItemsLabel.FontSize = CategoriesLabel.FontSize

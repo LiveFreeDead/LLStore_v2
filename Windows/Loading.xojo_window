@@ -2272,7 +2272,7 @@ End
 		  RL = RL.ReplaceAll(Chr(13), Chr(10))
 		  SP()=RL.Split(Chr(10))
 		  If Sp.Count >= 1 Then  'Not Empty Theme File
-		    For I = 1 To Sp().Count -1
+		    For I = 0 To Sp().Count -1
 		      Lin = Sp(I).Trim
 		      EqPos = Lin.IndexOf(1,"=")
 		      LineID = ""
@@ -2288,6 +2288,7 @@ End
 		      Select Case LineID
 		      Case "coltitle"
 		        If LineData <> "" Then ColTitle = Color.FromString(LineData)
+		        'MsgBox ColTitle.ToString
 		      Case"colcategory"
 		        If LineData <> "" Then ColCategory = Color.FromString(LineData)
 		      Case"coldescription"
