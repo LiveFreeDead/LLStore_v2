@@ -636,44 +636,59 @@ Protected Module LLMod
 		      If SudoEnabled = False Then
 		        ShellFast.Execute ("rm -f /tmp/LLSudoDone") ' Remove it so will only quit once recreated
 		        'If KeepSudo = False Then 'Not needed as it's probablly not running by here
-		        ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > /tmp/LLSudo")
-		        
-		        'Don't do below line, if the Sudo Script needs a file, it'll have to use the full path, else it's changes out of the Installers Path to run Sudo script.
-		        'Test = ChDirSet(ToolPath) 'Make sure in the right folder to run script etc
-		        
-		        'Added -E to the following to pass Env Variables to the Sudo scripts.
-		        If SysTerminal.Trim = "gnome-terminal" Then
-		          SudoShellLoop.Execute(SysTerminal.Trim+" --wait -e "+"'sudo -E "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)+"'") 'A fix for the Folder Item not working as expected is to make it trimmed, it's having problems with Extra Spaces etc?
-		        ElseIf SysTerminal.Trim = "kde-ptyxis" Then
-		          SudoShellLoop.Execute(SysTerminal.Trim+" -x "+"'sudo -E "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)+"'") 'A fix for the Folder Item not working as expected is to make it trimmed, it's having problems with Extra Spaces etc?
-		        Else
-		          SudoShellLoop.Execute(SysTerminal.Trim+" -e "+"sudo -E "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)) 
-		        End If
-		        
-		        While  Exist("/tmp/LLSudo") 'First thing Sudo script does is delete this file, so we know it's ran ok
-		          if SudoShellLoop.IsRunning = False Then Exit 'MsgBox "Closed Shell?"
-		          App.DoEvents(10)
-		        Wend
-		        
-		        if SudoShellLoop.IsRunning = True Then
-		          SudoEnabled = True
+		        If Not Exist("/tmp/LLSudo") Then
+		          ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > /tmp/LLSudo")
+		          SaveDataToFile("Unlock", "/tmp/LLSudo") 'Do 2 methods to make 100% sure it's made and waits
 		          
-		          If Exist(Slash(ToolPath)+"run-1080p") Then
-		            'If Not Exist("/usr/bin/run-1080p") Then 'Disabled check, just do it every time so I can easily update it.
-		            RunSudo("cp -f "+chr(34)+Slash(ToolPath)+"run-1080p"+chr(34)+"  /usr/bin/run-1080p&& chmod +x /usr/bin/run-1080p") 'Make run-1080p available if it's not already
-		            'End If
+		          'Don't do below line, if the Sudo Script needs a file, it'll have to use the full path, else it's changes out of the Installers Path to run Sudo script.
+		          'Test = ChDirSet(ToolPath) 'Make sure in the right folder to run script etc
+		          
+		          'Added -E to the following to pass Env Variables to the Sudo scripts.
+		          
+		          If SysTerminal.Trim = "gnome-terminal" Then
+		            SudoShellLoop.Execute(SysTerminal.Trim+" --wait -e "+"'"+ToolPath+"sudo_script.sh "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)+"'") 'A fix for the Folder Item not working as expected is to make it trimmed, it's having problems with Extra Spaces etc?
+		          ElseIf SysTerminal.Trim = "kde-ptyxis" Then
+		            SudoShellLoop.Execute(SysTerminal.Trim+" -x "+"'"+ToolPath+"sudo_script.sh "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)+"'") 'A fix for the Folder Item not working as expected is to make it trimmed, it's having problems with Extra Spaces etc?
+		          Else
+		            SudoShellLoop.Execute(SysTerminal.Trim+" -e "+"'"+ToolPath+"sudo_script.sh "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)+"'") 
 		          End If
 		          
-		          If Debugging Then Debug("Sudo Enabled: " +SudoEnabled.ToString)
-		        Else
-		          SudoEnabled = False
+		          TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
+		          While  Exist("/tmp/LLSudo") 'First thing Sudo script does is delete this file, so we know it's ran ok
+		            'if SudoShellLoop.IsRunning = False Then Exit 'MsgBox "Closed Shell?" 'Disabled Line to FORCE it to wait
+		            App.DoEvents(10)
+		            If System.Microseconds >= TimeOut Then Exit 'Timeout after set seconds, Give up after 6 seconds? Testing Glenn
+		          Wend
 		          
-		          If Debugging Then Debug("Sudo Enabled: " +SudoEnabled.ToString)
+		          if SudoShellLoop.IsRunning = True Then
+		            SudoEnabled = True
+		            
+		            If Exist(Slash(ToolPath)+"run-1080p") Then
+		              'If Not Exist("/usr/bin/run-1080p") Then 'Disabled check, just do it every time so I can easily update it.
+		              RunSudo("cp -f "+chr(34)+Slash(ToolPath)+"run-1080p"+chr(34)+"  /usr/bin/run-1080p&& chmod +x /usr/bin/run-1080p") 'Make run-1080p available if it's not already
+		              'End If
+		            End If
+		            
+		            If Debugging Then Debug("Sudo Enabled: " +SudoEnabled.ToString)
+		          Else
+		            SudoEnabled = False
+		            
+		            If Debugging Then Debug("Sudo Enabled: " +SudoEnabled.ToString)
+		          End If
+		        Else 'File Exist, wait for a set time and continue
+		          TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
+		          While  Exist("/tmp/LLSudo") 'First thing Sudo script does is delete this file, so we know it's ran ok
+		            if SudoShellLoop.IsRunning = False Then Exit 'MsgBox "Closed Shell?"
+		            App.DoEvents(10)
+		            If System.Microseconds >= TimeOut Then Exit 'Timeout after set seconds, Give up after 6 seconds? Testing Glenn
+		          Wend
+		          Deltree("/tmp/LLSudo") 'Remove it, it's obviously not gonna work without user input
 		        End If
 		      End If
 		    End If
 		  Else
 		    SudoEnabled = False
+		    Deltree("/tmp/LLSudo") 'Remove it, it's obviously not gonna work without user input
 		  End If
 		End Sub
 	#tag EndMethod
@@ -1913,6 +1928,8 @@ Protected Module LLMod
 		    Return False ' Couldn't Load Item
 		  End If
 		  
+		  MakeFolder(Slash(HomePath)+".local/share/applications")
+		  
 		  'Check for Nonething and set to InstallOnly if so: Nonething is a special case used by ssApps mostly.
 		  If ItemLLItem.PathApp.IndexOf("Nonething") >=0 Then ItemLLItem.NoInstall = True 'This will not use a folder on the computer to install the item to.
 		  
@@ -2400,6 +2417,9 @@ Protected Module LLMod
 		    Target = InstallPath+"llstore"
 		    App.DoEvents(7)
 		    EnableSudoScript
+		    
+		    MakeFolder(Slash(HomePath)+".local/share/applications")
+		    
 		    RunSudo("mkdir -p "+Chr(34)+InstallPath+Chr(34)+ " ; " + "chmod -R 777 "+Chr(34)+InstallPath+Chr(34))
 		    
 		    ShellFast.Execute("cp -R "+Chr(34)+MainPath+"llstore Libs"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
@@ -2486,6 +2506,10 @@ Protected Module LLMod
 		    
 		    DesktopFile = "llstore.desktop"
 		    DesktopOutPath = Slash(HomePath)+".local/share/applications/"
+		    
+		    ShellFast.Execute ("cp -f "+Chr(34)+Slash(AppPath)+"Tools/llstore.desktop"+Chr(34)+" "+Chr(34)+DesktopOutPath+Chr(34))
+		    ShellFast.Execute ("cp -f "+Chr(34)+Slash(AppPath)+"Tools/lllauncher.desktop"+Chr(34)+" "+Chr(34)+DesktopOutPath+Chr(34))
+		    
 		    SaveDataToFile(DesktopContent, DesktopOutPath+DesktopFile)
 		    ShellFast.Execute ("chmod 775 "+Chr(34)+DesktopOutPath+DesktopFile+Chr(34)) 'Change Read/Write/Execute to defaults
 		    
@@ -3315,6 +3339,9 @@ Protected Module LLMod
 		    If Debugging Then Debug ("Making Linux Association for: " + APP)
 		    
 		    If Not Exist(TmpPath) Then Shelly.Execute ("mkdir -p " + Chr(34) + TmpPath + Chr(34))
+		    
+		    MakeFolder(Slash(HomePath)+".local/share/applications")
+		    
 		    'MIME Type
 		    Shelly.Execute ("gsettings get org.gnome.desktop.interface icon-theme")
 		    CurrentIconTheme = Shelly.Result
@@ -3762,6 +3789,7 @@ Protected Module LLMod
 		        End If
 		        
 		        DesktopOutPath = Slash(HomePath)+".local/share/applications/"
+		        MakeFolder(DesktopOutPath)
 		        SaveDataToFile(DesktopContent, DesktopOutPath+DesktopFile)
 		        ShellFast.Execute ("chmod 775 "+Chr(34)+DesktopOutPath+DesktopFile+Chr(34)) 'Change Read/Write/Execute to defaults
 		        
@@ -7883,6 +7911,14 @@ Protected Module LLMod
 			InitialValue=""
 			Type="Integer"
 			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="LastTheme"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
+			EditorType="MultiLineEditor"
 		#tag EndViewProperty
 	#tag EndViewBehavior
 End Module

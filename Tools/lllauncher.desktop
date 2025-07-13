@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=LL Launcher
+Exec=env GDK_BACKEND=x11 llstore -l
+Comment=Launch LLStore games
+Icon=/LastOS/LLStore/Themes/LLLauncher.png
+Categories=Game;
+Terminal=No

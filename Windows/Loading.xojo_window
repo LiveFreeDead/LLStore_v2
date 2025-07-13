@@ -2878,6 +2878,10 @@ End
 		    'Check For Updates
 		    'Msgbox RunningInIDE.ToString
 		    
+		    'Delete previous Sudo Attempt file:
+		    Deltree("/tmp/LLSudo") 'Remove it
+		    
+		    
 		    WritableAppPath = IsWritable(AppPath) 'This checks to see if the current user can write to the path, if not it skips updating it
 		    
 		    If Settings.SetCheckForUpdates.Value = True And RunningInIDE = False And WritableAppPath = True Then

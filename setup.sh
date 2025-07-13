@@ -17,23 +17,23 @@ ZYPPER_CMD=$(type -P zypper 2>/dev/null)
 YUM_CMD=$(type -P yum 2>/dev/null)
 
 if [[ ! -z $PAMAC_CMD ]]; then
-    sudo $PAMAC_CMD install --no-confirm $PACKAGES
+    ./Tools/sudo_script.sh $PAMAC_CMD install --no-confirm $PACKAGES
 elif [[ ! -z $DNF_CMD ]]; then
-    sudo $DNF_CMD -y install $PACKAGES
+    ./Tools/sudo_script.sh $DNF_CMD -y install $PACKAGES
 elif [[ ! -z $APT_CMD ]]; then
-    sudo $APT_CMD -y install $PACKAGES
+    ./Tools/sudo_script.sh $APT_CMD -y install $PACKAGES
 elif [[ ! -z $EMERGE_CMD ]]; then
-    sudo $EMERGE_CMD $PACKAGES
+    ./Tools/sudo_script.sh $EMERGE_CMD $PACKAGES
 elif [[ ! -z $EOPKG_CMD ]]; then
-    sudo $EOPKG_CMD -y install $PACKAGES
+    ./Tools/sudo_script.sh $EOPKG_CMD -y install $PACKAGES
 elif [[ ! -z $APK_CMD ]]; then
-    sudo $APK_CMD add install $PACKAGES
+    ./Tools/sudo_script.sh $APK_CMD add install $PACKAGES
 elif [[ ! -z $PACMAN_CMD ]]; then
-    yes | sudo $PACMAN_CMD -S $PACKAGES
+    yes | ./Tools/sudo_script.sh $PACMAN_CMD -S $PACKAGES
 elif [[ ! -z $ZYPPER_CMD ]]; then
-    sudo $ZYPPER_CMD --non-interactive install $PACKAGES
+    ./Tools/sudo_script.sh $ZYPPER_CMD --non-interactive install $PACKAGES
 elif [[ ! -z $YUM_CMD ]]; then
-    sudo $YUM_CMD -y install $PACKAGES
+    ./Tools/sudo_script.sh $YUM_CMD -y install $PACKAGES
 else
     echo "error can't install package $PACKAGES"
 fi
@@ -51,6 +51,18 @@ if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
 fi  #Wayland check
 
 fi  #Top gnome check
+
+#Allow SELinux Security in SUSE and Fedora to install it - Disabled due to each item installed requiring you to allow it, so SELinux OS's won't work
+
+#./Tools/sudo_script.sh setenforce 0
+
+##./Tools/sudo_script.sh execstack -c "./llstore Libs/XojoGUIFramework64.so"
+##./Tools/sudo_script.sh execstack -c "./llstore Libs/*"
+
+
+#Copy .dektop files for Distro's that wont create them within the llstore installer (just in case)
+mkdir -p $HOME/.local/share/applications
+cp -f ./Tools/*.desktop $HOME/.local/share/applications
 
 
 #Run LLStore to install the rest (requires gnome terminal to get sudo properly, konsole works but most others will error out unless you pick to run this script in terminal)

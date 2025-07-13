@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=LL Store
+Exec=env GDK_BACKEND=x11 llstore
+Comment=Install LLFiles
+Icon=/LastOS/LLStore/llstore Resources/appicon_256.png
+Categories=Application;System;Settings;XFCE;X-XFCE-SettingsDialog;X-XFCE-SystemSettings;
+Terminal=No
