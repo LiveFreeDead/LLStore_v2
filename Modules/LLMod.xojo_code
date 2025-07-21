@@ -1789,6 +1789,43 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function GetFileAgeInSeconds(filePath As String) As Double
+		  // Get the file as a FolderItem
+		  'Dim f As FolderItem = New FolderItem(filePath)
+		  Dim F As FolderItem
+		  F = GetFolderItem(filePath,FolderItem.PathTypeNative)
+		  
+		  // Check if file exists
+		  If Not f.Exists Then
+		    'Return -1 // File doesn't exist
+		    Return 999 'Force Download DB's
+		  End If
+		  
+		  // Get current date/time
+		  Dim currentDate As DateTime = DateTime.Now
+		  
+		  // Calculate the difference in seconds
+		  'Dim timeDiff As Double = currentDate.SecondsFrom1970 - creationDate.SecondsFrom1970
+		  
+		  Dim timeDiff As Double
+		  
+		  timeDiff = currentDate.Day - f.ModificationDateTime.Day
+		  
+		  If timeDiff >= 1 Then Return 999 'Force Refresh if it's over a day, ANY day.
+		  
+		  timeDiff = currentDate.Hour - f.ModificationDateTime.Hour
+		  
+		  timeDiff = timeDiff * 60
+		  
+		  timeDiff = timeDiff + currentDate.Minute - f.ModificationDateTime.Minute
+		  
+		  'MsgBox timeDiff.ToString
+		  
+		  Return timeDiff
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function GetFullParent(PatIn As String) As String
 		  PatIn = PatIn.ReplaceAll("\","/") 'If using Linux paths, use linux paths
 		  PatIn = Left(PatIn,InStrRev(PatIn,"/")) 'Gets Parent Path
@@ -5839,6 +5876,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		CurrentDay As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		CurrentFader As Picture
 	#tag EndProperty
 
@@ -5860,6 +5901,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		CurrentssAppFile As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		CurrentTime As Double
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -6251,6 +6296,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		RefreshAfter As Integer = 20
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		Regenerating As Boolean = False
 	#tag EndProperty
 
@@ -6440,6 +6489,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		TimeOut As Double = 0
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		TimePassed As Boolean = False
 	#tag EndProperty
 
 	#tag Property, Flags = &h0

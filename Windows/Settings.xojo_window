@@ -828,7 +828,7 @@ Begin DesktopWindow Settings
    Begin DesktopCheckBox SetNoUpdateDBOnStart
       AllowAutoDeactivate=   True
       Bold            =   False
-      Caption         =   "Don't Update Online DB's on Start"
+      Caption         =   "Don't Auto Update Online DB's"
       Enabled         =   True
       FontName        =   "Arial"
       FontSize        =   12.0
@@ -836,7 +836,7 @@ Begin DesktopWindow Settings
       Height          =   27
       Index           =   -2147483648
       Italic          =   False
-      Left            =   343
+      Left            =   311
       LockBottom      =   True
       LockedInPosition=   False
       LockLeft        =   False
@@ -847,7 +847,7 @@ Begin DesktopWindow Settings
       TabPanelIndex   =   0
       TabStop         =   True
       Tooltip         =   "Hides items in the list that do not have the Working Desktop Environment Set"
-      Top             =   292
+      Top             =   291
       Transparent     =   False
       Underline       =   False
       Value           =   False
@@ -918,6 +918,80 @@ Begin DesktopWindow Settings
       Underline       =   False
       Visible         =   True
       Width           =   110
+   End
+   Begin DesktopTextField SetRefreshAfter
+      AllowAutoDeactivate=   True
+      AllowFocusRing  =   True
+      AllowSpellChecking=   False
+      AllowTabs       =   False
+      BackgroundColor =   &cFFFFFF
+      Bold            =   False
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Format          =   ""
+      HasBorder       =   True
+      Height          =   27
+      Hint            =   ""
+      Index           =   -2147483648
+      InitialParent   =   ""
+      Italic          =   False
+      Left            =   656
+      LockBottom      =   True
+      LockedInPosition=   False
+      LockLeft        =   False
+      LockRight       =   True
+      LockTop         =   False
+      MaximumCharactersAllowed=   0
+      Password        =   False
+      ReadOnly        =   False
+      Scope           =   0
+      TabIndex        =   28
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Text            =   "20"
+      TextAlignment   =   2
+      TextColor       =   &c000000
+      Tooltip         =   ""
+      Top             =   292
+      Transparent     =   False
+      Underline       =   False
+      ValidationMask  =   ""
+      Visible         =   True
+      Width           =   37
+   End
+   Begin DesktopLabel RefreshAfterLabel
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   27
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   532
+      LockBottom      =   True
+      LockedInPosition=   False
+      LockLeft        =   False
+      LockRight       =   True
+      LockTop         =   False
+      Multiline       =   False
+      Scope           =   0
+      Selectable      =   False
+      TabIndex        =   29
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Text            =   "Refresh After (Mins):"
+      TextAlignment   =   1
+      TextColor       =   &c000000
+      Tooltip         =   "Sets how long before it re-downloads databases"
+      Top             =   292
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   119
    End
 End
 #tag EndDesktopWindow

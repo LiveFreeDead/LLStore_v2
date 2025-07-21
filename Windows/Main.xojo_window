@@ -248,15 +248,15 @@ Begin DesktopWindow Main
       TabIndex        =   5
       TabPanelIndex   =   0
       TabStop         =   False
-      Text            =   "Items"
+      Text            =   "Items/Search"
       TextAlignment   =   2
       TextColor       =   &cFFFFFF00
-      Tooltip         =   ""
+      Tooltip         =   "Clicking this will allow searching the items"
       Top             =   0
       Transparent     =   True
       Underline       =   False
       Visible         =   True
-      Width           =   399
+      Width           =   337
    End
    Begin DesktopLabel TitleLabel
       AllowAutoDeactivate=   True
@@ -440,6 +440,87 @@ Begin DesktopWindow Main
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
+      RunMode         =   0
+      Scope           =   0
+      TabPanelIndex   =   0
+   End
+   Begin DesktopButton MenuButton
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Cancel          =   False
+      Caption         =   "Menu"
+      Default         =   True
+      Enabled         =   True
+      FontName        =   "System"
+      FontSize        =   0.0
+      FontUnit        =   0
+      Height          =   20
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   497
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      MacButtonStyle  =   0
+      Scope           =   0
+      TabIndex        =   11
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "Press for Menu"
+      Top             =   0
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   60
+   End
+   Begin DesktopTextField SearchText
+      AllowAutoDeactivate=   True
+      AllowFocusRing  =   True
+      AllowSpellChecking=   False
+      AllowTabs       =   False
+      BackgroundColor =   &cC0303000
+      Bold            =   False
+      Enabled         =   True
+      FontName        =   "System"
+      FontSize        =   0.0
+      FontUnit        =   0
+      Format          =   ""
+      HasBorder       =   False
+      Height          =   27
+      Hint            =   ""
+      Index           =   -2147483648
+      InitialParent   =   ""
+      Italic          =   False
+      Left            =   415
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      MaximumCharactersAllowed=   0
+      Password        =   False
+      ReadOnly        =   False
+      Scope           =   0
+      TabIndex        =   12
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Text            =   ""
+      TextAlignment   =   2
+      TextColor       =   &c000000
+      Tooltip         =   ""
+      Top             =   0
+      Transparent     =   True
+      Underline       =   False
+      ValidationMask  =   ""
+      Visible         =   False
+      Width           =   80
+   End
+   Begin Timer SearchNow
+      Index           =   -2147483648
+      LockedInPosition=   False
+      Period          =   50
       RunMode         =   0
       Scope           =   0
       TabPanelIndex   =   0
@@ -1400,6 +1481,15 @@ End
 		    
 		    ItemCats = Data.Items.CellTextAt(I, Data.GetDBHeader("Categories")) 
 		    
+		    
+		    'If Searching then show only valid items
+		    If SearchText.Visible = True Then
+		      If ItemToAdd.IndexOf(SearchText.Text) = -1 Then
+		        Continue 'Skip all items not in search results
+		      End If
+		    End If
+		    
+		    
 		    If CurrentCat <> "All" Then
 		      If ItemCats.IndexOf(CurrentCat) < 0 Then Hidden = True 'Hide Categories to found in string
 		      'MsgBox Str(ItemCats.IndexOf(CurrentCat)) +" "+CurrentCat+" = "+ ItemCats
@@ -1777,6 +1867,17 @@ End
 		  ItemsLabel.Top = CategoriesLabel.Top
 		  ItemsLabel.Width = (Main.Width / 3.45) - 6
 		  ItemsLabel.Height = CategoriesLabel.Height
+		  
+		  MenuButton.Left = ItemsLabel.Left + ItemsLabel.Width - 60
+		  MenuButton.Top = Items.Top - 22 - (Items.Height / 200) 'ItemsLabel.Top + (Main.Height / 130)
+		  
+		  SearchText.TextColor = ColTitle
+		  SearchText.BackgroundColor = ColBG
+		  SearchText.Left = ItemsLabel.Left
+		  SearchText.Top = 0
+		  SearchText.Width = ItemsLabel.Width
+		  SearchText.Height = Items.Top - 2
+		  
 		  
 		  TitleLabel.Left = ItemsLabel.Left + ItemsLabel.Width + PaddingMid
 		  TitleLabel.Top = CategoriesLabel.Top
@@ -2907,6 +3008,23 @@ End
 		End Function
 	#tag EndEvent
 #tag EndEvents
+#tag Events ItemsLabel
+	#tag Event
+		Sub MouseUp(x As Integer, y As Integer)
+		  SearchText.Visible = True
+		  ItemsLabel.Visible = False
+		  
+		  SearchText.SetFocus
+		  SearchNow.RunMode = Timer.RunModes.Single
+		  SearchText.SelectionStart = 999 'Move to end
+		End Sub
+	#tag EndEvent
+	#tag Event
+		Function MouseDown(x As Integer, y As Integer) As Boolean
+		  Return True
+		End Function
+	#tag EndEvent
+#tag EndEvents
 #tag Events ItemFaderPic
 	#tag Event
 		Sub MouseUp(x As Integer, y As Integer)
@@ -3159,6 +3277,53 @@ End
 		  'WasContext = False
 		  DoContextMenu
 		  'End If
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events MenuButton
+	#tag Event
+		Sub Pressed()
+		  DoContextMenu
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events SearchText
+	#tag Event
+		Sub MouseUp(x As Integer, y As Integer)
+		  SearchText.Visible = False
+		  ItemsLabel.Visible = True
+		  SearchNow.RunMode = Timer.RunModes.Single
+		End Sub
+	#tag EndEvent
+	#tag Event
+		Function MouseDown(x As Integer, y As Integer) As Boolean
+		  Return True
+		End Function
+	#tag EndEvent
+	#tag Event
+		Function KeyDown(key As String) As Boolean
+		  'Msgbox Asc(Key).ToString
+		  
+		  
+		  Select Case Asc(Key)
+		  Case 13,3
+		    SearchText.Visible = False
+		    ItemsLabel.Visible = True
+		    SearchNow.RunMode = Timer.RunModes.Single
+		    Return True
+		    
+		  End Select
+		  
+		  SearchNow.RunMode = Timer.RunModes.Single
+		  
+		  Return False
+		End Function
+	#tag EndEvent
+#tag EndEvents
+#tag Events SearchNow
+	#tag Event
+		Sub Action()
+		  GenerateItems 'Search for typed in text
 		End Sub
 	#tag EndEvent
 #tag EndEvents

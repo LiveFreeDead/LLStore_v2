@@ -2104,6 +2104,14 @@ End
 		      If Val(Settings.SetVideoVolume.Text) > 100 Then Settings.SetVideoVolume.Text  = "100"
 		      If Val(Settings.SetVideoVolume.Text) < 0 Then Settings.SetVideoVolume.Text  = "0"
 		      MovieVolume = Val(Settings.SetVideoVolume.Text)
+		      
+		    Case "refreshafter"
+		      If LineData <> "" Then Settings.SetRefreshAfter.Text = LineData.Trim
+		      If Val(Settings.SetRefreshAfter.Text) > 999 Then Settings.SetRefreshAfter.Text  = "999"
+		      If Val(Settings.SetRefreshAfter.Text) < 0 Then Settings.SetRefreshAfter.Text  = "0"
+		      RefreshAfter = Val(Settings.SetRefreshAfter.Text)
+		      
+		      
 		    Case "uselocaldbs"
 		      If LineData <> "" Then Settings.SetUseLocalDBFiles.Value = IsTrue(LineData)
 		    Case "copyitemstobuiltrepo"
@@ -2709,6 +2717,9 @@ End
 		  RL = RL + "QuitOnComplete=" + Str(Settings.SetQuitOnComplete.Value) + Chr(10)
 		  RL = RL + "VideoPlayback=" + Str(Settings.SetVideoPlayback.Value) + Chr(10)
 		  RL = RL + "VideoVolume=" + Str(Settings.SetVideoVolume.Text) + Chr(10)
+		  
+		  RL = RL + "RefreshAfter=" + Str(Settings.SetRefreshAfter.Text) + Chr(10)
+		  
 		  RL = RL + "UseLocalDBs=" + Str(Settings.SetUseLocalDBFiles.Value) + Chr(10)
 		  RL = RL + "CopyItemsToBuiltRepo=" + Str(Settings.SetCopyToRepoBuild.Value) + Chr(10)
 		  RL = RL + "IgnoreCachedRepoItems=" + Str(Settings.SetIgnoreCache.Value) + Chr(10)
@@ -2881,6 +2892,11 @@ End
 		    'Delete previous Sudo Attempt file:
 		    Deltree("/tmp/LLSudo") 'Remove it
 		    
+		    'Check if DB RefreshAfter Time has passed
+		    TimePassed = False
+		    If  GetFileAgeInSeconds(Slash(RepositoryPathLocal)+"00-rawgithubusercontentcomLiveFreeDeadLastOSLinux_Repositorymain.lldbini") >= RefreshAfter Then
+		      TimePassed = True
+		    End If
 		    
 		    WritableAppPath = IsWritable(AppPath) 'This checks to see if the current user can write to the path, if not it skips updating it
 		    
@@ -2954,10 +2970,11 @@ End
 		      SaveAllDBs
 		    End If
 		    
+		    If ForceRefreshDBs = True Then TimePassed = True 'If forced a refresh, do the online ones also
 		    ForceRefreshDBs = False
 		    
 		    'Get online Databases
-		    If StoreMode = 0 Then
+		    If StoreMode = 0 And TimePassed = True Then
 		      OnlineDBs = LoadDataFromFile(Slash(AppPath)+"LLL_Repos.ini").ReplaceAll(Chr(10), Chr(13)) ' Convert to standard format so it works in Windows and Linux
 		      If OnlineDBs.Trim <> "" Then Settings.SetOnlineRepos.Text = OnlineDBs.Trim
 		      'MsgBox "Here 1"
