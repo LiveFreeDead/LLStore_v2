@@ -2974,13 +2974,14 @@ End
 		    ForceRefreshDBs = False
 		    
 		    'Get online Databases
-		    If StoreMode = 0 And TimePassed = True Then
+		    If StoreMode = 0 Then ' And TimePassed = True  '<- This is used below, so it uses the local downloaded DB's if they exist.
 		      OnlineDBs = LoadDataFromFile(Slash(AppPath)+"LLL_Repos.ini").ReplaceAll(Chr(10), Chr(13)) ' Convert to standard format so it works in Windows and Linux
 		      If OnlineDBs.Trim <> "" Then Settings.SetOnlineRepos.Text = OnlineDBs.Trim
 		      'MsgBox "Here 1"
 		      If Settings.SetUseOnlineRepos.Value = True Then
 		        'MsgBox "Here 2"
 		        CheckingForDatabases = True
+		        If TimePassed = False Then ForceNoOnlineDBUpdates = True
 		        If ForceNoOnlineDBUpdates = True Then
 		          Loading.Status.Text = "Using Offline Databases..."
 		        Else
@@ -2988,7 +2989,6 @@ End
 		        End If
 		        Loading.Refresh
 		        App.DoEvents(1)
-		        
 		        GetOnlineDBs() 'Only do this when in Installation mode
 		        CheckingForDatabases = False
 		        Loading.Status.Text = "Databases Loaded..."
