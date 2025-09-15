@@ -1,0 +1,44 @@
+#!/bin/bash
+
+#Find the main Executable for your Game and make sure the Parent folder name is clean and relevent.
+
+CURRENT_PATH="$PWD"
+CURRENT_EXEC="$@"
+PARENT_FOLDER_NAME=$(basename "$CURRENT_PATH")
+
+#gnome-terminal -- bash -c 'echo "Received variable: $1"; sleep 5' _ "$CURRENT_PATH"
+#gnome-terminal -- bash -c 'echo "Received variable: $1"; sleep 5' _ "$CURRENT_EXEC"
+
+
+cat >"$CURRENT_PATH/LLGame.llg" <<EOL
+[LLFile]
+Title=${PARENT_FOLDER_NAME}
+Version=v1.0
+Description=
+URL=
+Category=OtherGame;
+BuildType=LLGame
+AppPath=%LLGames%/${PARENT_FOLDER_NAME}
+Catalog=Game;
+Priority=5
+DECompatible=All-Linux
+PMCompatible=All
+ArchCompatible=x64
+[Meta]
+Releaser=LastOS
+License=0
+[${PARENT_FOLDER_NAME}.desktop]
+Exec=%LLGames%/${PARENT_FOLDER_NAME}/${CURRENT_EXEC}
+Comment=
+Path=%LLGames%/${PARENT_FOLDER_NAME}/
+Icon=%LLGames%/${PARENT_FOLDER_NAME}/LLGame.png
+Terminal=False
+EOL
+
+#Open in Editor
+/LastOS/LLStore/llstore -e "$CURRENT_PATH/LLGame.llg"
+
+#for f in "$@"
+#do
+#    /LastOS/LLStore/llstore -e $f
+#done

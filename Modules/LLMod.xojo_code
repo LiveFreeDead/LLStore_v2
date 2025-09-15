@@ -2475,6 +2475,7 @@ Protected Module LLMod
 		    
 		    If SysDesktopEnvironment.Trim.Lowercase = "cinnamon" Then 'Add $HOME/.local/share/nemo/actions
 		      ShellFast.Execute("cp -R "+Chr(34)+MainPath+"scripts/actions"+Chr(34)+" "+Chr(34)+Slash(HomePath)+".local/share/nemo/"+Chr(34))
+		      ShellFast.Execute("cp -R "+Chr(34)+MainPath+"scripts/nautilus/scripts/LastOS"+Chr(34)+" "+Chr(34)+Slash(HomePath)+".local/share/nemo/scripts/"+Chr(34))
 		    End If
 		    
 		    If SysDesktopEnvironment.Trim.Lowercase = "kde" Then 'Add $HOME/.local/share/kio/servicemenus
@@ -7972,6 +7973,38 @@ Protected Module LLMod
 			InitialValue=""
 			Type="String"
 			EditorType="MultiLineEditor"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CurrentDay"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CurrentTime"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Double"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="RefreshAfter"
+			Visible=false
+			Group="Behavior"
+			InitialValue="20"
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="TimePassed"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
 End Module

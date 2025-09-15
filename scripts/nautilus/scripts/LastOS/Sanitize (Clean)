@@ -1,6 +1,0 @@
-#!/bin/bash
-
-for f in "$@"
-do
-    wine /LastOS/Tools/Sanitize/Sanitize.exe "Z:$f"&
-done
