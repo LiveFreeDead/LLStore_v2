@@ -863,6 +863,8 @@ Protected Module LLMod
 		      
 		      PathIn = PathIn.ReplaceAll("%INIPath%", ItemLLItem.PathINI)
 		      PathIn = PathIn.ReplaceAll("%ProgramFiles%", HomePath +  ".wine/drive_c/Program Files")
+		      
+		      PathIn = PathIn.ReplaceAll("C:/Program Files", HomePath +  ".wine/drive_c/Program Files") 'Added to fix up a few issues in older apz
 		      PathIn = PathIn.ReplaceAll("%ProgramFiles(x86)%", HomePath +  ".wine/drive_c/Program Files (x86)")
 		      PathIn = PathIn.ReplaceAll("%ProgramData%", HomePath +  ".wine/drive_c/ProgramData")
 		      PathIn = PathIn.ReplaceAll("%SystemDrive%", HomePath +  ".wine/drive_c")
@@ -1170,18 +1172,18 @@ Protected Module LLMod
 		  Else 'Use Linux full paths instead (So can detect if installed etc first).
 		    If WinPaths Then
 		      PathIn = PathIn.ReplaceAll("%USBDrive%", "z:") 'Convert USB/DVD your running off  to correct Path
-		      
+		      'I changed all these to backslash as it only affects ssTek and I found having both forward and back slashes seems to break scripts a bit - will see if this fixes GlennGlennGlenn
 		      PathIn = PathIn.ReplaceAll("%AppPath%", "z:"+ItemLLItem.PathApp)
-		      PathIn = PathIn.ReplaceAll("%ppGames%", "C:/ppGames")
-		      PathIn = PathIn.ReplaceAll("%ppApps%", "C:/ppApps")
+		      PathIn = PathIn.ReplaceAll("%ppGames%", "C:\ppGames")
+		      PathIn = PathIn.ReplaceAll("%ppApps%", "C:\ppApps")
 		      
 		      PathIn = PathIn.ReplaceAll("%INIPath%", "z:"+ItemLLItem.PathINI)
-		      PathIn = PathIn.ReplaceAll("%ProgramFiles%", "C:/Program Files")
-		      PathIn = PathIn.ReplaceAll("%ProgramFiles(x86)%", "C:/Program Files (x86)")
-		      PathIn = PathIn.ReplaceAll("%ProgramData%", "C:/ProgramData")
+		      PathIn = PathIn.ReplaceAll("%ProgramFiles%", "C:\Program Files")
+		      PathIn = PathIn.ReplaceAll("%ProgramFiles(x86)%", "C:\Program Files (x86)")
+		      PathIn = PathIn.ReplaceAll("%ProgramData%", "C:\ProgramData")
 		      PathIn = PathIn.ReplaceAll("%SystemDrive%", "C:")
-		      PathIn = PathIn.ReplaceAll("%SystemRoot%", "C:/windows")
-		      PathIn = PathIn.ReplaceAll("%WinDir%", "C:/windows")
+		      PathIn = PathIn.ReplaceAll("%SystemRoot%", "C:\windows")
+		      PathIn = PathIn.ReplaceAll("%WinDir%", "C:\windows")
 		      
 		      PathIn = PathIn.ReplaceAll("%SourcePath%", ItemLLItem.PathINI)
 		      PathIn = PathIn.ReplaceAll("%SourceDrive%", "z:")
@@ -1294,6 +1296,11 @@ Protected Module LLMod
 		          'If Left(PathIn,1)<>Chr(34) Then 'Need to check for end of .msi and remove /qb if it's an issue
 		          PathIn = "msiexec /quiet /norestart /i "+PathIn
 		        Else
+		        End If
+		      End If
+		      If PathIn.IndexOf(".msi /qb") >= 1 Or PathIn.IndexOf(".msi /qn") >= 1 Then 'If it detects as /qb or /qn then it's obviously an installer and should be treated as such
+		        If Left(PathIn,7) <> "msiexec" Then 'ignore if already added
+		          PathIn = "msiexec /quiet /norestart /i "+PathIn
 		        End If
 		      End If
 		    End If
