@@ -525,6 +525,36 @@ Begin DesktopWindow Main
       Scope           =   0
       TabPanelIndex   =   0
    End
+   Begin DesktopCheckBox CheckSortMenus
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Caption         =   "Sort Menus"
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   26
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   8
+      LockBottom      =   True
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   False
+      Scope           =   0
+      TabIndex        =   13
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   ""
+      Top             =   693
+      Transparent     =   True
+      Underline       =   False
+      Value           =   False
+      Visible         =   False
+      VisualState     =   0
+      Width           =   100
+   End
 End
 #tag EndDesktopWindow
 
@@ -691,7 +721,7 @@ End
 		            MiniInstaller.StartInstaller()
 		          End If
 		        End If
-		        
+		        Return True 'Capture Keypress so it doesn't open Menu button
 		      Else
 		        If CurrentItemID <> -1 Then
 		          If IsTrue(Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("Selected"))) Then
@@ -702,6 +732,7 @@ End
 		          
 		          Items.Refresh 'Force Redraw
 		          UpdateStats 'Recount
+		          Return True 'Capture Keypress so it doesn't open Menu button
 		        End If
 		        
 		      End If
@@ -715,6 +746,7 @@ End
 		      Else
 		        RunGame(CurrentItemID)
 		      End If
+		      Return True 'Capture Keypress so it doesn't open Menu button
 		    End If
 		  End If
 		  
@@ -1858,6 +1890,9 @@ End
 		  Main.Stats.TextColor = ColStats
 		  Main.Stats.FontName = FontStats
 		  
+		  Main.CheckSortMenus.FontName = FontStats
+		  
+		  
 		  
 		  CategoriesLabel.FontSize = (CategoriesLabel.Height/4.5)+8
 		  ItemsLabel.FontSize = CategoriesLabel.FontSize
@@ -1893,6 +1928,9 @@ End
 		  Stats.Height = 24
 		  Stats.Top = Main.Height - Stats.Height-(Main.Height/40)
 		  Stats.Width = ItemsLabel.Width
+		  
+		  CheckSortMenus.Top = Stats.Top
+		  CheckSortMenus.Left = CategoriesLabel.Left
 		  
 		  Categories.Left = CategoriesLabel.Left
 		  Categories.Top = CategoriesLabel.Top +16 +  PaddingCatTop
@@ -2008,9 +2046,14 @@ End
 	#tag Method, Flags = &h0
 		Sub RunGame(GameIDIn As Integer, PickScreenRes As Boolean = False)
 		  If Debugging Then Debug("--- Starting Run Game ---")
-		  
-		  If Debugging Then Debug("Starting: " + Data.Items.CellTextAt(GameIDIn, Data.GetDBHeader("TitleName")))
-		  
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    If Items.RowCount <=0 Then Return 'Nothing in List, abandon running
+		    If Debugging Then Debug("Starting: " + Data.Items.CellTextAt(GameIDIn, Data.GetDBHeader("TitleName")))
+		  Catch
+		    Return 'Abandon running missing game
+		  End Try
+		  #Pragma BreakOnExceptions On
 		  RunningGame = True
 		  If GameIDIn = -1 Then Return 'No Item given
 		  
@@ -2464,8 +2507,11 @@ End
 		        Data.Items.CellTextAt(CurrentItemID, ColSelected) = "T" ' Select it
 		        MiniInstallerShowing = True
 		        MiniInstaller.StartInstaller()
+		      Else 'Just do Menu Sorting
+		        If Main.CheckSortMenus.Value = True Then MiniInstaller.StartInstaller()
 		      End If
 		    End If
+		    
 		  End If
 		  If StoreMode = 1 Then 'Launcher
 		    If CurrentItemID >=0 Then 'If nothing picked, do nothing
@@ -3324,6 +3370,31 @@ End
 	#tag Event
 		Sub Action()
 		  GenerateItems 'Search for typed in text
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events CheckSortMenus
+	#tag Event
+		Sub ValueChanged()
+		  If CheckSortMenus.Value = True Then
+		    
+		    'Get MenuStyle As it's set (Doing this allows setting it with Settings app).
+		    ControlPanel.PopulateControlPanel()
+		    
+		    MsgBox "Sorting Menu Style: " + MenuStyle
+		  End If
+		  
+		  Items.SetFocus 'Get focus off the checkbox
+		End Sub
+	#tag EndEvent
+	#tag Event
+		Function MouseDown(x As Integer, y As Integer) As Boolean
+		  
+		End Function
+	#tag EndEvent
+	#tag Event
+		Sub MouseUp(x As Integer, y As Integer)
+		  
 		End Sub
 	#tag EndEvent
 #tag EndEvents

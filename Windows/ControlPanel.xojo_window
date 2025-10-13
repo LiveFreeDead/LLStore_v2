@@ -10,6 +10,7 @@ Begin DesktopWindow ControlPanel
    HasFullScreenButton=   False
    HasMaximizeButton=   False
    HasMinimizeButton=   False
+   HasTitleBar     =   True
    Height          =   206
    ImplicitInstance=   True
    MacProcID       =   0
@@ -855,7 +856,9 @@ End
 		  Dim I, G As Integer
 		  Dim MenuIn As String
 		  Dim MenuName As String
-		  Dim Sp() As String
+		  Dim Sp(), S As String
+		  Dim F As FolderItem
+		  Dim Ti As TextInputStream
 		  
 		  ComboppAppDrive.Text = "C:"
 		  ComboppGameDrive.Text = "C:"
@@ -917,6 +920,105 @@ End
 		  
 		  ComboMenuStyle.Text = MenuStyle
 		  
+		  
+		  'Get ppDrives
+		  If TargetWindows Then ' Get the real drives with ppApps/Games etc
+		    'Get ppApps and ppGames Default Install locations
+		    Try
+		      F = GetFolderItem(SysRoot + "/ppAppDrive.ini", FolderItem.PathTypeNative)
+		      If F <> Nil And F.Exists Then
+		        TI = TextInputStream.Open(F)
+		        S = Trim(Left(TI.ReadLine, 2))
+		        ppAppsDrive = S
+		        TI.Close
+		      Else
+		        'If LivePE Then ppAppsDrive = SysDrive 'Setting to thie within the LivePE will make all items shown (Ignores if Installed)
+		      End If
+		    Catch
+		    End Try
+		    
+		    Try
+		      F = GetFolderItem(SysRoot + "/ppGameDrive.ini", FolderItem.PathTypeNative)
+		      If F <> Nil And F.Exists Then
+		        TI = TextInputStream.Open(F)
+		        S = Trim(Left(TI.ReadLine, 2))
+		        ppGamesDrive = S
+		        TI.Close
+		      Else
+		        'If LivePE Then ppGamesDrive = SysDrive 'Setting to thie within the LivePE will make all items shown (Ignores if Installed)
+		      End If
+		    Catch
+		    End Try
+		    
+		    Try
+		      If Not Exist (ppAppsDrive+"\ppApps") Then
+		        F = GetFolderItem(ppAppsDrive+"\ppWritable.ini", FolderItem.PathTypeNative)
+		        If F.IsWriteable And WritableLocation(F) Then
+		          ShellFast.Execute("mkdir " + chr(34) + ppAppsDrive+"\ppApps"+ chr(34)) 'Make folder if possible, else it'll redetect the drive
+		          If Not Exist (ppAppsDrive+"\ppApps") Then ppAppsDrive = "" 'If not found then detect where it should be or set to C:
+		          'MsgBox "Tried"
+		        Else
+		          ppAppsDrive = "" 'If not found then detect where it should be or set to C:
+		        End If
+		      Else ' If Exist test it's writable
+		        F = GetFolderItem(ppAppsDrive+"\ppApps\ppWritable.ini", FolderItem.PathTypeNative)
+		        If F.IsWriteable And WritableLocation(F) Then
+		        Else
+		          ppAppsDrive = ""
+		        End If
+		      End If
+		    Catch
+		      ppAppsDrive = "" 'If not found then detect where it should be or set to C:
+		    End Try
+		    
+		    If ppAppsDrive = "" Then 'If not set in Above file then scan for existing ones if not in LivePE
+		      ppAppsDrive = SysDrive 'Just in case none exist
+		      ppAppsDrive = GetExistingppFolder("ppApps")
+		    End If
+		    
+		    Try
+		      If Not Exist (ppGamesDrive+"\ppGames") Then
+		        F = GetFolderItem(ppGamesDrive+"\ppWritable.ini", FolderItem.PathTypeNative)
+		        If F.IsWriteable And WritableLocation(F) Then
+		          ShellFast.Execute("mkdir " + chr(34) + ppGamesDrive+"\ppGames"+ chr(34)) 'Make folder if possible, else it'll redetect the drive
+		          If Not Exist (ppGamesDrive+"\ppGames") Then ppGamesDrive = "" 'If not found then detect where it should be or set to C:
+		        Else
+		          ppGamesDrive = "" 'If not found then detect where it should be or set to C:
+		        End If
+		      Else ' If Exist test it's writable
+		        F = GetFolderItem(ppGamesDrive+"\ppGames\ppWritable.ini", FolderItem.PathTypeNative)
+		        If F.IsWriteable And WritableLocation(F) Then
+		        Else
+		          ppGamesDrive = ""
+		        End If
+		      End If
+		    Catch
+		      ppGamesDrive = "" 'If not found then detect where it should be or set to C:
+		    End Try
+		    
+		    If ppGamesDrive = "" Then 'If not set in Above file then scan for existing ones if not in LivePE
+		      ppGamesDrive = SysDrive 'Just in case none exist
+		      ppGamesDrive = GetExistingppFolder("ppGames")
+		    End If
+		    
+		    ppAppsFolder = ppAppsDrive + "/ppApps/"
+		    ppGamesFolder = ppGamesDrive + "/ppGames/"
+		  Else 'Linux defaults
+		    ppAppsDrive = Slash(HomePath)+".wine/drive_c/"
+		    ppGamesDrive = Slash(HomePath)+".wine/drive_c/"
+		    ppAppsFolder = Slash(HomePath)+".wine/drive_c/ppApps/"
+		    ppGamesFolder = Slash(HomePath)+".wine/drive_c/ppGames/"
+		  End If
+		  
+		  If TargetWindows Then ' Give up and just use C:\
+		    If ppAppsDrive = "" Then ppAppsDrive = "C:"
+		    If ppGamesDrive = "" Then ppGamesDrive = "C:"
+		    ppAppsFolder = ppAppsDrive + "/ppApps/" 'Do these 2 lines last to make sure they have a drive and path
+		    ppGamesFolder = ppGamesDrive + "/ppGames/"
+		  End If
+		  
+		  
+		  
 		  'List Drives available to use as ppDrives
 		  If TargetWindows Then 'Disable this for Linux
 		    RefreshppDrives()
@@ -929,7 +1031,7 @@ End
 	#tag Method, Flags = &h0
 		Sub RefreshppDrives()
 		  Dim Let, I As Integer
-		  Dim ScanPath, ScanDisk As String
+		  Dim ScanDisk As String
 		  Dim F As FolderItem
 		  
 		  ComboppAppDrive.RemoveAllRows
@@ -939,7 +1041,6 @@ End
 		  For I = 0 To 23
 		    Let = Asc("C") + I
 		    ScanDisk = Chr(Let)+":"
-		    ScanPath = ScanDisk + "\ppApps"
 		    F = GetFolderItem(ScanDisk+"\ppWriteTest.ini", FolderItem.PathTypeNative)
 		    If F.IsWriteable Then
 		      ComboppAppDrive.AddRow(ScanDisk)
@@ -1612,6 +1713,14 @@ End
 	#tag EndEvent
 #tag EndEvents
 #tag ViewBehavior
+	#tag ViewProperty
+		Name="HasTitleBar"
+		Visible=true
+		Group="Frame"
+		InitialValue="True"
+		Type="Boolean"
+		EditorType=""
+	#tag EndViewProperty
 	#tag ViewProperty
 		Name="Name"
 		Visible=true

@@ -10,6 +10,7 @@ Begin DesktopWindow Notification
    HasFullScreenButton=   False
    HasMaximizeButton=   False
    HasMinimizeButton=   False
+   HasTitleBar     =   True
    Height          =   96
    ImplicitInstance=   True
    MacProcID       =   0
@@ -82,6 +83,7 @@ Begin DesktopWindow Notification
       Width           =   96
    End
    Begin Timer NotifyTimeOut
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   4000
@@ -133,6 +135,14 @@ End
 	#tag EndEvent
 #tag EndEvents
 #tag ViewBehavior
+	#tag ViewProperty
+		Name="HasTitleBar"
+		Visible=true
+		Group="Frame"
+		InitialValue="True"
+		Type="Boolean"
+		EditorType=""
+	#tag EndViewProperty
 	#tag ViewProperty
 		Name="Name"
 		Visible=true

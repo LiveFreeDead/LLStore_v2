@@ -817,66 +817,6 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Function GetExistingppFolder(GetType As String) As String
-		  Declare Function SetErrorMode Lib "Kernel32" (mode As Integer) As Integer
-		  Dim oldMode As Integer 
-		  If TargetWindows Then
-		    Const SEM_FAILCRITICALERRORS = &h1
-		    oldMode = SetErrorMode( SEM_FAILCRITICALERRORS )
-		  Else
-		    oldMode = 0
-		  End If
-		  Dim reg As registryItem
-		  Dim Ret As String
-		  Dim I, A As Integer
-		  Dim F As FolderItem
-		  
-		  #Pragma BreakOnExceptions Off
-		  Try
-		    reg = new registryItem(RegKeyHKLMccsWin) 'RegKeyHKLMccsWin = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Windows"
-		    reg.Value("ErrorMode") = 2
-		  Catch
-		  End Try
-		  
-		  Ret = ""
-		  A = Asc("Z")
-		  
-		  Dim Test, Drive As String
-		  
-		  Try
-		    For I = 0 To 23
-		      Drive = Chr(A-I)+":"
-		      Test = Drive+"\"+GetType
-		      'MsgBox(Test)
-		      
-		      If Exist (Test) Then
-		        F = GetFolderItem(Drive+"\ppWritable.ini", FolderItem.PathTypeNative)
-		        If F.IsWriteable And WritableLocation(F) Then
-		          Ret = Drive
-		          'MsgBox(Ret)
-		          Exit For I
-		        End If
-		      End If
-		    Next I
-		  Catch
-		  End Try
-		  
-		  If Ret = "" Then Ret = SysDrive ' Default to SysDrive ' so works with LivePE's etc
-		  If Ret = "" Then Ret = "C:" ' Default to C: 'If SysDrive is blank, set it to C:
-		  
-		  If TargetWindows Then Call SetErrorMode( oldMode )
-		  #Pragma BreakOnExceptions Off
-		  Try
-		    reg = new registryItem(RegKeyHKLMccsWin) 'RegKeyHKLMccsWin = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Windows"
-		    reg.Value("ErrorMode") = 0
-		  Catch
-		  End Try
-		  #Pragma BreakOnExceptions Default
-		  Return Ret
-		End Function
-	#tag EndMethod
-
-	#tag Method, Flags = &h0
 		Function GetItem(ItemInn As String, InnTmp As String = "") As Integer
 		  If ItemInn = "" Then Return  -1 'Nothing given
 		  
@@ -1853,9 +1793,6 @@ End
 		  
 		  If Debugging Then Debug("Loading Database From: "+ F.NativePath)
 		  
-		  'Load in whole file at once (Fastest Method)
-		  inputStream = TextInputStream.Open(F)
-		  
 		  Dim I, J, K As Integer
 		  Dim RL As String
 		  Dim Sp() As String
@@ -1865,7 +1802,11 @@ End
 		  
 		  Dim FlagsIn As String
 		  Dim FadeFile As String
+		  #Pragma BreakOnExceptions Off
 		  Try
+		    'Load in whole file at once (Fastest Method)
+		    inputStream = TextInputStream.Open(F)
+		    
 		    While Not inputStream.EndOfFile 'If Empty file this skips it
 		      RL = inputStream.ReadAll 
 		    Wend
@@ -1873,6 +1814,8 @@ End
 		  Catch
 		    Return 'The DB Load failed, Return to calling Sub and try the next one instead
 		  End Try
+		  
+		  #Pragma BreakOnExceptions On
 		  
 		  If FullPathGiven = True Then 'Only Online DB's use this
 		    RL = RL .ReplaceAll("%URLPath%", NoSlash(CurrentDBURL)) 'This is to point to the Online DB rather than the local cache, I'll have to convert them to RepositoryLocalDB 'Do All at once, must be faster than doing one at a time
@@ -2381,6 +2324,8 @@ End
 		  'Stats
 		  Main.Stats.TextColor = ColStats
 		  Main.Stats.FontName = FontStats
+		  
+		  Main.CheckSortMenus.FontName = FontStats
 		  
 		  'Meta 'Cols are in the PaintEvents
 		  Main.MetaData.FontName = FontMeta
@@ -2898,17 +2843,19 @@ End
 		      TimePassed = True
 		    End If
 		    
-		    WritableAppPath = IsWritable(AppPath) 'This checks to see if the current user can write to the path, if not it skips updating it
-		    
-		    If Settings.SetCheckForUpdates.Value = True And RunningInIDE = False And WritableAppPath = True Then
-		      CheckingForUpdates = True
-		      Loading.Status.Text = "Check For Store Updates: "
-		      Loading.Refresh
-		      App.DoEvents(1)
-		      CheckForLLStoreUpdates
-		      CheckingForUpdates = False
-		    End IF
-		    If Debugging Then Debug ("Writable AppPath: " + WritableAppPath.ToString)
+		    If StoreMode = 0 Then 'Only update the installer NOT the launcher
+		      
+		      WritableAppPath = IsWritable(AppPath) 'This checks to see if the current user can write to the path, if not it skips updating it
+		      If Settings.SetCheckForUpdates.Value = True And RunningInIDE = False And WritableAppPath = True Then
+		        CheckingForUpdates = True
+		        Loading.Status.Text = "Check For Store Updates: "
+		        Loading.Refresh
+		        App.DoEvents(1)
+		        CheckForLLStoreUpdates
+		        CheckingForUpdates = False
+		      End IF
+		      If Debugging Then Debug ("Writable AppPath: " + WritableAppPath.ToString)
+		    End If
 		    
 		    'Get Scan Paths Here
 		    Loading.Status.Text = "Scanning Drives..."
@@ -3097,6 +3044,7 @@ End
 		    
 		    If StoreMode = 1 Then
 		      Main.Title = "LL Launcher"
+		      Main.CheckSortMenus.Visible = False
 		      
 		      Main.Description.Text = "Select a Game and press Start to Play it, if no games are shown the Launcher only shows items installed with LLStore." +chr(13) +chr(13) _
 		      +"If you hold in Shift you can set the Screen Resolution of the game." + chr(13) _
@@ -3108,6 +3056,7 @@ End
 		    Else
 		      
 		      Main.Title = "LL Store"
+		      If TargetWindows Then Main.CheckSortMenus.Visible = True 'Only show menu sorting in Windows as that is all that needs it
 		      
 		      Dim TriggerWords() As String
 		      Dim EndCount As Integer
@@ -3642,103 +3591,7 @@ End
 		    StartPathUser = Slash(FixPath(SpecialFolder.ApplicationData.NativePath)) + "Microsoft/Windows/Start Menu/Programs/" 'Current User
 		  End If
 		  
-		  'Get ppDrives
-		  If TargetWindows Then ' Get the real drives with ppApps/Games etc
-		    'Get ppApps and ppGames Default Install locations
-		    Try
-		      F = GetFolderItem(SysRoot + "/ppAppDrive.ini", FolderItem.PathTypeNative)
-		      If F <> Nil And F.Exists Then
-		        TI = TextInputStream.Open(F)
-		        S = Trim(Left(TI.ReadLine, 2))
-		        ppAppsDrive = S
-		        TI.Close
-		      Else
-		        'If LivePE Then ppAppsDrive = SysDrive 'Setting to thie within the LivePE will make all items shown (Ignores if Installed)
-		      End If
-		    Catch
-		    End Try
-		    
-		    Try
-		      F = GetFolderItem(SysRoot + "/ppGameDrive.ini", FolderItem.PathTypeNative)
-		      If F <> Nil And F.Exists Then
-		        TI = TextInputStream.Open(F)
-		        S = Trim(Left(TI.ReadLine, 2))
-		        ppGamesDrive = S
-		        TI.Close
-		      Else
-		        'If LivePE Then ppGamesDrive = SysDrive 'Setting to thie within the LivePE will make all items shown (Ignores if Installed)
-		      End If
-		    Catch
-		    End Try
-		    
-		    Try
-		      If Not Exist (ppAppsDrive+"\ppApps") Then
-		        F = GetFolderItem(ppAppsDrive+"\ppWritable.ini", FolderItem.PathTypeNative)
-		        If F.IsWriteable And WritableLocation(F) Then
-		          ShellFast.Execute("mkdir " + chr(34) + ppAppsDrive+"\ppApps"+ chr(34)) 'Make folder if possible, else it'll redetect the drive
-		          If Not Exist (ppAppsDrive+"\ppApps") Then ppAppsDrive = "" 'If not found then detect where it should be or set to C:
-		          'MsgBox "Tried"
-		        Else
-		          ppAppsDrive = "" 'If not found then detect where it should be or set to C:
-		        End If
-		      Else ' If Exist test it's writable
-		        F = GetFolderItem(ppAppsDrive+"\ppApps\ppWritable.ini", FolderItem.PathTypeNative)
-		        If F.IsWriteable And WritableLocation(F) Then
-		        Else
-		          ppAppsDrive = ""
-		        End If
-		      End If
-		    Catch
-		      ppAppsDrive = "" 'If not found then detect where it should be or set to C:
-		    End Try
-		    
-		    If ppAppsDrive = "" Then 'If not set in Above file then scan for existing ones if not in LivePE
-		      ppAppsDrive = SysDrive 'Just in case none exist
-		      ppAppsDrive = GetExistingppFolder("ppApps")
-		    End If
-		    
-		    Try
-		      If Not Exist (ppGamesDrive+"\ppGames") Then
-		        F = GetFolderItem(ppGamesDrive+"\ppWritable.ini", FolderItem.PathTypeNative)
-		        If F.IsWriteable And WritableLocation(F) Then
-		          ShellFast.Execute("mkdir " + chr(34) + ppGamesDrive+"\ppApps"+ chr(34)) 'Make folder if possible, else it'll redetect the drive
-		          If Not Exist (ppGamesDrive+"\ppGames") Then ppGamesDrive = "" 'If not found then detect where it should be or set to C:
-		        Else
-		          ppGamesDrive = "" 'If not found then detect where it should be or set to C:
-		        End If
-		      Else ' If Exist test it's writable
-		        F = GetFolderItem(ppGamesDrive+"\ppGames\ppWritable.ini", FolderItem.PathTypeNative)
-		        If F.IsWriteable And WritableLocation(F) Then
-		        Else
-		          ppGamesDrive = ""
-		        End If
-		      End If
-		    Catch
-		      ppGamesDrive = "" 'If not found then detect where it should be or set to C:
-		    End Try
-		    
-		    If ppGamesDrive = "" Then 'If not set in Above file then scan for existing ones if not in LivePE
-		      ppGamesDrive = SysDrive 'Just in case none exist
-		      ppGamesDrive = GetExistingppFolder("ppGames")
-		    End If
-		    
-		    ppAppsFolder = ppAppsDrive + "/ppApps/"
-		    ppGamesFolder = ppGamesDrive + "/ppGames/"
-		  Else 'Linux defaults
-		    ppAppsDrive = Slash(HomePath)+".wine/drive_c/"
-		    ppGamesDrive = Slash(HomePath)+".wine/drive_c/"
-		    ppAppsFolder = Slash(HomePath)+".wine/drive_c/ppApps/"
-		    ppGamesFolder = Slash(HomePath)+".wine/drive_c/ppGames/"
-		  End If
-		  
-		  If TargetWindows Then ' Give up and just use C:\
-		    If ppAppsDrive = "" Then ppAppsDrive = "C:"
-		    If ppGamesDrive = "" Then ppGamesDrive = "C:"
-		    ppAppsFolder = ppAppsDrive + "/ppApps/" 'Do these 2 lines last to make sure they have a drive and path
-		    ppGamesFolder = ppGamesDrive + "/ppGames/"
-		  End If
-		  
-		  'Get MenuStyle
+		  'Get MenuStyle and ppDrives
 		  ControlPanel.PopulateControlPanel()
 		  
 		  'Get Startmenu Paths

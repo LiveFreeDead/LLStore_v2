@@ -170,7 +170,6 @@ Begin DesktopWindow MiniInstaller
       Width           =   56
    End
    Begin Thread InstallItems
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Priority        =   5
@@ -180,7 +179,6 @@ Begin DesktopWindow MiniInstaller
       Type            =   0
    End
    Begin Timer UpdateUI
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -502,7 +500,7 @@ End
 		    MiniInstaller.Stats.Width = MiniInstaller.Skip.Left - (MiniInstaller.Pause.Left+MiniInstaller.Pause.Width) -2
 		  End If
 		  
-		  MiniInstaller.Show
+		  If Main.SelectsCount >=1 Then MiniInstaller.Show
 		  
 		  'Call thread and lets hope I got it right
 		  InstallItems.Start
@@ -814,6 +812,31 @@ End
 		    For I = 0 To Data.Items.RowCount - 1 ' Unselect everything
 		      Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F" ' Un-Select Items
 		    Next I
+		    
+		    'GlennGlenn-Sort menu if checked here
+		    
+		    '2nd things 2nd, sort the menu, even if nothing set to installed before it
+		    If Main.CheckSortMenus.Value = True Then
+		      If MenuStyle <> "" Then
+		        MiniInstaller.Hide ' Hide the installer
+		        MiniInstallerShowing = False
+		        'Main.Hide
+		        Loading.Regenerate = True
+		        Notify ("LLStore Sorting Menu", "Sorting Start Menu Style: "+MenuStyle+Chr(10)+"Please Wait...", "", -1)
+		        App.DoEvents(7)
+		        If ControlPanel.SetPressed() = True Then ' Only do if valid results
+		          If ControlPanel.CheckRegenerate.Value = True Then ControlPanel.RegenerateItems() 'Do this when pressing button and check enabled
+		          If Debugging Then Debug ("Sorted Start Menu: " + MenuStyle)
+		        End If
+		        Notify ("LLStore Sorted Menu", "Sorted Start Menu Style: "+MenuStyle, "", 100)
+		        App.DoEvents(7)
+		        Main.CheckSortMenus.Value = False ' Clear check mark after completeing sort
+		        'Main.Show
+		        Loading.Regenerate = False
+		      End If
+		    End If
+		    
+		    
 		    
 		    'Make sure Sudo is closed (not added ability to echo to /tmp/LLSudo to close it yet, so disabled)
 		    If Not TargetWindows Then 'Only make Sudo in Linux

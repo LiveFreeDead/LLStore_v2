@@ -1796,6 +1796,66 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function GetExistingppFolder(GetType As String) As String
+		  Declare Function SetErrorMode Lib "Kernel32" (mode As Integer) As Integer
+		  Dim oldMode As Integer 
+		  If TargetWindows Then
+		    Const SEM_FAILCRITICALERRORS = &h1
+		    oldMode = SetErrorMode( SEM_FAILCRITICALERRORS )
+		  Else
+		    oldMode = 0
+		  End If
+		  Dim reg As registryItem
+		  Dim Ret As String
+		  Dim I, A As Integer
+		  Dim F As FolderItem
+		  
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    reg = new registryItem(RegKeyHKLMccsWin) 'RegKeyHKLMccsWin = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Windows"
+		    reg.Value("ErrorMode") = 2
+		  Catch
+		  End Try
+		  
+		  Ret = ""
+		  A = Asc("Z")
+		  
+		  Dim Test, Drive As String
+		  
+		  Try
+		    For I = 0 To 23
+		      Drive = Chr(A-I)+":"
+		      Test = Drive+"\"+GetType
+		      'MsgBox(Test)
+		      
+		      If Exist (Test) Then
+		        F = GetFolderItem(Drive+"\ppWritable.ini", FolderItem.PathTypeNative)
+		        If F.IsWriteable And WritableLocation(F) Then
+		          Ret = Drive
+		          'MsgBox(Ret)
+		          Exit For I
+		        End If
+		      End If
+		    Next I
+		  Catch
+		  End Try
+		  
+		  If Ret = "" Then Ret = SysDrive ' Default to SysDrive ' so works with LivePE's etc
+		  If Ret = "" Then Ret = "C:" ' Default to C: 'If SysDrive is blank, set it to C:
+		  
+		  If TargetWindows Then Call SetErrorMode( oldMode )
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    reg = new registryItem(RegKeyHKLMccsWin) 'RegKeyHKLMccsWin = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Windows"
+		    reg.Value("ErrorMode") = 0
+		  Catch
+		  End Try
+		  #Pragma BreakOnExceptions Default
+		  Return Ret
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function GetFileAgeInSeconds(filePath As String) As Double
 		  // Get the file as a FolderItem
 		  'Dim f As FolderItem = New FolderItem(filePath)
