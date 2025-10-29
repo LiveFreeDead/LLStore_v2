@@ -1877,10 +1877,12 @@ End
 		              End If
 		              
 		            Case Else
-		              If DataHeadID >= 1 Then
+		              If DataHeadID >= 1 Then 'Glenn 2027
 		                #Pragma BreakOnExceptions Off
 		                Try
-		                  Data.Items.CellTextAt(ItemCount,DataHeadID) = ItemSP(J)
+		                  If J < ItemSP.Count Then 'This is the main fix for if the DB gets corrupted
+		                    Data.Items.CellTextAt(ItemCount,DataHeadID) = ItemSP(J)
+		                  End If
 		                Catch
 		                End Try
 		                #Pragma BreakOnExceptions On
