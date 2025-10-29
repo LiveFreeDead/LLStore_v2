@@ -1878,7 +1878,12 @@ End
 		              
 		            Case Else
 		              If DataHeadID >= 1 Then
-		                Data.Items.CellTextAt(ItemCount,DataHeadID) = ItemSP(J)
+		                #Pragma BreakOnExceptions Off
+		                Try
+		                  Data.Items.CellTextAt(ItemCount,DataHeadID) = ItemSP(J)
+		                Catch
+		                End Try
+		                #Pragma BreakOnExceptions On
 		              End If
 		            End Select
 		            
