@@ -4117,7 +4117,7 @@ End
 		  'Regenerate pp Items
 		  If Regenerate = True Then
 		    Loading.Hide
-		    Notify ("LLStore Regenerating Items", "Regenerating ppApps/ppGames", "", -1) 'Mini Installer can't call this and wouldn't want to.
+		    Notify ("LLStore Regenerating Items", "Regenerating LL/pp Apps/Games", "", -1) 'Mini Installer can't call this and wouldn't want to.
 		    App.DoEvents(1)'Refresh Things
 		    ControlPanel.RegenerateItems()
 		    QuitNow = True
