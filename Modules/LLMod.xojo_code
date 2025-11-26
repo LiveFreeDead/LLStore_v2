@@ -2992,7 +2992,11 @@ Protected Module LLMod
 		  If Debugging Then Debug("Load LLFile: "+ ActualIni)
 		  
 		  'Load in whole file at once (Fastest Method)
-		  inputStream = TextInputStream.Open(F)
+		  Try
+		    inputStream = TextInputStream.Open(F)
+		  Catch
+		    Return False 'Failed, just skip item
+		  End Try
 		  
 		  Dim RL As String
 		  While Not inputStream.EndOfFile 'If Empty file this skips it
