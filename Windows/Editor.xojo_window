@@ -52,7 +52,7 @@ Begin DesktopWindow Editor
       Top             =   0
       Transparent     =   False
       Underline       =   False
-      Value           =   0
+      Value           =   1
       Visible         =   True
       Width           =   630
       Begin DesktopLabel LabelTitle
@@ -1015,7 +1015,7 @@ Begin DesktopWindow Editor
          TabIndex        =   20
          TabPanelIndex   =   2
          TabStop         =   True
-         Tooltip         =   ""
+         Tooltip         =   "Double Click to store updated Link Names"
          Top             =   125
          Transparent     =   False
          Underline       =   False
@@ -5624,14 +5624,14 @@ End
 		  EditingLnk = -1 'Start with -1 so you can edit the Main item Catalogs
 		  Populating = True 'Make sure not to allow blanks to overwrite the data before it's populated
 		  
+		  BT = ItemLLItem.BuildType
+		  
 		  'Defaults
-		  ComboBuildType.SelectedRowIndex = 0 'Default to LLApp
+		  If BT = "" Then ComboBuildType.SelectedRowIndex = 0 'Default to LLApp if none loaded in
 		  
 		  'Set the Size first so I can uncheck the Auto Getting size on the Build Tab
 		  CheckGetSizeComp.Value = False
 		  TextInstalledSize.Text = ItemLLItem.InstallSize.ToString
-		  
-		  BT = ItemLLItem.BuildType
 		  
 		  'Main Window 1 - General
 		  ComboBuildType.RemoveAllRows
@@ -6647,6 +6647,58 @@ End
 		    'TextMenuCatalog.Text = ItemLnk(EditingLnk).Categories.ReplaceAll(" ", Chr(13)) 'Make Multi Line, not ; seperated
 		  End If
 		End Sub
+	#tag EndEvent
+	#tag Event
+		Sub TextChanged()
+		  
+		End Sub
+	#tag EndEvent
+	#tag Event
+		Function MouseDown(x As Integer, y As Integer) As Boolean
+		  // Detect a double click (usually within 20-30 ticks)
+		  If (System.Ticks - LastClickTicks) <= 30 Then
+		    // --- DOUBLE CLICK CODE HERE ---
+		    'EditingCBLnk = ComboShortcut.SelectedRowIndex
+		    'EditingLnk = ComboShortcut.RowTagAt(EditingCBLnk)
+		    
+		    Dim I As Integer
+		    Dim StartingLnk As Integer = EditingLnk
+		    If EditingLnk <= 0 Then Return True 'Nothing Selected, just get out of here
+		    
+		    ItemLnk(EditingLnk).Title = ComboShortcut.Text 'Settings to blank pretty much deletes it
+		    ComboShortcut.RemoveAllRows 'Clear the Existing Shortcuts
+		    
+		    'Add Main item to Link 0
+		    ComboShortcut.AddRow("Main Item")
+		    EditingCBLnk = ComboShortcut.LastAddedRowIndex
+		    ComboShortcut.RowTagAt(EditingCBLnk) = 0
+		    EditingLnk = 0
+		    ItemLnk(0).Title = "Main Item"
+		    ItemLnk(0).Categories = ItemLLItem.Catalog
+		    
+		    If LnkCount >= 1 Then
+		      For I = 1 To LnkCount
+		        If ItemLnk(I).Title <> "" Then 'Blank Items get ignored
+		          ComboShortcut.AddRow(ItemLnk(I).Title)
+		          EditingCBLnk = ComboShortcut.LastAddedRowIndex
+		          ComboShortcut.RowTagAt(EditingCBLnk) = I
+		          EditingLnk = StartingLnk
+		        End If
+		      Next
+		      ComboShortcut.SelectedRowIndex = StartingLnk 'Pick first item to populate the Link Data
+		    End If
+		    
+		    // Reset so a third click isn't counted as another double
+		    LastClickTicks = 0 
+		    Return False 'Don't pass click through
+		  Else
+		    // Store the time of this click for the next comparison
+		    LastClickTicks = System.Ticks
+		  End If
+		  
+		  // Return True to allow the control to process the click normally
+		  Return False
+		End Function
 	#tag EndEvent
 #tag EndEvents
 #tag Events TextComment

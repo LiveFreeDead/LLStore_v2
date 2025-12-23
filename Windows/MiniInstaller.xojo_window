@@ -170,7 +170,6 @@ Begin DesktopWindow MiniInstaller
       Width           =   56
    End
    Begin Thread InstallItems
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Priority        =   5
@@ -180,7 +179,6 @@ Begin DesktopWindow MiniInstaller
       Type            =   0
    End
    Begin Timer UpdateUI
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -230,6 +228,7 @@ End
 		    SkippedInstalling = True
 		    MiniUpTo = 99999
 		    Deltree(Slash(RepositoryPathLocal)+"UpTo.ini") ' Delete previous install queue if user aborted
+		    If TargetLinux Then SaveDataToFile("STOP!","/tmp/stopLLStore") 'Allow the Continue Script to exit so LLStore can close 
 		    Me.Hide
 		    Return True
 		  Else
@@ -492,6 +491,16 @@ End
 		  For I = 0 To 4095
 		    SkipItem(I) = False
 		  Next
+		  
+		  'Run KeepLLStore Here-  Glenn 26 - This quits when Xojo crashes, I need to run the script manually before hand
+		  'If TargetLinux Then
+		  'Debug("Running KeepLLStore.sh:")
+		  'Dim Sh As New Shell
+		  'Sh.TimeOut = -1
+		  'Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		  'Debug("setsid " +Chr(34)+Slash(AppPath)+"KeepLLStore.sh"+Chr(34)+" >/dev/null 2>&1 &")
+		  'Sh.Execute ("setsid " +Chr(34)+Slash(AppPath)+"KeepLLStore.sh"+Chr(34)+" >/dev/null 2>&1 &")
+		  'End If
 		  
 		  AddInstallingItems
 		  
@@ -798,6 +807,7 @@ End
 		  If MiniInstaller.Visible = False Then QuitInstaller = True
 		  
 		  If MiniUpTo+1 > MiniInstaller.Items.RowCount Then 'Past the end of the installer
+		    If TargetLinux Then SaveDataToFile("STOP!","/tmp/stopLLStore") 'Allow the Continue Script to exit so LLStore can close 
 		    InstallDone = True ' Trigger to quit MiniInstaller
 		    
 		    InstallItems.Stop 'Disable the Thread Loop

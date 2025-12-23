@@ -2016,7 +2016,7 @@ Protected Module LLMod
 		  Dim Shelly As New Shell
 		  
 		  'Dim TmpNumber As Integer = Randomiser.InRange(10000, 20000)
-		  Dim FileToExtract As String
+		  Dim FileToExtract, MainFileToExtract As String
 		  
 		  Shelly.ExecuteMode = Shell.ExecuteModes.Asynchronous
 		  Shelly.TimeOut = -1
@@ -2120,12 +2120,17 @@ Protected Module LLMod
 		    
 		    If ItemLLItem.BuildType = "ppApp" Then FileToExtract = Slash(InstallFromPath) + "ppApp.7z"
 		    If ItemLLItem.BuildType = "ppGame" Then FileToExtract = Slash(InstallFromPath) + "ppGame.7z"
+		    
 		    If FileToExtract <> "" Then
 		      If Exist(FileToExtract) Then
+		        MainFileToExtract = FileToExtract
 		        Success = Extract(FileToExtract, InstallToPath, "")
 		        If Not Success Then 'Clean Up And Return (This is required, else it'll not work anyway, so abort)
 		          Return False ' Failed to extract
 		        End If
+		        'Else 'No Archives, check if extracted file and copy it all if so
+		        'If ItemLLItem.NoInstall = False Then 'Only do items set for installing
+		        'End If
 		      End If
 		    End If
 		    
@@ -2153,10 +2158,13 @@ Protected Module LLMod
 		    End If
 		    
 		    
+		    If ItemLLItem.BuildType  = "ssApp" Then MainFileToExtract = "NO" 'Do NOT copy the files when they are a ssApp
+		    If ItemLLItem.NoInstall = True Then MainFileToExtract = "NO" 'Do NOT copy the files when they are not installed anywhere (They are a LLApp that tweaks or installs with package manager)
+		    
 		    'Copy all .jpg .png .svg .ico .mp4 from InstallFrom to InstallTo so screenshots for multi shortcut items work
 		    'Copy LLFiles to the Install folder (So Games Launcher has the Link Info and Screenshots/Fader etc 'This will copy all but archives, Need to manually copy the ssApp and ppApp files after this
 		    If TargetWindows Then
-		      If InstallFromPath.IndexOf("ppAppsLive")>=1 Then
+		      If InstallFromPath.IndexOf("ppAppsLive")>=1 Or MainFileToExtract = "" Then ' If MainFilesToExtract was never done then copy the whole extracted item
 		        XCopy(InstallFromPath.ReplaceAll("/","\"), InstallToPath.ReplaceAll("/","\"))
 		      Else
 		        'Find another way to copy in Windows? (RoboCopy)
@@ -2183,7 +2191,7 @@ Protected Module LLMod
 		      
 		    Else 'Linux Mode
 		      'rsync doesn't work in Debian by default, needs installing, so just copy the essentials in that case
-		      If InstallFromPath.IndexOf("ppAppsLive")>=1 Then
+		      If InstallFromPath.IndexOf("ppAppsLive")>=1 Or MainFileToExtract = "" Then 'Can check here if was an extracted/installed LLFile your installing and do the lot - MainFileToExtract is set above if so
 		        Shelly.Execute ("cp -rf " + Chr(34) + Slash(InstallFromPath) + "." + Chr(34) + " " + Chr(34) + InstallToPath + Chr(34))
 		        Do
 		          App.DoEvents(7)
@@ -3013,6 +3021,9 @@ Protected Module LLMod
 		  Lin = Sp(0).Trim.Lowercase
 		  If Lin = "[llfile]" Or Lin = "[setups]" Then 'Only work with files that are really our files
 		    ItemLLItem.BuildType = "LLApp" 'Default to LLApps
+		    If ItemInn.EndsWith("LLGame.llg") Then
+		      ItemLLItem.BuildType = "LLGame" 'Switch to Game if not an App
+		    End If
 		    ItemLLItem.Priority = 5 'Default Priority
 		    LnkEditing = 0
 		    ReadMode = 0
@@ -5948,6 +5959,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		ContinueSelf As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		CurrentDay As Integer
 	#tag EndProperty
 
@@ -6184,6 +6199,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		LastClickTicks As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		LastMiniUpTo As Integer
 	#tag EndProperty
 
@@ -6205,6 +6224,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		LLStoreDrive As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		LLStoreParent As String
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -8075,6 +8098,30 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue="False"
 			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="ContinueSelf"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="LastClickTicks"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="LLStoreParent"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior

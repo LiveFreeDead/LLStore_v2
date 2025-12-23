@@ -1307,6 +1307,11 @@ End
 		    CheckPath(Slash(Inn + "ppAppsLive"))
 		    CheckPath(Slash(Inn + "ppGamesInstalls"))
 		    
+		    If StoreMode = 1 Then ' Get Games path if set to Launcher
+		      CheckPath(Slash(Inn) + Slash("ppGames"))
+		      CheckPath(Slash(Inn) + Slash("LLGames"))
+		    End If
+		    
 		    'Get Manual Locations If %ExtraPath%
 		    If Settings.SetUseManualLocations.Value = True And TargetLinux Then 'Only use them if set to use them
 		      If Debugging Then Debug("--- Get %ExtraPath% Manual Locations: ---")
@@ -1566,6 +1571,8 @@ End
 		      End If
 		    End If
 		    
+		    'Get LLStoreParent
+		    If LLStoreParent <> "" Then GetItemsPaths(LLStoreParent, True) 'Get root folder locations if they exist - Glenn 26
 		    
 		    'Get Manual Locations
 		    If Settings.SetUseManualLocations.Value = True Then 'Only use them if set to use them
@@ -1588,6 +1595,7 @@ End
 		    If TargetLinux Then
 		      GetItemsPaths(Slash(HomePath)+"LLGames/", True)
 		      GetItemsPaths(Slash(HomePath)+".wine/drive_c/ppGames/", True)
+		      If LLStoreParent <> "" Then GetItemsPaths(LLStoreParent, True) 'Get root folder locations if they exist - Glenn 26
 		      
 		      'Make it check the root folder to LLStore, so can carry on USB stick with installed items to play - This may cause issues, needs Testing Glenn
 		      Dim GamePath As String
@@ -2579,6 +2587,9 @@ End
 		    
 		    If DBOutText <> "" Then 'Only bother saving a DB if the path has items in it, no need to make blank ones
 		      SaveDataToFile (DBHeader+DBOutText, DBOutPath+"lldb.ini")
+		    Else ' No Data, don't keep created folder
+		      Deltree(DBOutPath) 'Kill Previous Database if writable media.
+		      'MakeFolder(DBOutPath) 'Make sure it exist again
 		    End If
 		    'Change Permissions
 		    If TargetLinux Then ChMod(DBOutPath,"-R 777") ' DB files should be full accessible to everyone, else how can they update them?
@@ -3103,7 +3114,12 @@ End
 		    'Check if UpTo Exists and load that in to continue if found
 		    Dim Ret As Integer
 		    If Exist(Slash(RepositoryPathLocal)+"UpTo.ini") Then
-		      Ret = MsgBox ("Found Previous Installation Queue, Continue Installing?", 52)
+		      If ContinueSelf = False Then
+		        Ret = MsgBox ("Found Previous Installation Queue, Continue Installing?", 52)
+		      Else
+		        Ret = 69
+		        ContinueSelf = False
+		      End If
 		      
 		      If Ret = 7 Then
 		        'MsgBox ("No Ret "+ Ret.ToString)
@@ -3505,6 +3521,10 @@ End
 		  Do
 		    If Exist(Slash(F.NativePath) + "Tools") Then
 		      AppPath  = F.NativePath
+		      LLStoreParent = NoSlash(F.Parent.NativePath)
+		      If LLStoreParent = "/LastOS" Then LLStoreParent = "" 'Don't bother if it's the installed LLStore
+		      If LLStoreParent = "C:\Program Files" Then LLStoreParent = "" 'Don't bother if it's the installed LLStore
+		      'MsgBox LLStoreParent
 		      Exit Do
 		    End If
 		    F = F.Parent
@@ -3620,6 +3640,8 @@ End
 		  
 		  ppAppsFolder = ppAppsFolder.ReplaceAll("\","/")
 		  ppGamesFolder = ppGamesFolder.ReplaceAll("\","/")
+		  
+		  LLStoreParent = LLStoreParent.ReplaceAll("\","/")
 		  
 		  'Set the folders
 		  ppApps = ppAppsFolder
@@ -3752,6 +3774,8 @@ End
 		    Case "-install", "-i"
 		      StoreMode = 2
 		      InstallArg = True
+		    Case "-continue"
+		      ContinueSelf = True
 		    Case "-edit", "-e"
 		      EditorOnly = True
 		      StoreMode = 3
@@ -3851,6 +3875,13 @@ End
 		  'Get Shortcut Redirects - This has to be done except when in Launcher mode, so the installer has access to them!
 		  GetCatalogRedirects 'May as well always do this, not needed for Storemode 1 - but what if you change modes? - wont hurt
 		  
+		  'See if /tmp/stopLLStore exists and delete it if so
+		  If TargetLinux Then
+		    Try
+		      If Exist("/tmp/stopLLStore") Then Deltree("/tmp/stopLLStore")
+		    Catch
+		    End Try
+		  End If
 		  
 		  'Get Actual CommandLineFile File if only a Folder is given
 		  If CommandLineFile <> "" Then
@@ -3944,6 +3975,7 @@ End
 		  If Debugging Then Debug("Args: "+System.CommandLine)
 		  If Debugging Then Debug("CommandLineFile: " + CommandLineFile)
 		  If Debugging Then Debug("EditorOnly: " + EditorOnly.ToString +" Build: " + Build.ToString +" Compress: " + Compress.ToString)
+		  If Debugging Then Debug("LLStoreParent: " + LLStoreParent)
 		  
 		  OriginalStoreMode = StoreMode ' Because I set it to hide main with 99, I use a backup of it
 		  
