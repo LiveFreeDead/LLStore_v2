@@ -1608,6 +1608,15 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function FixEOL(StrIn As String) As String
+		  StrIn = StrIn.ReplaceAll(Chr(10), Chr(30))
+		  StrIn = StrIn.ReplaceAll(Chr(13), Chr(30))
+		  StrIn = StrIn.ReplaceAll(EndOfLine, Chr(30))
+		  Return StrIn
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function FixGameCats(CatIn As String) As String
 		  CatIn = CatIn.ReplaceAll("Games"+Chr(92), "")
 		  CatIn = CatIn.ReplaceAll("Gamess", "Games")
@@ -5588,9 +5597,8 @@ Protected Module LLMod
 		  DataOut = DataOut + "Title="+ ItemLLItem.TitleName+Chr(10)
 		  If ItemLLItem.Version <> "" Then DataOut = DataOut + "Version="+ ItemLLItem.Version+Chr(10)
 		  If ItemLLItem.Descriptions <> "" Then
-		    ItemLLItem.Descriptions = ItemLLItem.Descriptions.ReplaceAll(Chr(10), Chr(30))
-		    ItemLLItem.Descriptions = ItemLLItem.Descriptions.ReplaceAll(Chr(13), Chr(30))
-		    DataOut = DataOut + "Description=" + ItemLLItem.Descriptions.ReplaceAll(EndOfLine, Chr(30))+Chr(10)
+		    ItemLLItem.Descriptions = FixEOL(ItemLLItem.Descriptions)
+		    DataOut = DataOut + "Description=" + FixEOL(ItemLLItem.Descriptions)+Chr(10)
 		  End If
 		  If ItemLLItem.URL <> "" Then DataOut = DataOut + "URL=" + ItemLLItem.URL.ReplaceAll(Chr(13),"|")+Chr(10)
 		  
@@ -5655,7 +5663,7 @@ Protected Module LLMod
 		  Else
 		    'DataOut = DataOut + "ArchCompatible=x86 + x64"+Chr(10) 'Just leave it blank, so that if it's an ARM app it'll work for that too
 		  End If
-		  If ItemLLItem.Assembly <> "" Then DataOut = DataOut + "Assembly=" + ItemLLItem.Assembly.ReplaceAll(Chr(13),Chr(30))+Chr(10)
+		  If ItemLLItem.Assembly <> "" Then DataOut = DataOut + "Assembly=" + FixEOL(ItemLLItem.Assembly)+Chr(10)
 		  If ItemLLItem.Flags <> "" Then DataOut = DataOut + "Flags=" + ItemLLItem.Flags+Chr(10)
 		  If ItemLLItem.Arch <> "" Then DataOut = DataOut + "Architecture=" + ItemLLItem.Arch+Chr(10) 'This will need to convert x86, x64, arm to numbered, 1 = x86, 2 = x64, will need to check the rest to make it match
 		  
@@ -5686,8 +5694,10 @@ Protected Module LLMod
 		        If ItemLnk(I).Link.Arguments <> "" Then DataOut = DataOut + "Args="+ItemLnk(I).Link.Arguments+Chr(10)
 		        If ItemLnk(I).Associations <> "" Then DataOut = DataOut + "Extensions="+ItemLnk(I).Associations+Chr(10)
 		        If ItemLnk(I).Flags <> "" Then DataOut = DataOut + "Flags="+ItemLnk(I).Flags+Chr(10)
-		        If ItemLnk(I).Link.Description <> "" Then DataOut = DataOut + "Comment="+ItemLnk(I).Link.Description.ReplaceAll(EndOfLine, Chr(30))+Chr(10)
-		        If ItemLnk(I).Description <> "" Then DataOut = DataOut + "Description="+ItemLnk(I).Description.ReplaceAll(EndOfLine, Chr(30))+Chr(10)
+		        
+		        'Glenn 26 - Fix EOL for Descriptions and Comments
+		        If ItemLnk(I).Link.Description <> "" Then DataOut = DataOut + "Comment="+FixEOL(ItemLnk(I).Link.Description)+Chr(10)
+		        If ItemLnk(I).Description <> "" Then DataOut = DataOut + "Description="+FixEOL(ItemLnk(I).Description)+Chr(10)
 		        
 		        CatOut = ItemLnk(I).Categories
 		        If CatOut.ReplaceAll(";","").ReplaceAll(" ","").Trim = ItemLLItem.Catalog.ReplaceAll(";","").ReplaceAll(" ","").Trim Then CatOut = "" 'Don't add if the same as the main items category
@@ -5720,8 +5730,8 @@ Protected Module LLMod
 		        If ItemLnk(I).Title = "" Then Continue 'Dud item, continue looping to next item
 		        DataOut = DataOut + "["+ItemLnk(I).Title+".desktop]"+Chr(10)
 		        If ItemLnk(I).Link.TargetPath <> "" Then DataOut = DataOut + "Exec="+ItemLnk(I).Link.TargetPath+Chr(10)
-		        'DataOut = DataOut + "Description=" + ItemLLItem.Descriptions.ReplaceAll(EndOfLine, Chr(30))+Chr(10)
-		        If ItemLnk(I).Link.Description <> "" Then DataOut = DataOut + "Comment="+ItemLnk(I).Link.Description.ReplaceAll(EndOfLine, Chr(30))+Chr(10)
+		        'DataOut = DataOut + "Description=" + FixEOL(ItemLLItem.Descriptions))+Chr(10)
+		        If ItemLnk(I).Link.Description <> "" Then DataOut = DataOut + "Comment="+FixEOL(ItemLnk(I).Link.Description)+Chr(10)
 		        If ItemLnk(I).Link.WorkingDirectory <> "" Then DataOut = DataOut + "Path="+ItemLnk(I).Link.WorkingDirectory+Chr(10)
 		        If ItemLnk(I).Link.IconLocation <> "" Then DataOut = DataOut + "Icon="+ItemLnk(I).Link.IconLocation+Chr(10)
 		        If ItemLnk(I).Categories <> "" Then
@@ -5734,7 +5744,7 @@ Protected Module LLMod
 		        End If
 		        If ItemLnk(I).Associations <> "" Then DataOut = DataOut + "Extensions="+ItemLnk(I).Associations+Chr(10)
 		        If ItemLnk(I).Flags <> "" Then DataOut = DataOut + "Flags="+ItemLnk(I).Flags+Chr(10)
-		        If ItemLnk(I).Description <> "" Then DataOut = DataOut + "Description="+ItemLnk(I).Description.ReplaceAll(EndOfLine, Chr(30))+Chr(10)
+		        If ItemLnk(I).Description <> "" Then DataOut = DataOut + "Description="+FixEOL(ItemLnk(I).Description)+Chr(10)
 		        DataOut = DataOut + "Terminal="+ItemLnk(I).Terminal.ToString+Chr(10)
 		        
 		        'Do ShowOn
@@ -8122,7 +8132,7 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue=""
 			Type="String"
-			EditorType=""
+			EditorType="MultiLineEditor"
 		#tag EndViewProperty
 	#tag EndViewBehavior
 End Module

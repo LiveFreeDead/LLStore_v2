@@ -1873,15 +1873,38 @@ End
 		              End If
 		            Case "PathApp" ' Convert these back ASAP, Less issues if it's already converted and it gets converted back when saving to DB's
 		              If DataHeadID >= 1 Then
-		                Data.Items.CellTextAt(ItemCount,DataHeadID) = ExpPath(ItemSP(J))
+		                #Pragma BreakOnExceptions False
+		                Try
+		                  If J <  ItemSP.Count Then
+		                    Data.Items.CellTextAt(ItemCount,DataHeadID) = ExpPath(ItemSP(J))
+		                  Else
+		                    'Data.Items.CellTextAt(ItemCount,DataHeadID) = ExpPath(ItemSP(ItemSP.Count))
+		                  End If
+		                Catch
+		                End Try
+		                #Pragma BreakOnExceptions True
 		              End If
 		            Case "PathINI"
 		              If DataHeadID >= 1 Then
-		                Data.Items.CellTextAt(ItemCount,DataHeadID) = ExpPath(ItemSP(J))
+		                #Pragma BreakOnExceptions False
+		                Try
+		                  If J < ItemSP.Count Then
+		                    Data.Items.CellTextAt(ItemCount,DataHeadID) = ExpPath(ItemSP(J))
+		                  End If
+		                Catch
+		                End Try
+		                #Pragma BreakOnExceptions True
 		              End If
 		            Case "FileINI"
 		              If DataHeadID >= 1 Then
-		                Data.Items.CellTextAt(ItemCount,DataHeadID) = ExpPath(ItemSP(J))
+		                #Pragma BreakOnExceptions False
+		                Try
+		                  If J < ItemSP.Count Then
+		                    Data.Items.CellTextAt(ItemCount,DataHeadID) = ExpPath(ItemSP(J))
+		                  End If
+		                Catch
+		                End Try
+		                #Pragma BreakOnExceptions True
 		              End If
 		              
 		            Case Else
@@ -2450,8 +2473,10 @@ End
 		            Select Case Data.Items.HeaderAt(K)
 		              
 		              'The first line below only writes data, doesn't comp it's paths etc
-		            Case "URL", "BuildType", "Compressed", "Hidden", "HiddenAlways", "ShowAlways", "ShowSetupOnly", "Installed", "Arch", "OS", "TitleName", "Version", "Categories", "Catalog", "Description", "Priority", "IconRef", "Flags", "Tags", "Publisher", "Language", "Rating", "Additional", "Players", "License", "ReleaseVersion", "ReleaseDate", "RequiredRuntimes", "Builder", "InstalledSize", "LnkTitle", "LnkComment", "LnkDescription", "LnkCategories", "LnkFlags", "LnkAssociations", "LnkTerminal", "LnkMultiple", "LnkParentRef", "LnkIcon", "LnkOSCompatible", "LnkDECompatible", "LnkPMCompatible", "LnkArchCompatible", "NoInstall", "OSCompatible", "DECompatible", "PMCompatible", "ArchCompatible", "UniqueName", "Dependencies", "Sorting" ' Don't Comp URL's and others, just write as is
+		            Case "URL", "BuildType", "Compressed", "Hidden", "HiddenAlways", "ShowAlways", "ShowSetupOnly", "Installed", "Arch", "OS", "TitleName", "Version", "Categories", "Catalog", "Priority", "IconRef", "Flags", "Tags", "Publisher", "Language", "Rating", "Additional", "Players", "License", "ReleaseVersion", "ReleaseDate", "RequiredRuntimes", "Builder", "InstalledSize", "LnkTitle", "LnkCategories", "LnkFlags", "LnkAssociations", "LnkTerminal", "LnkMultiple", "LnkParentRef", "LnkIcon", "LnkOSCompatible", "LnkDECompatible", "LnkPMCompatible", "LnkArchCompatible", "NoInstall", "OSCompatible", "DECompatible", "PMCompatible", "ArchCompatible", "UniqueName", "Dependencies", "Sorting" ' Don't Comp URL's and others, just write as is
 		              DataOut = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),K)
+		            Case "Description", "LnkComment", "LnkDescription"
+		              DataOut = FixEOL(Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),K))
 		            Case "FileINI" 'If doing INIFile, we need to change to %dbpath%
 		              DataOut = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),K)
 		              DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
@@ -2566,10 +2591,14 @@ End
 		                      End If
 		                    End If
 		                  End If
+		                  
+		                  DataOut = FixEOL(Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),K))
 		                Else 'Not compressed, just use current ini path
 		                  DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
 		                  DataOut = DataOut.ReplaceAll("\", "/") 'Windows can use Linux paths, but Linux can't use Windows paths, so do the switch
 		                End If
+		              Case "Description", "LnkComment", "LnkDescription"
+		                DataOut = CompPath(FixEOL(Data.Items.CellTextAt (J,K)))
 		              Case Else
 		                DataOut = CompPath(Data.Items.CellTextAt (J,K))
 		              End Select
