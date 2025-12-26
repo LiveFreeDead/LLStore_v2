@@ -52,7 +52,7 @@ Begin DesktopWindow Editor
       Top             =   0
       Transparent     =   False
       Underline       =   False
-      Value           =   1
+      Value           =   5
       Visible         =   True
       Width           =   630
       Begin DesktopLabel LabelTitle
