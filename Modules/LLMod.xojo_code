@@ -465,6 +465,14 @@ Protected Module LLMod
 		          If Args <> "" Then lnkObj.Arguments = Args 'Target may also have some Arguments, so use text not folder item.
 		          lnkObj.WorkingDirectory = Slash(FixPath(scWorkingDir.NativePath))
 		          'IconFile = "D:\Documents\Desktop\ppGame.ico"
+		          If IconFile.IndexOf(".png") >=1 Then
+		            If Exist(IconFile.ReplaceAll(".png",".ico")) Then
+		              IconFile = IconFile.ReplaceAll(".png",".ico") ' Use the .ico version if it exists, instead of the png
+		            Else
+		              IconFile = "" 'Don't use Provided Icon File unless suitable
+		            End If
+		          Else
+		          End If
 		          If IconFile <> "" Then lnkObj.IconLocation = IconFile 'If Icon (.ico) Provided it can be used/set, +","+IconIndex.ToString - Added Index to IconFile as it's used this way
 		          '.Hotkey = "ALT+CTRL+F"
 		          If HotKeys <> "" Then lnkObj.Hotkey = HotKeys
@@ -5692,6 +5700,8 @@ Protected Module LLMod
 		        DataOut = DataOut + "["+ItemLnk(I).Title+".lnk]"+Chr(10)
 		        If ItemLnk(I).Link.TargetPath <> "" Then DataOut = DataOut + "Target="+ItemLnk(I).Link.TargetPath+Chr(10)
 		        If ItemLnk(I).Link.Arguments <> "" Then DataOut = DataOut + "Args="+ItemLnk(I).Link.Arguments+Chr(10)
+		        If ItemLnk(I).Link.WorkingDirectory <> "" Then DataOut = DataOut + "Path="+ItemLnk(I).Link.WorkingDirectory+Chr(10)
+		        If ItemLnk(I).Link.IconLocation <> "" Then DataOut = DataOut + "Icon="+ItemLnk(I).Link.IconLocation+Chr(10)
 		        If ItemLnk(I).Associations <> "" Then DataOut = DataOut + "Extensions="+ItemLnk(I).Associations+Chr(10)
 		        If ItemLnk(I).Flags <> "" Then DataOut = DataOut + "Flags="+ItemLnk(I).Flags+Chr(10)
 		        
