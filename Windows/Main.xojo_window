@@ -59,8 +59,8 @@ Begin DesktopWindow Main
       AllowRowDragging=   False
       AllowRowReordering=   False
       Bold            =   False
-      ColumnCount     =   1
-      ColumnWidths    =   ""
+      ColumnCount     =   3
+      ColumnWidths    =   "*,0,0"
       DefaultRowHeight=   -1
       DropIndicatorVisible=   False
       Enabled         =   True
@@ -373,7 +373,6 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -430,7 +429,6 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -439,7 +437,6 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -521,7 +518,6 @@ Begin DesktopWindow Main
       Width           =   80
    End
    Begin Timer SearchNow
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -1106,6 +1102,15 @@ End
 		  
 		  MC = -1 ' Starts at 0, so We begin at -1 so we can increment right below the Append menu lines (to make sure we don't miss adding them)
 		  
+		  base.Append New MenuItem("Sort By") '0
+		  MC = MC + 1
+		  base.Item(MC).Append New MenuItem("Alphabetical")
+		  base.Item(MC).Append New MenuItem("Release Date")
+		  base.Item(MC).Append New MenuItem("Size Installed")
+		  'base.Item(MC).Child("Alphabetical").KeyboardShortcut = "A"
+		  'base.Item(MC).Child("Release Date").KeyboardShortcut = "N"
+		  'base.Item(MC).Child("Size Installed").KeyboardShortcut = "I"
+		  
 		  If StoreMode = 1 Then
 		    base.Append New MenuItem("&Run With Resolution") '0
 		    MC = MC + 1
@@ -1312,8 +1317,18 @@ End
 		  If hitItem = Nil Then Return  'Nothing Picked
 		  
 		  Dim ContextText As String = hitItem.Text
+		  Dim OldSortType As Integer
+		  
+		  OldSortType = SortType
 		  
 		  Select Case Left(hitItem.Text,7)
+		    
+		  Case "Alphabe"
+		    SortType = 0
+		  Case"Release"
+		    SortType = 1
+		  Case"Size In"
+		    SortType = 2
 		    
 		  Case "Toggle "
 		    Main.FullScreen = Not Main.FullScreen
@@ -1440,6 +1455,8 @@ End
 		    End Try
 		    #Pragma BreakOnExceptions On
 		  End Select
+		  
+		  If OldSortType <> SortType Then GenerateItems()
 		End Sub
 	#tag EndMethod
 
@@ -1491,6 +1508,8 @@ End
 		  Data.Items.Sort ()
 		  
 		  Dim DeTest As String
+		  
+		  Dim InstallSize As String
 		  
 		  Dim I As Integer
 		  Dim J As Integer
@@ -1669,7 +1688,9 @@ End
 		    
 		    
 		    If Hidden = False Then 'If not set as Hidden add to the List (Show it)
-		      Main.Items.AddRow(ItemToAdd)
+		      InstallSize = Data.Items.CellTextAt(I, Data.GetDBHeader("InstalledSize"))
+		      InstallSize= Right("000000000000000" + InstallSize, 15)
+		      Main.Items.AddRow ItemToAdd, Data.Items.CellTextAt(I, Data.GetDBHeader("ReleaseDate")), InstallSize
 		      If FirstItem = -1 Then FirstItem = Main.Items.LastAddedRowIndex
 		      Main.Items.CellTagAt(Main.Items.LastAddedRowIndex, 0) = I 'This makes The Added Item have the Correct RefID for the main DB
 		    End If
@@ -1677,8 +1698,16 @@ End
 		  
 		  UpdateStats
 		  
-		  'Sort the list Alphabettic
-		  Main.Items.SortingColumn = 0
+		  'Sort the list Alphabetical
+		  Select Case  SortType
+		  Case 0
+		    Main.Items.SortingColumn = 0
+		  Case 1
+		    Main.Items.SortingColumn = 1
+		  Case 2
+		    Main.Items.SortingColumn = 2
+		  End Select
+		  
 		  Main.Items.ColumnSortDirectionAt(0) = DesktopListBox.SortDirections.Ascending
 		  Main.Items.Sort ()
 		  

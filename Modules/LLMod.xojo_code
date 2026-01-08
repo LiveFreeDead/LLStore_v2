@@ -1910,6 +1910,64 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function GetFolderSize(FolderIn As String) As Integer
+		  Var folder As FolderItem = GetFolderItem(FolderIn,FolderItem.PathTypeNative)
+		  
+		  If folder <> Nil Then
+		    Var sizeKB As UInt64 = GetFolderSizeKB(folder)
+		    'MessageBox("Total size: " + sizeKB.ToString + " KB")
+		    Return sizeKB
+		  End If
+		  
+		  Return 0
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function GetFolderSizeBytes(f As FolderItem) As UInt64
+		  Var total As UInt64 = 0
+		  
+		  If f = Nil Or Not f.Exists Then Return 0
+		  
+		  If f.IsFolder Then
+		    Try
+		      For Each child As FolderItem In f.Children
+		        total = total + GetFolderSizeBytes(child)
+		      Next
+		    Catch e As RuntimeException
+		      // Ignore permission errors
+		    End Try
+		  Else
+		    total = f.Length
+		  End If
+		  
+		  Return total
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function GetFolderSizeKB(f As FolderItem) As UInt64
+		  Var totalBytes As UInt64 = 0
+		  
+		  If f = Nil Or Not f.Exists Then Return 0
+		  
+		  If f.IsFolder Then
+		    Try
+		      For Each item As FolderItem In f.Children
+		        totalBytes = totalBytes + GetFolderSizeBytes(item)
+		      Next
+		    Catch e As RuntimeException
+		      // Skip folders we can't access
+		    End Try
+		  Else
+		    totalBytes = f.Length
+		  End If
+		  
+		  Return totalBytes \ 1024
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function GetFullParent(PatIn As String) As String
 		  PatIn = PatIn.ReplaceAll("\","/") 'If using Linux paths, use linux paths
 		  PatIn = Left(PatIn,InStrRev(PatIn,"/")) 'Gets Parent Path
@@ -5541,6 +5599,8 @@ Protected Module LLMod
 		    MsgBox "Path to Save to Not Found: " + SaveToPath
 		  End If
 		  
+		  Dim DateBuilt As String
+		  Var currentDate As DateTime = DateTime.Now
 		  Dim I As Integer
 		  Dim DataOut As String
 		  Dim FlagsOut As String
@@ -5684,6 +5744,12 @@ Protected Module LLMod
 		  If ItemLLItem.Builder <> "" Then DataOut = DataOut + "Releaser=" + ItemLLItem.Builder+Chr(10)
 		  If ItemLLItem.Rating <> 0 Then DataOut = DataOut + "Rating=" + ItemLLItem.Rating.ToString+Chr(10)
 		  If ItemLLItem.Players <> 0 Then DataOut = DataOut + "Players=" + ItemLLItem.Players.ToString+Chr(10)
+		  
+		  
+		  'Make Release Date the Built date so it means something:
+		  DateBuilt = currentDate.Year.ToString+"-"+Right("0" + currentDate.Month.ToString, 2)+"-"+Right("0" + currentDate.Day.ToString, 2)
+		  If DateBuilt <> "" Then ItemLLItem.ReleaseDate = DateBuilt
+		  
 		  If ItemLLItem.ReleaseDate <> "" Then DataOut = DataOut + "ReleaseDate=" + ItemLLItem.ReleaseDate+Chr(10)
 		  If BType = "SS" Then
 		    If ItemLLItem.License.ToString <> "" Then DataOut = DataOut + "LicenseType=" + ItemLLItem.License.ToString+Chr(10) 'SetupS needs LicenseType instead
@@ -6492,6 +6558,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		SkippedInstalling As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		SortType As Integer = 0
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
