@@ -1195,21 +1195,22 @@ Protected Module LLMod
 		      
 		      PathIn = PathIn.ReplaceAll("%SourcePath%", ItemLLItem.PathINI)
 		      PathIn = PathIn.ReplaceAll("%SourceDrive%", "z:")
-		      PathIn = PathIn.ReplaceAll("%SystemDir%", HomePath + ".wine/drive_c/Windows/System32")
-		      PathIn = PathIn.ReplaceAll("%CommonProgramFiles%", HomePath + ".wine/drive_c/Program Files/Common Files")
-		      PathIn = PathIn.ReplaceAll("%CommonProgramFiles(x86)%", HomePath + ".wine/drive_c/Program Files (x86)/Common Files")
-		      PathIn = PathIn.ReplaceAll("%HomeDrive%", HomePath + ".wine/drive_c")
-		      PathIn = PathIn.ReplaceAll("%MyDocuments%", Slash(HomePath)+"Documents")
+		      PathIn = PathIn.ReplaceAll("%SystemDir%", "C:/Windows/System32")
+		      PathIn = PathIn.ReplaceAll("%CommonProgramFiles%", "C:/Program Files/Common Files")
+		      PathIn = PathIn.ReplaceAll("%CommonProgramFiles(x86)%", "C:/Program Files (x86)/Common Files")
+		      PathIn = PathIn.ReplaceAll("%HomeDrive%", "C:")
+		      PathIn = PathIn.ReplaceAll("%MyDocuments%", "C:/Users/"+UserName+"/Documents")
+		      
 		      'PathIn = PathIn.ReplaceAll("%StartMenu%", NoSlash(StartPathUser))
 		      'PathIn = PathIn.ReplaceAll("%Programs%", Slash(StartPathUser)+"Programs")
 		      'PathIn = PathIn.ReplaceAll("%Startup%", Slash(Slash(StartPathUser)+"Programs")+"Startup")
 		      'PathIn = PathIn.ReplaceAll("%SendtoPath%", Slash(SpecialFolder.ApplicationData.NativePath) + "Microsoft/Windows/SendTo")
 		      'PathIn = PathIn.ReplaceAll("%QuickLaunch%", Slash(SpecialFolder.ApplicationData.NativePath) + "Microsoft/Internet Explorer/Quick Launch")
-		      PathIn = PathIn.ReplaceAll("%UserProfile%", HomePath + ".wine/drive_c/Users/"+UserName)
+		      PathIn = PathIn.ReplaceAll("%UserProfile%", "C:/Users/"+UserName)
 		      PathIn = PathIn.ReplaceAll("%Tmp%", NoSlash(TmpPath))
 		      PathIn = PathIn.ReplaceAll("%Temp%", NoSlash(TmpPath))
-		      PathIn = PathIn.ReplaceAll("%AllUsersProfile%", HomePath + ".wine/drive_c/Users/Public")
-		      PathIn = PathIn.ReplaceAll("%AppDataCommon%", HomePath + ".wine/drive_c/ProgramData")
+		      PathIn = PathIn.ReplaceAll("%AllUsersProfile%", "C:/Users/Public")
+		      PathIn = PathIn.ReplaceAll("%AppDataCommon%", "C:/ProgramData")
 		      'PathIn = PathIn.ReplaceAll("%DesktopCommon%", SpecialFolder.SharedDesktop.NativePath)
 		      'PathIn = PathIn.ReplaceAll("%DocumentsCommon%", SpecialFolder.SharedDocuments.NativePath)
 		      'PathIn = PathIn.ReplaceAll("%StartMenuCommon%", "C:/ProgramData/Microsoft/Windows/Start Menu")
@@ -1228,7 +1229,7 @@ Protected Module LLMod
 		      PathIn = PathIn.ReplaceAll("%Desktop%", FixPath("z:"+NoSlash(SpecialFolder.Desktop.NativePath)))
 		      PathIn = PathIn.ReplaceAll("%AppData%", "C:/users/"+UserName+"/AppData/Roaming")
 		      
-		    Else
+		    Else 'Linux Path, not windows paths for scripts to use
 		      PathIn = PathIn.ReplaceAll("%AppPath%", ItemLLItem.PathApp)
 		      PathIn = PathIn.ReplaceAll("%ppGames%", NoSlash(ppGames))
 		      PathIn = PathIn.ReplaceAll("%ppApps%", NoSlash(ppApps))
@@ -8213,6 +8214,14 @@ Protected Module LLMod
 			InitialValue=""
 			Type="String"
 			EditorType="MultiLineEditor"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="SortType"
+			Visible=false
+			Group="Behavior"
+			InitialValue="0"
+			Type="Integer"
+			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
 End Module
