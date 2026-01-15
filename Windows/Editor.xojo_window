@@ -5552,6 +5552,21 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub GetSizeOfItem()
+		  If ItemLLItem.Compressed = True Then
+		    Dim UnSize As Int64
+		    UnSize = GetUnCompressedSize(ItemLLItem.PathINI).ToInt64
+		    'MsgBox UnSize.ToString
+		    UnSize = UnSize / 1024
+		    'MsgBox UnSize.ToString
+		    TextInstalledSize.Text = UnSize.ToString 'Use Compressed file as size grabs
+		  Else ' Just get the Include folder sizes
+		    TextInstalledSize.Text = GetFolderSize(TextIncludeFolder.Text).ToString 'Use folder content as size Grab
+		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function GetUnCompressedSize(CompFile As String) As String
 		  If Not Exist (CompFile) Then Return "0" 'Dud Item
 		  
@@ -7448,16 +7463,7 @@ End
 #tag Events LabelInstallSize
 	#tag Event
 		Sub MouseUp(x As Integer, y As Integer)
-		  If ItemLLItem.Compressed = True Then
-		    Dim UnSize As Int64
-		    UnSize = GetUnCompressedSize(ItemLLItem.PathINI).ToInt64
-		    'MsgBox UnSize.ToString
-		    UnSize = UnSize / 1024
-		    'MsgBox UnSize.ToString
-		    TextInstalledSize.Text = UnSize.ToString 'Use Compressed file as size grabs
-		  Else ' Just get the Include folder sizes
-		    TextInstalledSize.Text = GetFolderSize(TextIncludeFolder.Text).ToString 'Use folder content as size Grab
-		  End If
+		  GetSizeOfItem()
 		End Sub
 	#tag EndEvent
 	#tag Event

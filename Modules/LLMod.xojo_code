@@ -6218,6 +6218,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		GetSize As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		GlobalCompressedFileOut As String
 	#tag EndProperty
 

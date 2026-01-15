@@ -3778,6 +3778,8 @@ End
 		      InstallArg = True
 		    Case "-continue"
 		      ContinueSelf = True
+		    Case "-getsize"
+		      GetSize = True
 		    Case "-edit", "-e"
 		      EditorOnly = True
 		      StoreMode = 3
@@ -4064,6 +4066,9 @@ End
 		        Else ' Just Build It
 		          AutoBuild = True 'Set it to Auto Build and not show a message when complete
 		          Editor.PopulateData
+		          If GetSize = True Then 'Calculate Sizes
+		            Editor.GetSizeOfItem
+		          End If
 		          If Compress = True Then Editor.CheckCompress.Value = True 'Set to Compress if it's in the Arguments
 		          Editor.ButtonBuild.Press() 'Press the Build Button with No Compress, if it's not already compressed
 		          
