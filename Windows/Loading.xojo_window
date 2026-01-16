@@ -315,9 +315,7 @@ End
 		    'MsgBox "Full Update - Local: "+MajorLocal.ToString+" Remote: "+MajorRemote.ToString
 		    
 		    'Updating
-		    Loading.Status.Text = "Updating Full Store v" +CurrentVersionS+ " to v"+OnlineVersionS
-		    Loading.Refresh
-		    App.DoEvents(1)
+		    UpdateLoading("Updating Full Store v" +CurrentVersionS+ " to v"+OnlineVersionS)
 		    
 		    GetOnlineFile ("https://github.com/LiveFreeDead/LastOSLinux_Repository/raw/refs/heads/main/llstore_latest.zip",Slash(TmpPath)+"llstore_latest.zip")
 		    
@@ -391,9 +389,7 @@ End
 		    If OnlineVersion > CurrentVersion Or ForceExeUpdate = True Then 'Is Newer, download and apply executables only, or if set to forced update
 		      
 		      'Updating Executables
-		      Loading.Status.Text = "Updating Executables v" +CurrentVersionS+ " to v"+ OnlineVersionS
-		      Loading.Refresh
-		      App.DoEvents(1)
+		      UpdateLoading("Updating Executables v" +CurrentVersionS+ " to v"+ OnlineVersionS)
 		      If App.MajorVersion = 1 Then ' Changed below so it only updates the current running exe, no point in a Linux user constantly updating the windows exe
 		        If TargetWindows = False Then GetOnlineFile ("https://github.com/LiveFreeDead/LLStore/raw/refs/heads/main/llstore",Slash(TmpPath)+"llstore")
 		        If TargetWindows = True Then GetOnlineFile ("https://github.com/LiveFreeDead/LLStore/raw/refs/heads/main/llstore.exe",Slash(TmpPath)+"llstore.exe")
@@ -660,14 +656,11 @@ End
 		      End If
 		    End If
 		    
-		    Loading.Status.Text = "Making Folders..."
-		    App.DoEvents(1)
+		    UpdateLoading("Making Folders...")
 		    RunWait(ScriptOutMkDirFile)'Allows form to refresh
-		    Loading.Status.Text = "Extracting Compressed Items..."
-		    App.DoEvents(1)
+		    UpdateLoading("Extracting Compressed Items...")
 		    RunWait(ScriptOutFile)'Allows form to refresh
-		    Loading.Status.Text = "Done Extracting Compressed Items..."
-		    App.DoEvents(1)
+		    UpdateLoading("Done Extracting Compressed Items...")
 		    
 		    'Try to Clean up Temp Folder
 		    Deltree(ScriptOutFile)
@@ -2814,6 +2807,14 @@ End
 		End Sub
 	#tag EndMethod
 
+	#tag Method, Flags = &h0
+		Sub UpdateLoading(status As String)
+		  Loading.Status.Text = status
+		  Loading.Refresh
+		  App.DoEvents(1)
+		End Sub
+	#tag EndMethod
+
 
 	#tag Property, Flags = &h0
 		DownloadScreenshot As String
@@ -2893,11 +2894,9 @@ End
 		    If StoreMode = 0 Then 'Only update the installer NOT the launcher
 		      
 		      WritableAppPath = IsWritable(AppPath) 'This checks to see if the current user can write to the path, if not it skips updating it
-		      If Settings.SetCheckForUpdates.Value = True And RunningInIDE = False And WritableAppPath = True Then
+		      If Not RunningInIDE And Settings.SetCheckForUpdates.Value And WritableAppPath Then
 		        CheckingForUpdates = True
-		        Loading.Status.Text = "Check For Store Updates: "
-		        Loading.Refresh
-		        App.DoEvents(1)
+		        UpdateLoading("Check For Store Updates: ")
 		        CheckForLLStoreUpdates
 		        CheckingForUpdates = False
 		      End IF
@@ -2905,15 +2904,11 @@ End
 		    End If
 		    
 		    'Get Scan Paths Here
-		    Loading.Status.Text = "Scanning Drives..."
-		    Loading.Refresh
-		    App.DoEvents(1)
+		    UpdateLoading("Scanning Drives...")
 		    GetScanPaths
 		    
 		    'Get items from in Scan Paths (Don't add yet)
-		    Loading.Status.Text = "Scanning for Items..."
-		    Loading.Refresh
-		    App.DoEvents(1)
+		    UpdateLoading("Scanning for Items...")
 		    
 		    If Data.ScanPaths.RowCount >=1 Then
 		      For I = 0 To Data.ScanPaths.RowCount - 1
@@ -2935,17 +2930,13 @@ End
 		    
 		    'Extract Compressed items in one script
 		    If StoreMode = 0 Then 'Only need to extract when install mode as games are already installed
-		      Loading.Status.Text = "Extract Items Data..."
-		      Loading.Refresh
-		      App.DoEvents(1)
+		      UpdateLoading("Extract Items Data...")
 		      ExtractAll
 		    End If
 		    
 		    '------------------------------------------------------------------------- Optimise the Loading of items --------------------------------------------------------------
 		    'Load Item Data, Need to Do DB stuff here also
-		    Loading.Status.Text = "Adding Items..."
-		    Loading.Refresh
-		    App.DoEvents(1)
+		    UpdateLoading("Adding Items...")
 		    If Data.ScanItems.RowCount >=1 Then
 		      For I = 0 To Data.ScanItems.RowCount - 1
 		        Loading.Status.Text = "Adding Items: "+ Str(I)+"/"+Str(Data.ScanItems.RowCount - 1)
@@ -2958,9 +2949,7 @@ End
 		    
 		    'Save DBFiles
 		    If Settings.SetUseLocalDBFiles.Value = True Then
-		      Loading.Status.Text = "Writing to DB Files..."
-		      Loading.Refresh
-		      App.DoEvents(1)
+		      UpdateLoading("Writing to DB Files...")
 		      SaveAllDBs
 		    End If
 		    
@@ -2977,50 +2966,36 @@ End
 		        CheckingForDatabases = True
 		        If TimePassed = False Then ForceNoOnlineDBUpdates = True
 		        If ForceNoOnlineDBUpdates = True Then
-		          Loading.Status.Text = "Using Offline Databases..."
+		          UpdateLoading("Using Offline Databases...")
 		        Else
-		          Loading.Status.Text = "Downloading Online Databases..."
+		          UpdateLoading("Downloading Online Databases...")
 		        End If
-		        Loading.Refresh
-		        App.DoEvents(1)
 		        GetOnlineDBs() 'Only do this when in Installation mode
 		        CheckingForDatabases = False
-		        Loading.Status.Text = "Databases Loaded..."
-		        Loading.Refresh
-		        App.DoEvents(1)
+		        UpdateLoading("Databases Loaded...")
 		      End If
 		    End If
 		    'Disabled Weblinks for now while I find an alternative as google API is blocked by wget for non logged in users.
 		    If StoreMode = 0 Then
 		      'Get Weblinks to use Google etcx to host large files
-		      Loading.Status.Text = "Get Weblinks for large items..."
-		      Loading.Refresh
-		      App.DoEvents(1)
+		      UpdateLoading("Get Weblinks for large items...")
 		      GetWebLinks()
 		    End If
 		    
 		    'Hide Old Version (Only need to do this once as you load in Items)
-		    Loading.Status.Text = "Hiding Old Versions..."
-		    Loading.Refresh
-		    App.DoEvents(1)
+		    UpdateLoading("Hiding Old Versions...")
 		    HideOldVersions
 		    
 		    'Check If Items Are Installed
-		    Loading.Status.Text = "Checking For Installed Items..."
-		    Loading.Refresh
-		    App.DoEvents(1)
+		    UpdateLoading("Checking For Installed Items...")
 		    CheckInstalled
 		    
 		    'Check If Items Are Installed
-		    Loading.Status.Text = "Checking For Compatible Items..."
-		    Loading.Refresh
-		    App.DoEvents(1)
+		    UpdateLoading("Checking For Compatible Items...")
 		    CheckCompatible
 		    
 		    'Make the Category list in Data Sections
-		    Loading.Status.Text = "Generating Lists..."
-		    Loading.Refresh
-		    App.DoEvents(1)
+		    UpdateLoading("Generating Lists...")
 		    GenerateDataCategories()
 		    Main.GenerateCategories()
 		    
@@ -3046,9 +3021,7 @@ End
 		    LoadFavorites()
 		    
 		    'Last Status 
-		    Loading.Status.Text = "Generating GUI..."
-		    Loading.Refresh
-		    App.DoEvents(1)
+		    UpdateLoading("Generating GUI...")
 		    
 		    'Save Debug Of The Scanned Items:
 		    If Debugging Then
@@ -3131,7 +3104,11 @@ End
 		      
 		      Try
 		        For I = 0 To EndCount 'Looks complicated, but I got tired of counting characters by hand every time the text was edited :)
-		          Main.Description.StyledText.TextColor (Instr (Main.Description.Text, TriggerWords(I)) - 1, Len(TriggerWords(I))) = AssignedColors(I)
+		          'Main.Description.StyledText.TextColor (Instr (Main.Description.Text, TriggerWords(I)) - 1, Len(TriggerWords(I))) = AssignedColors(I)
+		          Var p As Integer = Instr(Main.Description.Text, TriggerWords(I))
+		          If p > 0 Then
+		            Main.Description.StyledText.TextColor(p - 1, Len(TriggerWords(I))) = AssignedColors(I)
+		          End If
 		        Next
 		      Catch
 		      End Try
@@ -3173,8 +3150,11 @@ End
 		        If Success Then
 		          If InstallArg = True Then
 		            'Hide Loading now it's done
-		            Loading.Visible = False
-		            App.DoEvents(1)'Make it hide before showing the main form (Less redraw)
+		            If Loading.Visible Then
+		              Loading.Visible = False
+		              Loading.Refresh
+		              App.DoEvents(1)
+		            End If
 		            
 		            FirstRun = True 'Set this once everything is done and it's ready to go, used by ChangeItem so the intro isn't erased
 		            
@@ -3194,6 +3174,7 @@ End
 		    
 		    'Hide Loading now it's done
 		    Loading.Visible = False
+		    
 		    App.DoEvents(1)'Make it hide before showing the main form (Less redraw)
 		    
 		    'Show main form
@@ -3221,7 +3202,11 @@ End
 		    
 		  Else
 		    ForceQuit = True
-		    Main.Close  'Just quit for now, will do editor and installer stuff here
+		    Try
+		      Main.Close  'Just quit for now, will do editor and installer stuff here
+		    Finally
+		      ForceQuit = False
+		    End Try
 		    
 		  End If
 		  
@@ -3247,6 +3232,13 @@ End
 		  
 		  Dim shot As New Shell 'Used to kill wget
 		  
+		  
+		  Static vShell As Shell
+		  Static checkSh As Shell
+		  Static ShMove As Shell
+		  Static k As Shell
+		  
+		  
 		  ' Set up the main Async Shell for wget
 		  Dim DownloadShell As New Shell
 		  DownloadShell.TimeOut = -1
@@ -3266,13 +3258,14 @@ End
 		    GetURL = QueueURL(QueueUpTo)
 		    
 		    ' Use Inbuilt Downloader for Images (Screenshots)
-		    If Right(GetURL, 4).Lowercase = ".jpg" Or Right(GetURL, 4).Lowercase = ".png" Then
+		    Select Case Right(GetURL, 4).Lowercase
+		    Case ".jpg", ".png"
 		      DownloadScreenshot = GetURL
 		      DownloadScreenshotLocal = QueueLocal(QueueUpTo)
 		      DownScreen()
 		      QueueUpTo = QueueUpTo + 1
 		      Continue ' Skip to next item in loop
-		    End If
+		    End  Select
 		    
 		    ' Substitute URL if found in WebLinks
 		    If WebLinksCount >= 1 Then
@@ -3291,7 +3284,7 @@ End
 		      GrepCmdPath = Slash(ToolPath) + "grep.exe"
 		      If Exist(GrepCmdPath) Then UseGrep = True
 		    Else
-		      Dim checkSh As New Shell
+		      If checkSh is Nil Then checkSh = New Shell
 		      checkSh.Execute("which grep")
 		      If checkSh.ExitCode = 0 Then UseGrep = True
 		    End If
@@ -3300,7 +3293,7 @@ End
 		    
 		    ' Path A: Deep Magic Byte Check
 		    If IsArchive And UseGrep Then
-		      Dim vShell As New Shell 
+		      If vShell is Nil Then vShell = New Shell 
 		      ' We added "\x00" check for TAR files as they often contain nulls in the header
 		      Dim vCmd As String = "curl -sL -r 0-511 --connect-timeout 5 " + Chr(34) + GetURL + Chr(34) + " | LC_ALL=C " + Chr(34) + GrepCmdPath + Chr(34) + " -aqP " + Chr(34) + "\x37\x7a\xbc\xaf|\x1f\x8b|ustar" + Chr(34)
 		      vShell.Execute(vCmd)
@@ -3360,14 +3353,19 @@ End
 		        If lastPerc > 3 Then
 		          ' Mid is the classic equivalent of .Middle
 		          ' Note: InStr positions are 1-based, so we adjust accordingly
-		          ProgPerc = Mid(theResults, lastPerc - 3, 3).Trim
+		          Dim pStart As Integer = lastPerc
+		          While pStart > 1 And IsNumeric(Mid(theResults, pStart - 1, 1))
+		            pStart = pStart - 1
+		          Wend
+		          
+		          ProgPerc = Mid(theResults, pStart, lastPerc - pStart).Trim
 		          If IsNumeric(ProgPerc) Then
 		            DownloadPercentage = ProgPerc + "%"
 		            
 		            ' Update various UI components
 		            If MiniInstallerShowing Then MiniInstaller.Stats.Text = "Downloading " + DownloadPercentage
-		            If CheckingForUpdates Then Loading.Status.Text = "Update: " + DownloadPercentage
-		            If CheckingForDatabases Then Loading.Status.Text = "Database: " + DownloadPercentage
+		            If CheckingForUpdates Then UpdateLoading("Update: " + DownloadPercentage)
+		            If CheckingForDatabases Then UpdateLoading("Database: " + DownloadPercentage)
 		          End If
 		        End If
 		      End If
@@ -3376,7 +3374,7 @@ End
 		      If ForceQuit Or CancelDownloading Then
 		        DownloadShell.Close
 		        If TargetWindows Then 
-		          Dim k As New Shell
+		          If k is Nil Then k = New Shell
 		          k.Execute("TaskKill /IM wget.exe /F")
 		        End If
 		        CancelDownloading = False
@@ -3392,7 +3390,7 @@ End
 		      ' Clear existing file if it exists before moving
 		      If Exist(QueueLocal(QueueUpTo)) Then Deltree QueueLocal(QueueUpTo)
 		      
-		      Dim ShMove As New Shell
+		      If ShMove is Nil Then ShMove = New Shell
 		      If TargetWindows Then
 		        Dim winSrc As String = QueueLocal(QueueUpTo).ReplaceAll("/", "\") + ".partial"
 		        Dim winDest As String = QueueLocal(QueueUpTo).ReplaceAll("/", "\")
@@ -3439,6 +3437,7 @@ End
 		Sub Action()
 		  Dim QuitNow As Boolean = False 'This allows multiple jobs to be done before it quits (useful for the command line arguments)
 		  Dim OriginalStoreMode As Integer
+		  Dim I As Integer
 		  
 		  App.AllowAutoQuit = True 'Makes it close if no windows are open
 		  
@@ -3718,144 +3717,143 @@ End
 		  self.Left = (screen(0).AvailableWidth - self.Width) / 2
 		  self.top = (screen(0).AvailableHeight - self.Height) / 2
 		  
-		  'Check the Arguments here and don't show if installer mode or editor etc
-		  Dim Args As String
-		  Args = System.CommandLine
+		  '========================================
+		  ' Clean, simple and robust command line parsing
+		  '========================================
 		  
-		  'Pick mode depending on calling name
-		  If Args.IndexOf("lllauncher") >= 0 Then
+		  Var args() As String = System.CommandLine.Trim.Split(" ")
+		  
+		  'Reset defaults
+		  StoreMode = 0
+		  InstallArg = False
+		  EditorOnly = False
+		  Build = False
+		  Compress = False
+		  LoadPresetFile = False
+		  InstallStore = False
+		  KeepSudo = False
+		  ForcePostQuit = False
+		  Debugging = False
+		  ForceOffline = False
+		  SortMenuStyle = False
+		  Regenerate = False
+		  ContinueSelf = False
+		  GetSize = False
+		  EditingItem = False
+		  
+		  CommandLineFile = ""
+		  
+		  '----------------------------------------
+		  ' Detect mode from executable name
+		  '----------------------------------------
+		  Var exeName As String = App.ExecutableFile.Name.Lowercase
+		  
+		  Select Case True
+		  Case exeName.Contains("lllauncher")
 		    StoreMode = 1
-		  End If
-		  
-		  If Args.IndexOf("llfile") >= 0 Then
+		    
+		  Case exeName.Contains("llfile") Or exeName.Contains("llapp") Or exeName.Contains("llgame") Or exeName.Contains("llinstall")
 		    StoreMode = 2
 		    InstallArg = True
-		  End If
-		  
-		  If Args.IndexOf("llapp") >= 0 Then
-		    StoreMode = 2
-		    InstallArg = True
-		  End If
-		  
-		  If Args.IndexOf("llgame") >= 0 Then
-		    StoreMode = 2
-		    InstallArg = True
-		  End If
-		  
-		  If Args.IndexOf("llinstall") >= 0 Then
-		    StoreMode = 2
-		    InstallArg = True
-		  End If
-		  
-		  If Args.IndexOf("lledit") >= 0 Then
+		    
+		  Case exeName.Contains("lledit")
 		    StoreMode = 3
 		    EditorOnly = True
-		  End If
+		  End Select
 		  
-		  If Args.IndexOf("llfile") >=0 Then Args = Right(Args,Len(Args)-InStrRev(Args,"llfile",-1)-6) 'Will be 0 if it can't find it, meaning it'll keep tthe whole Argments and File name
-		  If Args.IndexOf("llapp") >=0 Then Args = Right(Args,Len(Args)-InStrRev(Args,"llapp",-1)-5)
-		  If Args.IndexOf("llgame") >=0 Then Args = Right(Args,Len(Args)-InStrRev(Args,"llgame",-1)-6)
-		  If Args.IndexOf("lledit") >=0 Then Args = Right(Args,Len(Args)-InStrRev(Args,"lledit",-1)-6)
-		  If Args.IndexOf("llinstall") >=0 Then Args = Right(Args,Len(Args)-InStrRev(Args,"llinstall",-1)-9)
-		  If Args.IndexOf("lllauncher") >=0 Then Args = Right(Args,Len(Args)-InStrRev(Args,"lllauncher",-1)-10)
-		  If Args.IndexOf("llstore.exe") >=0 Then Args = Right(Args,Len(Args)-InStrRev(Args,"llstore.exe")-11)
-		  If Args.IndexOf("llstore") >=0 Then Args = Right(Args,Len(Args)-InStrRev(Args,"llstore",-1)-7)
-		  
-		  'Cleaning above isn't really required, maybe kill it off once testing is done
-		  
-		  Dim I As Integer
-		  Dim ArgsSP(-1) As String
-		  ArgsSP=System.CommandLine.ToArray(" ")
-		  CommandLineFile = ""
-		  For I = 1 To ArgsSP().Count -1 'Start At 1 as 0 is the Command line calling LLStore, Nope drop back to 0 as it doesn't work from IDE without it
+		  '----------------------------------------
+		  ' Parse command line arguments
+		  '----------------------------------------
+		  For I = 1 To args.LastIndex   ' <--- Skip element 0 (the calling app)
+		    Var a As String = args(I).Trim
+		    If a = "" Then Continue
 		    
-		    Select Case ArgsSP(I).Lowercase.Trim
+		    If a.Left(1) = "-" Then
+		      Select Case a.Lowercase
+		        
+		      Case "-launcher", "-l"
+		        StoreMode = 1
+		        
+		      Case "-install", "-i"
+		        StoreMode = 2
+		        InstallArg = True
+		        
+		      Case "-continue"
+		        ContinueSelf = True
+		        
+		      Case "-getsize"
+		        GetSize = True
+		        
+		      Case "-edit", "-e"
+		        StoreMode = 3
+		        EditorOnly = True
+		        
+		      Case "-build", "-b"
+		        StoreMode = 3
+		        EditorOnly = True
+		        Build = True
+		        
+		      Case "-compress", "-c"
+		        StoreMode = 3
+		        EditorOnly = True
+		        Build = True
+		        Compress = True
+		        
+		      Case "-preset", "-p"
+		        StoreMode = 0
+		        LoadPresetFile = True
+		        
+		      Case "-setup", "-s"
+		        StoreMode = 4
+		        InstallStore = True
+		        
+		      Case "-keepsudo", "-ks"
+		        KeepSudo = True
+		        
+		      Case "-quit", "-q"
+		        ForcePostQuit = True
+		        
+		      Case "-debug"
+		        Debugging = True
+		        
+		      Case "-offline"
+		        ForceOffline = True
+		        
+		      Case "-menustyle"
+		        SortMenuStyle = True
+		        StoreMode = 0
+		        
+		      Case "-regen"
+		        Regenerate = True
+		        StoreMode = 0
+		        
+		      End Select
 		      
-		    Case "-launcher" , "-l"
-		      StoreMode = 1
-		    Case "-install", "-i"
-		      StoreMode = 2
-		      InstallArg = True
-		    Case "-continue"
-		      ContinueSelf = True
-		    Case "-getsize"
-		      GetSize = True
-		    Case "-edit", "-e"
-		      EditorOnly = True
-		      StoreMode = 3
-		    Case "-build", "-b"
-		      StoreMode = 3
-		      Build = True
-		      EditorOnly = True
-		    Case "-compress", "-c"
-		      StoreMode = 3
-		      Build = True
-		      Compress = True
-		      EditorOnly = True
-		    Case "-preset", "-p"
-		      StoreMode = 0
-		      LoadPresetFile = True
-		    Case "-setup", "-s"
-		      StoreMode = 4
-		      InstallStore = True
-		    Case "-keepsudo", "-ks"
-		      KeepSudo = True
-		    Case "-quit" , "-q"
-		      ForcePostQuit = True
-		    Case "-debug"
-		      Debugging = True 'This forces it to Debug
-		    Case "-offline"
-		      ForceOffline = True
-		    Case "-menustyle"
-		      SortMenuStyle = True
-		      StoreMode = 0
-		    Case "-regen"
-		      Regenerate = True
-		      StoreMode = 0
-		    Case Else
-		      CommandLineFile = CommandLineFile + ArgsSP(I) + " "
-		    End Select
+		    Else
+		      'Anything that is not a flag is treated as a file/path
+		      If CommandLineFile = "" Then
+		        CommandLineFile = a 'Only do the first file, we can only do 1 at a time
+		      End If
+		    End If
 		  Next
 		  
-		  If EditorOnly = True Then EditingItem = True
+		  '----------------------------------------
+		  ' Final tidy-up
+		  '----------------------------------------
+		  If EditorOnly Then EditingItem = True
 		  
-		  CommandLineFile = CommandLineFile.Trim '(Remove end space)
-		  'Remove Flags from name (I also make sure to have a space after each removal as it causes a issue when removes -Build from a folder with the word LastOS-Builder in it for example.
-		  CommandLineFile = CommandLineFile.ReplaceAll("-preset ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-p ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-build ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-b ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-compress ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-c ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-install ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-i ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-edit ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-e ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-setup ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-s ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-quit ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-debug ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-q ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-offline ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-menustyle ","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("-regen ","")
-		  
-		  CommandLineFile = CommandLineFile.ReplaceAll(Chr(34)+"C:\Program Files\LLStore\llstore.exe"+Chr(34),"") 'Remove dodgy path
-		  CommandLineFile = CommandLineFile.ReplaceAll("C:\Program Files\LLStore\llstore.exe","")
-		  CommandLineFile = CommandLineFile.ReplaceAll("Files\LLStore\llstore.exe"+Chr(34),"")
-		  CommandLineFile = CommandLineFile.ReplaceAll("Files\LLStore\llstore.exe","")
-		  CommandLineFile = CommandLineFile.ReplaceAll(" "+Chr(34),Chr(34)) 'If the Loading file has a space after it, it'll have the quote around it, removed.
-		  CommandLineFile = CommandLineFile.Trim '(Remove end space)
+		  CommandLineFile = CommandLineFile.Trim
 		  
 		  If TargetWindows Then
-		    CommandLineFile = CommandLineFile.ReplaceAll("/","\")
+		    CommandLineFile = CommandLineFile.ReplaceAll("/", "\")
 		  Else
-		    CommandLineFile = CommandLineFile.ReplaceAll("\","/")
+		    CommandLineFile = CommandLineFile.ReplaceAll("\", "/")
 		  End If
 		  
-		  If LoadPresetFile = True Then
+		  If LoadPresetFile Then
 		    StoreMode = 0
 		  End If
+		  
 		  
 		  'Not Needed move out of GetTheme to here
 		  ''Check if CommandLineFile is an actual file and switch to install mode by default, Need to do this here to reduce the occurance of Loading form being shown before it's time
@@ -3912,11 +3910,12 @@ End
 		  'Check if CommandLineFile is an actual file and switch to install mode by default
 		  If Build = True Or Compress = True Or EditorOnly = True Then 'This fixes the issue of not compressing etc, installed them instead.
 		  Else
-		    
-		    Select Case Right(CommandLineFile, 4)
-		    Case ".apz", ".pgz", ".app",".ppg",".tar",".lla",".llg"
-		      StoreMode = 2 ' This forces it to install ANY viable file regardless of how it's called' I was sick of Nemo etc removing the -i from the command.
-		    End Select
+		    If CommandLineFile <> "" Then
+		      Select Case Right(CommandLineFile, 4)
+		      Case ".apz", ".pgz", ".app",".ppg",".tar",".lla",".llg"
+		        StoreMode = 2 ' This forces it to install ANY viable file regardless of how it's called' I was sick of Nemo etc removing the -i from the command.
+		      End Select
+		    End If
 		  End If
 		  
 		  'If EditorOnly = True Then StoreMode = 3 ' Editor mode, even though the file above is a file, I never want the store or launcher to start
