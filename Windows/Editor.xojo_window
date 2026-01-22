@@ -5252,7 +5252,7 @@ End
 		                  Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"-czf "+Chr(34)+OutFile+Chr(34)+" *" 'Can NOT exclude all png's etc, it leaves them missing from the sub folders too, they may be needed
 		                  Sh.Execute (Commands)
 		                  While Sh.IsRunning
-		                    App.DoEvents(1)
+		                    App.DoEvents(20)
 		                  Wend
 		                End If
 		                
@@ -5272,7 +5272,7 @@ End
 		                Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"-czf "+Chr(34)+OutFile+Chr(34)+" *"
 		                Sh.Execute (Commands)
 		                While Sh.IsRunning
-		                  App.DoEvents(1)
+		                  App.DoEvents(20)
 		                Wend
 		              End If
 		            Else 'Copy Existing Only
@@ -5354,7 +5354,7 @@ End
 		          If Debugging Then Debug("Compressing to file: "+CompressedFileOut)
 		          Sh.Execute (Commands)
 		          While Sh.IsRunning
-		            App.DoEvents(1)
+		            App.DoEvents(20)
 		          Wend
 		          
 		          If Exist(CompressedFileOut) Then 'If Successful, delete the uncompressed version

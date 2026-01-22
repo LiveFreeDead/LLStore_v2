@@ -1301,7 +1301,7 @@ End
 		    
 		    Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"ssApp.app"+Chr(34))
 		    While Sh.IsRunning
-		      App.DoEvents(1)
+		      App.DoEvents(20)
 		    Wend
 		    Sp = Sh.Result.Split(EndOfLine)
 		    If Sp.Count >=1 Then
@@ -1335,7 +1335,7 @@ End
 		    
 		    Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"ssApp.app"+Chr(34))
 		    While Sh.IsRunning
-		      App.DoEvents(1)
+		      App.DoEvents(20)
 		    Wend
 		    Sp = Sh.Result.Split(EndOfLine)
 		    If Sp.Count >=1 Then
@@ -1372,7 +1372,7 @@ End
 		    
 		    Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"ppApp.app"+Chr(34))
 		    While Sh.IsRunning
-		      App.DoEvents(1)
+		      App.DoEvents(20)
 		    Wend
 		    Sp = Sh.Result.Split(EndOfLine)
 		    If Sp.Count >=1 Then
@@ -1405,7 +1405,7 @@ End
 		    
 		    Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"ppGame.ppg"+Chr(34))
 		    While Sh.IsRunning
-		      App.DoEvents(1)
+		      App.DoEvents(20)
 		    Wend
 		    Sp = Sh.Result.Split(EndOfLine)
 		    If Sp.Count >=1 Then
@@ -1440,7 +1440,7 @@ End
 		    
 		    Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"LLApp.lla"+Chr(34))
 		    While Sh.IsRunning
-		      App.DoEvents(1)
+		      App.DoEvents(20)
 		    Wend
 		    Sp = Sh.Result.Split(EndOfLine)
 		    If Sp.Count >=1 Then
@@ -1475,7 +1475,7 @@ End
 		    
 		    Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"LLGame.llg"+Chr(34))
 		    While Sh.IsRunning
-		      App.DoEvents(1)
+		      App.DoEvents(20)
 		    Wend
 		    Sp = Sh.Result.Split(EndOfLine)
 		    If Sp.Count >=1 Then

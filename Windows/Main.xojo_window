@@ -2224,7 +2224,7 @@ End
 		  'For All OS's
 		  
 		  While Sh.IsRunning
-		    App.DoEvents(7)
+		    App.DoEvents(20)
 		    If Exist(Slash(TmpPath)+"DoneGame") Then
 		      Deltree(Slash(TmpPath)+"DoneGame")
 		      Exit 'Quit waiting for item to end, this is faster than waiting for the process to release

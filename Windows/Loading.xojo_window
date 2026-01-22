@@ -26,6 +26,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,6 +67,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -74,6 +76,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -82,6 +85,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -90,6 +94,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -278,7 +283,7 @@ End
 		  TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
 		  CancelDownloading = False
 		  While Downloading = True
-		    App.DoEvents(3)
+		    App.DoEvents(20)
 		    If System.Microseconds >= TimeOut Then
 		      CancelDownloading = True
 		      Exit 'Timeout after 5 seconds
@@ -320,7 +325,7 @@ End
 		    GetOnlineFile ("https://github.com/LiveFreeDead/LastOSLinux_Repository/raw/refs/heads/main/llstore_latest.zip",Slash(TmpPath)+"llstore_latest.zip")
 		    
 		    While Downloading 'Wait for download to finish
-		      App.DoEvents(1)
+		      App.DoEvents(20)
 		      
 		      If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
 		        Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
@@ -399,7 +404,7 @@ End
 		      End If
 		      
 		      While Downloading 'Wait for download to finish
-		        App.DoEvents(1)
+		        App.DoEvents(20)
 		        
 		        If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
 		          Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
@@ -1366,7 +1371,7 @@ End
 		        CancelDownloading = False
 		        
 		        While Downloading
-		          App.DoEvents(1)
+		          App.DoEvents(20)
 		          
 		          If System.Microseconds >= TimeOut Then
 		            CancelDownloading = True
@@ -1398,7 +1403,7 @@ End
 		  GetOnlineFile ("https://raw.githubusercontent.com/LiveFreeDead/LLStore_v2/refs/heads/main/WebLinks.ini",Slash(RepositoryPathLocal)+"RemoteWebLinks.db")
 		  TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
 		  While Downloading = True
-		    App.DoEvents(3)
+		    App.DoEvents(20)
 		    If System.Microseconds >= TimeOut Then Exit 'Timeout after 5 seconds
 		  Wend
 		End Sub
@@ -3333,17 +3338,24 @@ End
 		    If TargetWindows Then
 		      Commands = WinWget + " --tries=6 --timeout=9 -q -O " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + " --show-progress " + Chr(34) + GetURL + Chr(34) + " && echo done > " + Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
 		    Else
-		      Commands = LinuxWget + " --tries=6 --timeout=9 -q -O " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + " --show-progress " + Chr(34) + GetURL + Chr(34) + " ; echo done > " + Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
+		      'Commands = LinuxWget + " --tries=6 --timeout=9 -q -O " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + " --show-progress " + Chr(34) + GetURL + Chr(34) + " ; echo done > " + Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
+		      Commands = LinuxWget + " --tries=6 --timeout=9 --progress=bar:force -O " + _
+		      Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + " " + _
+		      Chr(34) + GetURL + Chr(34) + " 2>&1 ; echo done > " + _
+		      Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
+		      
 		    End If
 		    
 		    DownloadShell.Execute(Commands)
 		    
 		    ' --- 4. PROGRESS & WAIT LOOP ---
 		    While DownloadShell.IsRunning
-		      App.DoEvents(10)
+		      App.DoEvents(1)
 		      
 		      ' Extract Progress from Shell Output
 		      theResults = DownloadShell.ReadAll 
+		      theResults = theResults.ReplaceAll(Chr(13), Chr(10))
+		      
 		      If theResults.Trim <> "" Then
 		        ' --- New compatible logic ---
 		        Dim lastPerc As Integer
@@ -3364,12 +3376,14 @@ End
 		            
 		            ' Update various UI components
 		            If MiniInstallerShowing Then MiniInstaller.Stats.Text = "Downloading " + DownloadPercentage
+		            'MiniInstaller.Refresh
 		            If CheckingForUpdates Then UpdateLoading("Update: " + DownloadPercentage)
 		            If CheckingForDatabases Then UpdateLoading("Database: " + DownloadPercentage)
+		            App.DoEvents(1) 'Needed to update %
 		          End If
 		        End If
 		      End If
-		      
+		      App.DoEvents(1) 'Needed to update %
 		      ' Handle Cancellation / Force Quit
 		      If ForceQuit Or CancelDownloading Then
 		        DownloadShell.Close
@@ -3383,6 +3397,7 @@ End
 		      
 		      ' Exit loop if the "done" file is detected
 		      If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Exit While
+		      App.DoEvents(1)
 		    Wend
 		    
 		    ' --- 5. FINALIZE (Rename .partial to final) ---
@@ -3409,7 +3424,7 @@ End
 		    End If
 		    
 		    QueueUpTo = QueueUpTo + 1
-		    App.DoEvents(1)
+		    App.DoEvents(20)
 		  Wend
 		  
 		  ' --- POST-QUEUE CLEANUP ---
@@ -4010,7 +4025,7 @@ End
 		        'Switched to using System Notify as it fails to show before it's extracted the archive, hopefully it works in Windows
 		        'Notify ASAP so users knows something is happening
 		        'Notify ("LLStore Installing", "Installing:-"+Chr(10)+CommandLineFile, "", -1) 'Mini Installer can't call this and wouldn't want to.
-		        'App.DoEvents(7) 'Putting this here to hopefully redraw the Notification window, it only partly draws otherwise
+		        'App.DoEvents(20) 'Putting this here to hopefully redraw the Notification window, it only partly draws otherwise
 		        
 		        
 		        Success = InstallLLFile (CommandLineFile)

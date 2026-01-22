@@ -924,6 +924,7 @@ End
 		    Try
 		      If Downloading = True Then
 		        Stats.Text = "Downloading "+ DownloadPercentage
+		        App.DoEvents(1) 'Needed to update %
 		      Else
 		        Stats.Text = "Installing "+Str(MiniUpTo+1)+"/"+Str(MiniInstaller.Items.RowCount)
 		        DownloadPercentage = ""
@@ -974,6 +975,7 @@ End
 		    'Redraw changed UI
 		    MiniInstaller.Refresh
 		    MiniInstaller.Items.Refresh
+		    MiniInstaller.Stats.Refresh
 		    
 		    'Downloading is also a job so when it is done it re-checks the files exist and will retry, I'll need to add a retry counter and only reset it when it goes over or MiniUpTo increases (successful)
 		    If JobInstalling = True And Downloading = False And ThreadFinished = True Then JobInstalling = False 'This resets the flag once done

@@ -416,7 +416,7 @@ Protected Module LLMod
 		    If Debugging Then Debug("CopyWild: "+ Command)
 		    Sh.Execute (Command)
 		    While Sh.IsRunning
-		      App.DoEvents(7)
+		      App.DoEvents(20)
 		    Wend
 		    If Debugging Then Debug(Sh.ReadAll)
 		  End If
@@ -583,7 +583,7 @@ Protected Module LLMod
 		    End If
 		    
 		    While Sh.IsRunning
-		      App.DoEvents(4)
+		      App.DoEvents(20)
 		    Wend
 		    
 		    'Delete File
@@ -593,7 +593,7 @@ Protected Module LLMod
 		      Sh.Execute ("rm -f " + Chr(34)+S+Chr(34))
 		    End If
 		    While Sh.IsRunning
-		      App.DoEvents(4)
+		      App.DoEvents(20)
 		    Wend
 		  End If
 		End Sub
@@ -620,7 +620,7 @@ Protected Module LLMod
 		  
 		  TimeOut = System.Microseconds + (6 *100000) 'Set Timeout after .6 seconds
 		  While SudoEnabled = False
-		    App.DoEvents(3)
+		    App.DoEvents(20)
 		    If Not Exist("/tmp/LLSudoHandShake") Then 'If deleted by Sudo script it must be running
 		      SudoEnabled = True
 		      If Debugging Then Debug ("# Sudo Script Already Active")
@@ -664,7 +664,7 @@ Protected Module LLMod
 		          TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
 		          While  Exist("/tmp/LLSudo") 'First thing Sudo script does is delete this file, so we know it's ran ok
 		            'if SudoShellLoop.IsRunning = False Then Exit 'MsgBox "Closed Shell?" 'Disabled Line to FORCE it to wait
-		            App.DoEvents(10)
+		            App.DoEvents(20)
 		            If System.Microseconds >= TimeOut Then Exit 'Timeout after set seconds, Give up after 6 seconds? Testing Glenn
 		          Wend
 		          
@@ -687,7 +687,7 @@ Protected Module LLMod
 		          TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
 		          While  Exist("/tmp/LLSudo") 'First thing Sudo script does is delete this file, so we know it's ran ok
 		            if SudoShellLoop.IsRunning = False Then Exit 'MsgBox "Closed Shell?"
-		            App.DoEvents(10)
+		            App.DoEvents(20)
 		            If System.Microseconds >= TimeOut Then Exit 'Timeout after set seconds, Give up after 6 seconds? Testing Glenn
 		          Wend
 		          Deltree("/tmp/LLSudo") 'Remove it, it's obviously not gonna work without user input
@@ -1530,14 +1530,14 @@ Protected Module LLMod
 		    If Right(Archive,4) = ".tar" Then
 		      Sh.Execute (Zip + " -mtc -aoa x "+Chr(34)+Archive+Chr(34)+ " -o"+Chr(34) + OutPath+Chr(34)+ExcludesIncludes)
 		      Do
-		        App.DoEvents(7)  ' used to be 50, trying 7 to see if more responsive. - It is
+		        App.DoEvents(20)  ' used to be 50, trying 7 to see if more responsive. - It is
 		      Loop Until Sh.IsRunning = False
 		      If Debugging Then Debug(Sh.ReadAll)
 		    Else
 		      If Right(Archive,3) = ".gz" Then
 		        Sh.Execute ("tar -xf " + Chr(34) + Archive + Chr(34) + " -C " + Chr(34) + OutPath + Chr(34) + ExcludesIncludes)
 		        Do
-		          App.DoEvents(7)  ' used to be 50, trying 7 to see if more responsive. - It is
+		          App.DoEvents(20)  ' used to be 50, trying 7 to see if more responsive. - It is
 		        Loop Until Sh.IsRunning = False
 		        If Debugging Then Debug(Sh.ReadAll)
 		      Else 'Just treat it as a standard non Linux zip, 7z etc works fine for this as it doesn't need to handle symlinks (7z can't extract tar.gz files)
@@ -1547,7 +1547,7 @@ Protected Module LLMod
 		        Else'Linux
 		          Sh.Execute (Commands)
 		          Do
-		            App.DoEvents(7)  ' used to be 50, trying 7 to see if more responsive. - It is
+		            App.DoEvents(20)  ' used to be 50, trying 7 to see if more responsive. - It is
 		          Loop Until Sh.IsRunning = False
 		          If Debugging Then Debug(Sh.ReadAll)
 		        End If
@@ -2270,7 +2270,7 @@ Protected Module LLMod
 		      If InstallFromPath.IndexOf("ppAppsLive")>=1 Or MainFileToExtract = "" Then 'Can check here if was an extracted/installed LLFile your installing and do the lot - MainFileToExtract is set above if so
 		        Shelly.Execute ("cp -rf " + Chr(34) + Slash(InstallFromPath) + "." + Chr(34) + " " + Chr(34) + InstallToPath + Chr(34))
 		        Do
-		          App.DoEvents(7)
+		          App.DoEvents(20)
 		        Loop Until Shelly.IsRunning = False
 		      Else
 		        Suc = Copy(Slash(InstallFromPath) + "LLScript.sh", Slash(InstallToPath) + "LLScript.sh")
@@ -2296,19 +2296,19 @@ Protected Module LLMod
 		        If ItemLLItem.BuildType = "LLGame"  Then
 		          'Shelly.Execute ("rsync -a " + Chr(34) + Slash(InstallFromPath) + "." + Chr(34) + " " + Chr(34) + InstallToPath + Chr(34) + " --exclude=LLApp.tar.gz"+" --exclude=LLGame.tar.gz" +" --exclude=*.7z")
 		          Do
-		            App.DoEvents(7)
+		            App.DoEvents(20)
 		          Loop Until Shelly.IsRunning = False
 		        End If
 		        If ItemLLItem.BuildType = "ppGame"  Then
 		          'Shelly.Execute ("rsync -a " + Chr(34) + Slash(InstallFromPath) + "." + Chr(34) + " " + Chr(34) + InstallToPath + Chr(34) + " --exclude=LLApp.tar.gz"+" --exclude=LLGame.tar.gz" +" --exclude=*.7z")
 		          Do
-		            App.DoEvents(7)
+		            App.DoEvents(20)
 		          Loop Until Shelly.IsRunning = False
 		        End If
 		        If ItemLLItem.BuildType = "ppApp"  Then
 		          'Shelly.Execute ("rsync -a " + Chr(34) + Slash(InstallFromPath) + "." + Chr(34) + " " + Chr(34) + InstallToPath + Chr(34) + " --exclude=LLApp.tar.gz"+" --exclude=LLGame.tar.gz" +" --exclude=*.7z")
 		          Do
-		            App.DoEvents(7)
+		            App.DoEvents(20)
 		          Loop Until Shelly.IsRunning = False
 		        End If
 		        If ItemLLItem.BuildType = "ssApp" Then
@@ -3493,7 +3493,7 @@ Protected Module LLMod
 		  if TargetLinux Then 'Only Linux needs this, Win doesn't
 		    Sh.Execute ("chmod -R 775 "+Chr(34)+PathIn+Chr(34) +" ; "+ "chmod 775 "+Chr(34)+PathIn+Chr(34)) 'Change Read/Write/Execute to defaults 'The 2nd time is for single file only, not a recursive folder
 		    While Sh.IsRunning
-		      App.DoEvents(2)  ' used to be 50, trying 7 to see if more responsive. - It is
+		      App.DoEvents(20)  ' used to be 50, trying 7 to see if more responsive. - It is
 		    Wend
 		  End If
 		End Sub
@@ -4997,7 +4997,7 @@ Protected Module LLMod
 		      Shelly.Execute("cd " + Chr(34) + InstallFromPath + Chr(34) + " && wine " + Chr(34) + FixPath(F.NativePath) + Chr(34)) ' Use && Here because if path fails, then script will anyway
 		    End If
 		    While Shelly.IsRunning 
-		      App.DoEvents(7)
+		      App.DoEvents(20)
 		    Wend
 		    If Debugging Then Debug("Assembly Return: "+ Shelly.ReadAll)
 		    
@@ -5045,7 +5045,7 @@ Protected Module LLMod
 		        
 		        'Wait For Completion
 		        While Sh.IsRunning
-		          App.DoEvents(1)
+		          App.DoEvents(20)
 		        Wend
 		        
 		        'Delete Temp Script
@@ -5060,7 +5060,7 @@ Protected Module LLMod
 		      
 		      'Wait For Completion
 		      While Sh.IsRunning
-		        App.DoEvents(1)
+		        App.DoEvents(20)
 		      Wend
 		      'Disabled Logging Results - They are too vast
 		      'If Debugging Then Debug("Results: -"+Chr(10)+Sh.ReadAll.Trim+Chr(10))
@@ -5102,7 +5102,7 @@ Protected Module LLMod
 		        
 		        'Wait For Completion
 		        While Sh.IsRunning
-		          App.DoEvents(1)
+		          App.DoEvents(20)
 		        Wend
 		        If Debugging Then
 		          Res = Sh.Result.Trim
@@ -5122,7 +5122,7 @@ Protected Module LLMod
 		      
 		      'Wait For Completion
 		      While Sh.IsRunning
-		        App.DoEvents(1)
+		        App.DoEvents(20)
 		      Wend
 		      If Debugging Then
 		        Res = Sh.Result.Trim
@@ -5174,7 +5174,7 @@ Protected Module LLMod
 		        
 		        'Wait For Completion
 		        While Sh.IsRunning
-		          App.DoEvents(1)
+		          App.DoEvents(20)
 		        Wend
 		        Res = Sh.ReadAll
 		        If Debugging Then
@@ -5194,7 +5194,7 @@ Protected Module LLMod
 		      
 		      'Wait For Completion
 		      While Sh.IsRunning
-		        App.DoEvents(1)
+		        App.DoEvents(20)
 		      Wend
 		      Res = Sh.ReadAll
 		      If Debugging Then
@@ -5247,7 +5247,7 @@ Protected Module LLMod
 		      
 		      'Wait For Completion
 		      'While Sh.IsRunning
-		      'App.DoEvents(1)
+		      'App.DoEvents(20)
 		      'Wend
 		    End If
 		    F = Nil
@@ -5280,13 +5280,13 @@ Protected Module LLMod
 		      
 		      Shelly.Execute ("cmd.exe /c", "regedit.exe /s " + Chr(34) + FixPath(F.NativePath) + Chr(34)) 'Trying this way as it seem more compatible
 		      While Shelly.IsRunning
-		        App.DoEvents(7)
+		        App.DoEvents(20)
 		      WEnd
 		    Else
 		      ScriptFile = ExpReg (InstallToPath + ItemLLItem.BuildType+".reg")
 		      Shelly.Execute("wine regedit.exe /s " + Chr(34) + ScriptFile+ Chr(34))
 		      While Shelly.IsRunning
-		        App.DoEvents(7)
+		        App.DoEvents(20)
 		      WEnd
 		    End If
 		  Else 'Try the InstallFrom Path just in case (Like with 143 ppGames)
@@ -5299,13 +5299,13 @@ Protected Module LLMod
 		        
 		        Shelly.Execute ("cmd.exe /c", "regedit.exe /s " + Chr(34) + FixPath(F.NativePath) + Chr(34)) 'Trying this way as it seem more compatible
 		        While Shelly.IsRunning
-		          App.DoEvents(7)
+		          App.DoEvents(20)
 		        WEnd
 		      Else
 		        ScriptFile = ExpReg (InstallFromPath + ItemLLItem.BuildType+".reg")
 		        Shelly.Execute("wine regedit.exe /s " + Chr(34) + ScriptFile+ Chr(34))
 		        While Shelly.IsRunning
-		          App.DoEvents(7)
+		          App.DoEvents(20)
 		        WEnd
 		      End If
 		    End If
@@ -5345,7 +5345,7 @@ Protected Module LLMod
 		        F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		        Shelly.Execute("cd " + Chr(34) + InstallToPath + Chr(34) + " ; bash " + Chr(34) + FixPath(F.NativePath) + Chr(34)) 'Use bash over sh. I think it is better
 		        While Shelly.IsRunning
-		          App.DoEvents(7)
+		          App.DoEvents(20)
 		        Wend
 		        If Debugging Then Debug("Script Return (.sh): "+ Shelly.ReadAll)
 		      End If
@@ -5368,7 +5368,7 @@ Protected Module LLMod
 		          Shelly.Execute("cd " + Chr(34) + InstallFromPath + Chr(34) + " ; wine " + Chr(34) + ScriptFile + Chr(34)) ' Use && Here because if path fails, then script will anyway
 		        End If
 		        While Shelly.IsRunning
-		          App.DoEvents(7)
+		          App.DoEvents(20)
 		        Wend
 		        If Debugging Then Debug("Script Return (ssApp.cmd): "+ Shelly.ReadAll)
 		      End If
@@ -5391,7 +5391,7 @@ Protected Module LLMod
 		          Shelly.Execute("cd " + Chr(34) + InstallToPath + Chr(34) + " ; wine " + Chr(34) + ScriptFile + Chr(34))
 		        End If
 		        While Shelly.IsRunning
-		          App.DoEvents(7)
+		          App.DoEvents(20)
 		        Wend
 		        If Debugging Then Debug("Script Return ("+ItemLLItem.BuildType+".cmd): "+ Shelly.ReadAll)
 		      End If
@@ -5434,7 +5434,7 @@ Protected Module LLMod
 		      Sh.Execute("mv -f "+Slash(TmpPath)+"Expanded_Script.sh /tmp/LLScript_Sudo.sh") 'Do it the solid way, not with Xojo
 		      
 		      While Exist ("/tmp/LLScript_Sudo.sh") 'This script gets removed after it completes, do not continue the processing until this happens
-		        App.DoEvents(7)
+		        App.DoEvents(20)
 		      Wend
 		      
 		    End If
@@ -5483,7 +5483,7 @@ Protected Module LLMod
 		        Sh.Execute("mv -f /tmp/Expanded_Script.sh /tmp/LLScript_Sudo.sh") 'Do it the solid way, not with Xojo
 		        
 		        While Exist ("/tmp/LLScript_Sudo.sh") 'This script gets removed after it completes, do not continue the processing until this happens
-		          App.DoEvents(7)
+		          App.DoEvents(20)
 		        Wend
 		        
 		        'Update Linux .desktop Links Database (usually occurs after sudo scripts as that installs system wide .desktop files)
@@ -5513,7 +5513,7 @@ Protected Module LLMod
 		  theShell.Execute (EXEName)
 		  
 		  While theShell.IsRunning
-		    App.DoEvents(3)
+		    App.DoEvents(20)
 		  Wend
 		  If Debugging Then Debug(theShell.ReadAll) ' Debug Print all of the Run Results
 		  
@@ -8225,6 +8225,14 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue="0"
 			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="GetSize"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
