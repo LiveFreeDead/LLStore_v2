@@ -801,6 +801,8 @@ End
 		  If StoreMode >= 1 Then Return
 		  If FirstRun = False Then Return ' Hasn't setup the main form, don't flash it up on the screen (because the counter will be => than items count every time
 		  
+		  If ForceQuit Or CancelDownloading then Return 'User Close Mini Installer
+		  
 		  Dim I As Integer
 		  Dim InstData As String
 		  
@@ -931,10 +933,13 @@ End
 		        App.DoEvents(1)
 		      End If
 		      MiniInstaller.Title = Str(MiniUpTo+1)+"/"+Str(MiniInstaller.Items.RowCount) + " Installing"
-		      
-		      If MiniUpTo - 1 >=0 Then
-		        If Items.CellTextAt(MiniUpTo-1, 1) = "Installing" Then Items.CellTextAt(MiniUpTo-1, 1) = "Installed" 'Does this work here, will test, Yes works here, except for the last item, but that doesn't matter as the form hides when it's done
-		      End If
+		      #Pragma BreakOnExceptions Off
+		      Try
+		        If MiniUpTo - 1 >=0 Then
+		          If Items.CellTextAt(MiniUpTo-1, 1) = "Installing" Then Items.CellTextAt(MiniUpTo-1, 1) = "Installed" 'Does this work here, will test, Yes works here, except for the last item, but that doesn't matter as the form hides when it's done
+		        End If
+		      Catch
+		      End Try
 		      #Pragma BreakOnExceptions Off
 		      Try
 		        If Items.CellTextAt(MiniUpTo, 1) = "Skip" Then ' If on the Item change to Skipped so can't pick to UnSkip it again (I don't count backwards)
@@ -953,7 +958,11 @@ End
 		      If MiniUpTo <> LastMiniUpTo Then 'Only save once per move item
 		        LastMiniUpTo = MiniUpTo
 		        If MiniUpTo - 1 >= 0 Then 
-		          If Items.CellTextAt(MiniUpTo-1, 1) = "" Then Items.CellTextAt(MiniUpTo - 1, 1) = "Installed" 'Make the first Item changed to Installed, can add Fail check here too
+		          #Pragma BreakOnExceptions Off
+		          Try
+		            If Items.CellTextAt(MiniUpTo-1, 1) = "" Then Items.CellTextAt(MiniUpTo - 1, 1) = "Installed" 'Make the first Item changed to Installed, can add Fail check here too
+		          Catch
+		          End Try
 		          InstData = ""
 		          Try
 		            If MiniUpTo + 1 <= Items.RowCount - 1 Then

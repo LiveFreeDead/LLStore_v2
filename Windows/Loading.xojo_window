@@ -26,7 +26,6 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -67,7 +66,6 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -76,7 +74,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -85,7 +82,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -94,7 +90,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -2987,6 +2982,9 @@ End
 		      GetWebLinks()
 		    End If
 		    
+		    DownloadPercentage = ""
+		    
+		    
 		    'Hide Old Version (Only need to do this once as you load in Items)
 		    UpdateLoading("Hiding Old Versions...")
 		    HideOldVersions
@@ -3373,6 +3371,7 @@ End
 		          ProgPerc = Mid(theResults, pStart, lastPerc - pStart).Trim
 		          If IsNumeric(ProgPerc) Then
 		            DownloadPercentage = ProgPerc + "%"
+		            If ProgPerc = "32" or ProgPerc = "64" Then DownloadPercentage = "" 'Skip showing the file name bit as a percent
 		            
 		            ' Update various UI components
 		            If MiniInstallerShowing Then MiniInstaller.Stats.Text = "Downloading " + DownloadPercentage
@@ -3392,6 +3391,8 @@ End
 		          k.Execute("TaskKill /IM wget.exe /F")
 		        End If
 		        CancelDownloading = False
+		        If Exist(QueueLocal(QueueUpTo)+ ".partial") Then Deltree QueueLocal(QueueUpTo)+ ".partial"
+		        If Exist(QueueLocal(QueueUpTo)) Then Deltree QueueLocal(QueueUpTo)
 		        Exit While
 		      End If
 		      
