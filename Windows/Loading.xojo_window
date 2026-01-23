@@ -26,7 +26,6 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -67,7 +66,6 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -76,7 +74,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -85,7 +82,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -94,7 +90,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -3785,6 +3780,8 @@ End
 		  '----------------------------------------
 		  ' Parse command line arguments
 		  '----------------------------------------
+		  
+		  CommandLineFile = ""
 		  For I = 1 To args.LastIndex   ' <--- Skip element 0 (the calling app)
 		    Var a As String = args(I).Trim
 		    'If a.Trim = "Files\LLStore\llstore.exe"+Chr(34) Then a = ""
@@ -3859,11 +3856,13 @@ End
 		      
 		    Else
 		      'Anything that is not a flag is treated as a file/path
-		      If CommandLineFile = "" Then
-		        CommandLineFile = a 'Only do the first file, we can only do 1 at a time
-		      End If
+		      'If CommandLineFile = "" Then
+		      'CommandLineFile = a 'Only do the first file, we can only do 1 at a time
+		      CommandLineFile = CommandLineFile + " " + a
+		      'End If
 		    End If
 		  Next
+		  CommandLineFile = CommandLineFile.Trim 'Remove first Space or any trailing ones
 		  
 		  '----------------------------------------
 		  ' Final tidy-up
