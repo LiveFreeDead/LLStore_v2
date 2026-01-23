@@ -26,6 +26,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,6 +67,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -74,6 +76,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -82,6 +85,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -90,6 +94,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -3782,6 +3787,13 @@ End
 		  '----------------------------------------
 		  For I = 1 To args.LastIndex   ' <--- Skip element 0 (the calling app)
 		    Var a As String = args(I).Trim
+		    'If a.Trim = "Files\LLStore\llstore.exe"+Chr(34) Then a = ""
+		    'If a.Trim = "Files\LLStore\llstore.exe" Then a = ""
+		    
+		    If a.trim.IndexOf("Files\LLStore\llstore.exe") >=0 Then a = ""
+		    If a.trim.IndexOf("C:\Program") >=0 Then a = ""
+		    If a.trim.IndexOf("C:\Program Files\LLStore\llstore.exe") >=0 Then a = ""
+		    
 		    If a = "" Then Continue
 		    
 		    If a.Left(1) = "-" Then
