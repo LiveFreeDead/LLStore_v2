@@ -52,7 +52,7 @@ Begin DesktopWindow Editor
       Top             =   -4
       Transparent     =   False
       Underline       =   False
-      Value           =   5
+      Value           =   0
       Visible         =   True
       Width           =   630
       Begin DesktopLabel LabelTitle
@@ -5887,6 +5887,18 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub Quote(s As String)
+		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function Quote(s As String) As String
+		  Return """" + s + """"
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function SaveLLFileComplete() As Boolean
 		  If Debugging Then Debug("--- Starting SaveLLFileComplete ---")
 		  
@@ -6074,6 +6086,40 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub SearchTitleOnGoogle(Title As String)
+		  Dim encodedTitle As String
+		  Dim url As String
+		  Dim Err As Integer
+		  
+		  // Basic URL encoding: escape special characters
+		  encodedTitle = EncodeURLComponent(Title+" summary") 'Add summary so the first results can be used to grab Description
+		  
+		  // Replace %20 (spaces) with + for Google search readability
+		  encodedTitle = ReplaceAll(encodedTitle, "%20", "+")
+		  
+		  // Build Google search URL
+		  url = "https://www.google.com/search?q=" + encodedTitle
+		  
+		  #If TargetWindows Then
+		    // Windows: use ShellExecute
+		    Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" ( _
+		    hwnd As Integer, lpOperation As CString, lpFile As CString, lpParameters As CString, lpDirectory As CString, nShowCmd As Integer) As Integer
+		    
+		    Err=ShellExecute(0, "open", url, "", "", 1)
+		    
+		  #ElseIf TargetLinux Then
+		    // Linux: use xdg-open
+		    Dim sh As New Shell
+		    sh.Execute("xdg-open " + Quote(url))
+		    
+		  #ElseIf TargetMacOS Then
+		    // macOS: use OpenURL
+		    OpenURL(url)
+		  #EndIf
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub SelectionChangedLoadCats(Item As DesktopMenuItem)
 		  'Dim TempText As String
 		  
@@ -6158,6 +6204,20 @@ End
 		      End If
 		    End If
 		  End Select
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events LabelTitle
+	#tag Event
+		Function MouseDown(x As Integer, y As Integer) As Boolean
+		  Return True
+		End Function
+	#tag EndEvent
+	#tag Event
+		Sub MouseUp(x As Integer, y As Integer)
+		  If TextTitle.Text <> "" Then
+		    SearchTitleOnGoogle(TextTitle.Text)
+		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents

@@ -6,4 +6,4 @@ Quote=double
 Exec=llfile '%F'
 Icon-Name=application-x-llapp
 Selection=S
-Extensions=lla;llg;tar;apz;pgz;app;ppg
+Extensions=dir;lla;llg;tar;apz;pgz;app;ppg

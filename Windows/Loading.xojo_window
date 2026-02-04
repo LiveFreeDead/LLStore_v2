@@ -3851,6 +3851,8 @@ End
 		      Case "-regen"
 		        Regenerate = True
 		        StoreMode = 0
+		      Case Else
+		        CommandLineFile = CommandLineFile + " " + a
 		        
 		      End Select
 		      
