@@ -15,6 +15,7 @@ Inherits DesktopApplication
 
 	#tag Event
 		Sub Opening()
+		  ProtectFonts()
 		  mMutex = New Mutex(App.ExecutableFile.Name) 
 		  If Not mMutex.TryEnter Then 
 		    'MessageBox("Application already running")

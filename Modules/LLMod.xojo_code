@@ -736,11 +736,11 @@ Protected Module LLMod
 		  If TargetLinux Then UserName = Right( NoSlash(HomePath), Len( NoSlash(HomePath)) - InStrRev( NoSlash(HomePath), "/"))
 		  
 		  'Convert x-terminal-emulator to SysTerminal
-		  If SysTerminal.Trim = "gnome-terminal" Then
-		    PathIn = PathIn.ReplaceAll("x-terminal-emulator", SysTerminal.Trim  + " --wait ") 'Makes scripts wait for Gnome Terminal to finish before moving to next commands (such as installing flatpaks etc)
-		  Else
-		    PathIn = PathIn.ReplaceAll("x-terminal-emulator", SysTerminal.Trim )
-		  End If
+		  'If SysTerminal.Trim = "gnome-terminal" Then
+		  'PathIn = PathIn.ReplaceAll("x-terminal-emulator", SysTerminal.Trim  + " --wait ") 'Makes scripts wait for Gnome Terminal to finish before moving to next commands (such as installing flatpaks etc)
+		  'Else
+		  PathIn = PathIn.ReplaceAll("x-terminal-emulator", SysTerminal.Trim )
+		  'End If
 		  
 		  PathIn = PathIn.ReplaceAll("%LLGames%", Slash(HomePath)+"LLGames")
 		  PathIn = PathIn.ReplaceAll("%LLApps%", Slash(HomePath)+"LLApps")
@@ -1113,11 +1113,11 @@ Protected Module LLMod
 		  If TargetLinux Then UserName = Right( NoSlash(HomePath), Len( NoSlash(HomePath)) - InStrRev( NoSlash(HomePath), "/"))
 		  
 		  'Convert x-terminal-emulator to SysTerminal
-		  If SysTerminal.Trim = "gnome-terminal" Then
-		    PathIn = PathIn.ReplaceAll("x-terminal-emulator", SysTerminal.Trim  + " --wait ") 'Makes scripts wait for Gnome Terminal to finish before moving to next commands (such as installing flatpaks etc)
-		  Else
-		    PathIn = PathIn.ReplaceAll("x-terminal-emulator", SysTerminal.Trim )
-		  End If
+		  'If SysTerminal.Trim = "gnome-terminal" Then
+		  'PathIn = PathIn.ReplaceAll("x-terminal-emulator", SysTerminal.Trim  + " --wait ") 'Makes scripts wait for Gnome Terminal to finish before moving to next commands (such as installing flatpaks etc)
+		  'Else
+		  PathIn = PathIn.ReplaceAll("x-terminal-emulator", SysTerminal.Trim )
+		  'End If
 		  
 		  PathIn = PathIn.ReplaceAll("%LLGames%", Slash(HomePath)+"LLGames")
 		  PathIn = PathIn.ReplaceAll("%LLApps%", Slash(HomePath)+"LLApps")
@@ -4821,6 +4821,24 @@ Protected Module LLMod
 		  
 		  'Clean Up Temp
 		  CleanTemp
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub ProtectFonts()
+		  #If TargetLinux Then
+		    // We point to the local Resources folder
+		    Var fontDir As FolderItem = App.ExecutableFile.Parent.Child("Resources").Child("Fonts")
+		    
+		    If fontDir <> Nil And fontDir.Exists Then
+		      // Use FontConfig to add the local directory to this process ONLY
+		      // This prevents the app from crashing when global fc-cache rebuilds
+		      Declare Function FcConfigAppFontAddDir Lib "libfontconfig.so.1" (config As Ptr, path As CString) As Boolean
+		      
+		      // Passing Nil to config uses the current process configuration
+		      Call FcConfigAppFontAddDir(Nil, fontDir.NativePath)
+		    End If
+		  #EndIf
 		End Sub
 	#tag EndMethod
 

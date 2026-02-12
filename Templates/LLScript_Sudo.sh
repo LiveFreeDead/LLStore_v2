@@ -44,11 +44,13 @@ inst() {
     if command -v pamac >/dev/null 2>&1; then
         run_priv pamac install --no-confirm "$@"
     elif command -v dnf >/dev/null 2>&1; then
-        run_priv dnf install -y "$@"
+        # --setopt=strict=0 prevents removing packages to satisfy new ones
+        run_priv dnf install -y --setopt=strict=0 "$@"
     elif command -v apt >/dev/null 2>&1; then
-        run_priv apt install -y "$@"
+        # --no-remove stops apt from uninstalling existing packages (like Wine)
+        run_priv apt install -y --no-remove "$@"
     elif command -v pacman >/dev/null 2>&1; then
-        run_priv pacman -S --noconfirm "$@"
+        run_priv pacman -S --noconfirm --needed "$@"
     elif command -v zypper >/dev/null 2>&1; then
         run_priv zypper install -n "$@"
     elif command -v apk >/dev/null 2>&1; then
@@ -60,7 +62,8 @@ inst() {
     elif command -v swupd >/dev/null 2>&1; then
         run_priv swupd bundle-add -y "$@"
     elif command -v emerge >/dev/null 2>&1; then
-        run_priv emerge "$@"
+        # --noreplace prevents re-installing or overwriting existing atoms
+        run_priv emerge --noreplace "$@"
     elif command -v slackpkg >/dev/null 2>&1; then
         run_priv slackpkg install "$@"
     elif command -v yum >/dev/null 2>&1; then
@@ -93,8 +96,13 @@ cln() {
     elif command -v dnf >/dev/null 2>&1; then 
         run_priv dnf autoremove -y && run_priv dnf clean all
     elif command -v pacman >/dev/null 2>&1; then 
-        # Removes orphaned packages and clears cache
-        run_priv pacman -Rns $(pacman -Qdtq) --noconfirm 2>/dev/null || echo "No orphans to clean."
+        # Check for orphans first to avoid errors if the list is empty
+        ORPHANS=$(pacman -Qdtq)
+        if [ -n "$ORPHANS" ]; then
+            run_priv pacman -Rns $ORPHANS --noconfirm
+        else
+            echo "No orphans to clean."
+        fi
         run_priv pacman -Scc --noconfirm
     elif command -v zypper >/dev/null 2>&1; then 
         run_priv zypper clean --all
@@ -112,7 +120,6 @@ cln() {
 #---------- Detection ----------
 
 # 1. Get Best Terminal (Expanded List)
-# Checks for high-performance/common terminals first
 TERMS=(
     gnome-terminal
     konsole
@@ -139,8 +146,25 @@ for t in "${TERMS[@]}"; do
 done
 
 # 2. Get Desktop Environment (Robust Check)
-# Checks XDG_SESSION_DESKTOP first, falls back to XDG_CURRENT_DESKTOP
-CURRENT_DE=${XDG_SESSION_DESKTOP:-$XDG_CURRENT_DESKTOP}
+# First try standard env vars
+CURRENT_DE=${XDG_CURRENT_DESKTOP:-$XDG_SESSION_DESKTOP}
+
+# If empty (common in sudo), check running processes or sessions
+if [ -z "$CURRENT_DE" ]; then
+    if pgrep -x "gnome-session" > /dev/null; then CURRENT_DE="gnome"
+    elif pgrep -x "mate-session" > /dev/null; then CURRENT_DE="mate"
+    elif pgrep -x "xfce4-session" > /dev/null; then CURRENT_DE="xfce"
+    elif pgrep -x "plasma-desktop" > /dev/null || pgrep -x "plasmashell" > /dev/null; then CURRENT_DE="kde"
+    elif pgrep -x "cinnamon" > /dev/null; then CURRENT_DE="cinnamon"
+    elif pgrep -x "lxqt-session" > /dev/null; then CURRENT_DE="lxqt"
+    elif pgrep -x "budgie-desktop" > /dev/null; then CURRENT_DE="budgie"
+    fi
+fi
+
+# Final fallback: Check the login manager records if available
+if [ -z "$CURRENT_DE" ] && [ -n "$SUDO_USER" ]; then
+    CURRENT_DE=$(sudo -u "$SUDO_USER" printenv XDG_CURRENT_DESKTOP)
+fi
 
 echo "----------------------------------------"
 echo "Terminal Detected:  $OSTERM"
@@ -170,7 +194,6 @@ fi
 
 
 # 4. OS Specific Logic
-# Reads /etc/os-release to identify the Distribution ID
 if [ -f /etc/os-release ]; then
     . /etc/os-release
 else
@@ -178,46 +201,27 @@ else
 fi
 
 echo "   OS ID Detected:  $ID"
-
 echo "----------------------------------------"
 
 case $ID in
     ubuntu|linuxmint|debian|pop|kali|parrot|elementary)
-        # Debian/Ubuntu based logic
         ;;
-
     fedora|nobara|rhel|centos|almalinux|rocky)
-        # RPM/Fedora based logic
         ;;
-
     opensuse*|sles)
-        # OpenSUSE logic
         ;;
-
     arch|endeavouros|manjaro|garuda)
-        # Arch based logic
         ;;
-
     void)
-        # Void Linux logic
         ;;
-
     alpine)
-        # Alpine Linux logic
         ;;
-
     gentoo)
-        # Gentoo logic
         ;;
-
     solus)
-        # Solus logic
         ;;
-
     clear-linux-os)
-        # Clear Linux logic
         ;;
-
     *)
         echo "Note: Specific distro logic skipped for '$ID'."
         ;;
@@ -225,58 +229,41 @@ esac
 
 
 # 5. Desktop Environment Specific Logic
-# Normalized case statement to handle different naming conventions (e.g., KDE vs kde)
 case "${CURRENT_DE,,}" in # "${VAR,,}" converts to lowercase for easier matching
     cinnamon|x-cinnamon)
         ;;
-
     gnome|ubuntu|ubuntu:gnome)
         ;;
-
     kde|plasma|kde-plasma)
         ;;
-
     xfce|xfce4)
         ;;
-
     mate)
         ;;
-
     lxqt)
         ;;
-
     lxde)
         ;;
-
     budgie-desktop|budgie)
         ;;
-
     pantheon) # Elementary OS
         ;;
-
     deepin)
         ;;
-
     i3)
         ;;
-
     sway)
         ;;
-
     hyprland)
         ;;
-
     cosmic|pop)
         ;;
-
     unity)
         ;;
-
     *)
         echo "Note: Specific DE logic skipped for '$CURRENT_DE'."
         ;;
 esac
-
 
 #---------- User Customization Section ----------
 
@@ -296,5 +283,3 @@ esac
 #term_run "flatpak install --system -y --noninteractive flathub org.mozilla.firefox"
 
 #----- Add Your Code Here ------
-
-
