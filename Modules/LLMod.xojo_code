@@ -1683,6 +1683,7 @@ Protected Module LLMod
 		  CatIn = CatIn.ReplaceAll("Racing-Driving", "Racing; Driving")
 		  CatIn = CatIn.ReplaceAll("Tower Defense", "TowerDefense")
 		  CatIn = CatIn.ReplaceAll("Farming & Crafting", "Farming; Crafting")
+		  
 		  Return CatIn
 		End Function
 	#tag EndMethod
@@ -3787,6 +3788,8 @@ Protected Module LLMod
 		  
 		  Dim FoundNewCat As Boolean
 		  
+		  Dim FixedCat As String
+		  
 		  Dim Sh As New Shell
 		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
 		  
@@ -4157,37 +4160,47 @@ Protected Module LLMod
 		          
 		          For J = 0 To CatalogCount
 		            'If Debugging Then Debug ("Checking Catalog: "+Catalog(J))
-		            Catalog(J) = Catalog(J).Trim
-		            GameCat = "Game " + Catalog(J) 'This is how games get detected
-		            If Catalog(J) = "ppGame" Then Catalog(J) = "Game" 'Some of my older items have ppGame instead of Game, this fixes that
+		            ' --- FIX: Use a local variable so we don't overwrite the array element ---
+		            Dim CurrentCat As String = Catalog(J).Trim
+		            GameCat = "Game " + CurrentCat 'This is how games get detected
+		            If CurrentCat = "ppGame" Then CurrentCat = "Game" 'Some of my older items have ppGame instead of Game, this fixes that
 		            
-		            If Catalog(J) <> "" Then ' Only do Valid Link Catalogs
+		            If CurrentCat <> "" Then ' Only do Valid Link Catalogs
 		              
 		              'Trying to use proper Catalog converted in Windows
 		              If StartMenuUsed >=0 Then '*************************************************** StartMenu Used ************************************
 		                FoundNewCat = False
 		                For K = 0 To StartMenuLocationsCount(StartMenuUsed) ' Quickly rush through and make sure the category we are testing exist (only needs one), else set it to Other below
-		                  If Catalog(J) = StartMenuLocations(K, StartMenuUsed).Catalog Or GameCat = StartMenuLocations(K, StartMenuUsed).Catalog Then 'Or GameCatFound = True <-No longer needed
-		                    'If Debugging Then Debug ("Found New Catalog: "+ Catalog(J)+"=>"+ StartMenuLocations(K, StartMenuUsed).Path)
+		                  FixedCat = ""
+		                  If ItemLLItem.BuildType = "ppGame" Then
+		                    FixedCat = ReFixGameCats(CurrentCat)
+		                  End If
+		                  If Debugging Then
+		                    Debug ("Test New Catalog: "+ CurrentCat+ "=>"+ StartMenuLocations(K, StartMenuUsed).Catalog +"<="+FixedCat)
+		                  End If
+		                  If CurrentCat = StartMenuLocations(K, StartMenuUsed).Catalog Or GameCat = StartMenuLocations(K, StartMenuUsed).Catalog Or FixedCat = StartMenuLocations(K, StartMenuUsed).Catalog Then 'Or GameCatFound = True <-No longer needed
+		                    If Debugging Then Debug ("Found New Catalog: "+ CurrentCat+ "=>"+ StartMenuLocations(K, StartMenuUsed).Path +"<="+FixedCat)
 		                    FoundNewCat = True
+		                    ' --- FIX: Don't modify the Catalog array, just use the local CurrentCat ---
+		                    If FixedCat<>"" Then CurrentCat = FixedCat 'If the GameFixed Category is found, use it, else leave it as is
 		                    Exit
 		                  End If
 		                Next
 		                If FoundNewCat = False Then 'Put in Other Category
 		                  If ItemLLItem.BuildType = "ppGame" Then 'The lines below fixed the Game Categories
-		                    Catalog(J) = "Game Other"
+		                    CurrentCat = "Game Other"
 		                  Else ' App
-		                    Catalog(J) = "Other"
+		                    CurrentCat = "Other"
 		                  End If
 		                End If
 		                
 		                For K = 0 To StartMenuLocationsCount(StartMenuUsed)
 		                  If ItemLLItem.BuildType = "ppGame" Then 'The lines below fixed the Game Categories
-		                    If GameCat = StartMenuLocations(K, StartMenuUsed).Catalog Then Catalog(J) = GameCat 'This will ensure the correct Category is used for ppGames
+		                    If GameCat = StartMenuLocations(K, StartMenuUsed).Catalog Then CurrentCat = GameCat 'This will ensure the correct Category is used for ppGames
 		                  End If
 		                  
-		                  If Catalog(J) = StartMenuLocations(K, StartMenuUsed).Catalog Then 'Or GameCatFound = True <-No longer needed
-		                    If Debugging Then Debug ("Found New Catalog: "+ Catalog(J)+"=>"+ StartMenuLocations(K, StartMenuUsed).Path)
+		                  If CurrentCat = StartMenuLocations(K, StartMenuUsed).Catalog Then 'Or GameCatFound = True <-No longer needed
+		                    If Debugging Then Debug ("Found New Catalog: "+ CurrentCat+ "=>"+ StartMenuLocations(K, StartMenuUsed).Path)
 		                    'If Debugging Then Debug ("Not First Item ~~~ Checkpoint")
 		                    
 		                    LinkOutPath = StartPath+StartMenuLocations(K, StartMenuUsed).Path 'StartPath is where Writable
@@ -4213,7 +4226,7 @@ Protected Module LLMod
 		                    
 		                    LinkOutPathSet = LinkOutPath
 		                    ' Cleanup Other Sort menu Styles
-		                    If Not SkipCleanup Then MakeLinksCleanOtherStyles(Catalog(J), StartPath, LinkOutPath, I, StartPathAlt)
+		                    If Not SkipCleanup Then MakeLinksCleanOtherStyles(CurrentCat, StartPath, LinkOutPath, I, StartPathAlt)
 		                    
 		                    'Now Make Shortcut
 		                    CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).Link.WorkingDirectory)), Slash(FixPath(LinkOutPathSet)),ItemLnk(I).Link.Arguments,ItemLnk(I).Link.IconLocation, ItemLnk(I).Link.Hotkey, ItemLnk(I).Link.Description)
@@ -4221,7 +4234,7 @@ Protected Module LLMod
 		                    If StartPathAlt <> "" Then
 		                      If Exist(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") Then Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link
 		                    End If
-		                    Continue 'Use Continue not exit so it jumps out of a loop, it was quitting the whole routine
+		                    Exit For ' --- FIX: Changed Continue to Exit For so it moves to next Catalog(J) ---
 		                  End If
 		                  
 		                Next K
@@ -4241,7 +4254,7 @@ Protected Module LLMod
 		                LinkOutPathSet = LinkOutPath
 		                
 		                ' Cleanup Other Sort menu Styles
-		                If Not SkipCleanup Then MakeLinksCleanOtherStyles(Catalog(J), StartPath, LinkOutPath, I, StartPathAlt)
+		                If Not SkipCleanup Then MakeLinksCleanOtherStyles(CurrentCat, StartPath, LinkOutPath, I, StartPathAlt)
 		                
 		                'Now Make Shortcut
 		                CreateShortcut(ItemLnk(I).Title, Target, Slash(FixPath(ItemLnk(I).Link.WorkingDirectory)), Slash(FixPath(LinkOutPathSet)),ItemLnk(I).Link.Arguments,ItemLnk(I).Link.IconLocation, ItemLnk(I).Link.Hotkey, ItemLnk(I).Link.Description)
@@ -4902,6 +4915,25 @@ Protected Module LLMod
 		  Quit
 		  
 		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function ReFixGameCats(CatIn As String) As String
+		  CatIn = CatIn.ReplaceAll("FirstPersonShooter", "Game First-Person Shooter")
+		  CatIn = CatIn.ReplaceAll("ThirdPersonShooter", "Game Third-Person Shooter")
+		  CatIn = CatIn.ReplaceAll("HiddenObject", "Game Hidden Object")
+		  CatIn = CatIn.ReplaceAll("RolePlaying", "Game Role Playing")
+		  CatIn = CatIn.ReplaceAll("RolePlaying", "Game RollPlaying")
+		  CatIn = CatIn.ReplaceAll("Racing; Driving", "Game Racing-Driving")
+		  CatIn = CatIn.ReplaceAll("Racing", "Game Racing-Driving")
+		  CatIn = CatIn.ReplaceAll("Driving", "Game Racing-Driving")
+		  CatIn = CatIn.ReplaceAll("TowerDefense", "Game Tower Defense")
+		  CatIn = CatIn.ReplaceAll("Farming; Crafting", "Game Farming & Crafting")
+		  CatIn = CatIn.ReplaceAll("Farming", "Game Farming & Crafting")
+		  CatIn = CatIn.ReplaceAll("Crafting", "Game Farming & Crafting")
+		  
+		  Return CatIn
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
