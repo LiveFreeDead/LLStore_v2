@@ -4739,6 +4739,16 @@ Protected Module LLMod
 		Sub Notify(Head As String, Msg As String, IconFile As String = "", NoteTimeOut As Integer = 4000)
 		  If MiniInstallerShowing Then Return
 		  
+		  // 1. Show the window immediately so the OS knows it exists
+		  Notification.Show
+		  Notification.Top = Screen(0).AvailableHeight - Notification.Height - 10
+		  Notification.Left = Screen(0).AvailableWidth - Notification.Width - 10
+		  
+		  // 2. Do a quick Refresh here so a blank window appears at least
+		  Notification.Refresh
+		  App.DoEvents(5)
+		  
+		  
 		  Dim F As FolderItem
 		  Dim IconPic As Picture
 		  Notification.Status.Text = Msg
@@ -4805,8 +4815,10 @@ Protected Module LLMod
 		  
 		  Notification.Show
 		  Notification.SetFocus
-		  Notification.Refresh
-		  App.DoEvents(7) 'Make sure it draws if used
+		  // 3. Final Push to UI
+		  Notification.Refresh 
+		  // Increase this slightly if it still doesn't show under load
+		  App.DoEvents(30) 
 		End Sub
 	#tag EndMethod
 

@@ -4077,6 +4077,20 @@ End
 		        'App.DoEvents(20) 'Putting this here to hopefully redraw the Notification window, it only partly draws otherwise
 		        
 		        
+		        If Not TargetWindows Then
+		          'Show mine (Dual notifications should be ok?), Hey calling the system one makes it draw my notification window too, nice.
+		          Notify ("LLStore Installing", "Installing Item"+":-"+Chr(10)+CommandLineFile, "", -1) 'Mini Installer can't call this and wouldn't want to.
+		          App.DoEvents(30) 'Putting this here to hopefully redraw the Notification window, it only partly draws otherwise
+		          'Show system one
+		          RunCommand ("notify-send --hint=int:transient:1 " + Chr(34) +"Installing Item"+":-"+Chr(10)+CommandLineFile + Chr(34))
+		          Notification.Refresh (True)
+		          App.DoEvents(30) 'Putting this here to hopefully redraw the Notification window, it only partly draws otherwise
+		        Else 'Windows Works, doesn't need this
+		          Notify ("LLStore Installing", "Installing Item"+":-"+Chr(10)+CommandLineFile, "", -1) 'Mini Installer can't call this and wouldn't want to.
+		          App.DoEvents(7) 'Putting this here to hopefully redraw the Notification window, it only partly draws otherwise
+		        End If
+		        
+		        
 		        Success = InstallLLFile (CommandLineFile)
 		        If Success Then 'Worked
 		          If Debugging Then Debug("Installed: "+ CommandLineFile)
