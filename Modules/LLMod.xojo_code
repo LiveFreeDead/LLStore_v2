@@ -304,6 +304,43 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function CleanCommandLineFile(f As String) As String
+		  If f = "" Then Return ""
+		  
+		  // 1. Force UTF8
+		  Var clean As String = DefineEncoding(f, Encodings.UTF8)
+		  
+		  // 2. Peel Quotes first
+		  clean = clean.ReplaceAll(Chr(34), "")
+		  
+		  // 3. Manual "Peel" Loop 
+		  // This looks at the Byte value of the first and last characters.
+		  // It removes anything ASCII 32 or below, plus the common invisible Chr(160)
+		  Var changed As Boolean
+		  Do
+		    changed = False
+		    If clean.Length > 0 Then
+		      Var first As Integer = clean.Left(1).Asc
+		      Var last As Integer = clean.Right(1).Asc
+		      
+		      // Remove if it's a Control Char, Space (32), or NBSP (160)
+		      If first <= 32 Or first = 160 Or first = 20 Then
+		        clean = clean.Middle(1)
+		        changed = True
+		      End If
+		      
+		      If clean.Length > 0 And (last <= 32 Or last = 160 Or last = 20) Then
+		        clean = clean.Left(clean.Length - 1)
+		        changed = True
+		      End If
+		    End If
+		  Loop Until Not changed Or clean.Length = 0
+		  
+		  Return clean
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub CleanTemp()
 		  If Debugging Then Debug("--- Starting Clean Temp ---")
 		  

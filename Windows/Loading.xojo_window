@@ -26,6 +26,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,6 +67,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -74,6 +76,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -82,6 +85,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -90,6 +94,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -3784,6 +3789,9 @@ End
 		  CommandLineFile = ""
 		  For I = 1 To args.LastIndex   ' <--- Skip element 0 (the calling app)
 		    Var a As String = args(I).Trim
+		    If a.Length = 1 And a.Asc <= 32 Then a = "" // Kill single-character junk
+		    If a = "" Then Continue
+		    
 		    'If a.Trim = "Files\LLStore\llstore.exe"+Chr(34) Then a = ""
 		    'If a.Trim = "Files\LLStore\llstore.exe" Then a = ""
 		    
@@ -3852,7 +3860,7 @@ End
 		        Regenerate = True
 		        StoreMode = 0
 		      Case Else
-		        CommandLineFile = CommandLineFile + " " + a
+		        If a <> "" Then CommandLineFile = CommandLineFile + " " + a
 		        
 		      End Select
 		      
@@ -3860,18 +3868,18 @@ End
 		      'Anything that is not a flag is treated as a file/path
 		      'If CommandLineFile = "" Then
 		      'CommandLineFile = a 'Only do the first file, we can only do 1 at a time
-		      CommandLineFile = CommandLineFile + " " + a
+		      If a <> "" Then CommandLineFile = CommandLineFile + " " + a
 		      'End If
 		    End If
 		  Next
-		  CommandLineFile = CommandLineFile.Trim 'Remove first Space or any trailing ones
 		  
 		  '----------------------------------------
 		  ' Final tidy-up
 		  '----------------------------------------
 		  If EditorOnly Then EditingItem = True
 		  
-		  CommandLineFile = CommandLineFile.Trim
+		  'CommandLineFile = CommandLineFile.Trim
+		  CommandLineFile = CleanCommandLineFile(CommandLineFile)
 		  
 		  If TargetWindows Then
 		    CommandLineFile = CommandLineFile.ReplaceAll("/", "\")
@@ -3916,8 +3924,8 @@ End
 		  
 		  'Get Actual CommandLineFile File if only a Folder is given
 		  If CommandLineFile <> "" Then
-		    'Remove Quotes that get put on my Nemo etc
-		    If Left(CommandLineFile,1) = Chr(34) Then CommandLineFile = CommandLineFile.ReplaceAll(Chr(34),"") 'Remove Quotes from given path entirly
+		    'Remove Quotes that get put on my Nemo etc (Not needed as I do it in CLeanCommandLineFile Function now)
+		    'If Left(CommandLineFile,1) = Chr(34) Then CommandLineFile = CommandLineFile.ReplaceAll(Chr(34),"") 'Remove Quotes from given path entirly
 		    
 		    'Do I Need to convert ./ to $PWD etc - Yes, So if not / then it will use curent path
 		    If TargetLinux Then
@@ -3935,6 +3943,12 @@ End
 		      If Exist (CommandLineFile+"ppGame.ppg") Then CommandLineFile = CommandLineFile + "ppGame.ppg"
 		    End If
 		  End If
+		  
+		  ''Clean CommandLineFile of EOL and spaces trailing and starting the file
+		  '// This removes spaces, tabs, and all standard Line Endings (CR, LF, CRLF)
+		  'CommandLineFile = CommandLineFile.Trim(" " + Chr(9) + Chr(20) + EndOfLine.Windows + EndOfLine.Unix + EndOfLine.Macintosh)
+		  
+		  CommandLineFile = CleanCommandLineFile(CommandLineFile)
 		  
 		  'Check if CommandLineFile is an actual file and switch to install mode by default
 		  If Build = True Or Compress = True Or EditorOnly = True Then 'This fixes the issue of not compressing etc, installed them instead.
@@ -3980,34 +3994,55 @@ End
 		  'Check if Online
 		  AreWeOnline()
 		  
-		  
-		  If Debugging Then Debug("--- Debugging Starts Here ---")
-		  If Debugging Then Debug("Store Mode: "+StoreMode.ToString)
-		  If Debugging Then Debug("Online Status: "+IsOnline.ToString)
-		  If Debugging Then Debug("AppPath: "+AppPath)
-		  If Debugging Then Debug("ToolPath: "+ToolPath)
-		  If Debugging Then Debug("TmpPath: "+TmpPath)
-		  If Debugging Then Debug("CurrentPath: "+CurrentPath)
-		  If Debugging Then Debug("RepositoryPathLocal: "+RepositoryPathLocal)
-		  If Debugging Then Debug("WinWget: "+WinWget)
-		  If Debugging Then Debug("LinuxWget: "+LinuxWget)
-		  If Debugging Then Debug("System Drive: "+SysDrive)
-		  If Debugging Then Debug("ppApps: "+ppAppsDrive)
-		  If Debugging Then Debug("ppGames: "+ppGamesDrive)
-		  If Debugging Then Debug("ppApps: "+ppApps)
-		  If Debugging Then Debug("ppGames: "+ppGames+ Chr(10))
-		  
-		  If Debugging Then Debug("MenuStyle: "+MenuStyle)
-		  If Debugging Then Debug("Architecture: "+SysArchitecture)
-		  If Debugging Then Debug("Desktop Environment: "+SysDesktopEnvironment)
-		  If Debugging Then Debug("Wayland: "+Wayland.ToString)
-		  If Debugging Then Debug("Package Manager: "+SysPackageManager)
-		  If Debugging Then Debug("Terminal: "+SysTerminal+ Chr(10))
-		  
-		  If Debugging Then Debug("Args: "+System.CommandLine)
-		  If Debugging Then Debug("CommandLineFile: " + CommandLineFile)
-		  If Debugging Then Debug("EditorOnly: " + EditorOnly.ToString +" Build: " + Build.ToString +" Compress: " + Compress.ToString)
-		  If Debugging Then Debug("LLStoreParent: " + LLStoreParent)
+		  If Debugging Then
+		    Debug("--- Debugging Starts Here ---")
+		    Debug("Store Version: v" + App.MajorVersion.ToString + "." + App.MinorVersion.ToString)
+		    Debug("Store Mode: " + StoreMode.ToString)
+		    Debug("Online Status: " + IsOnline.ToString)
+		    Debug("AppPath: " + AppPath)
+		    Debug("ToolPath: " + ToolPath)
+		    Debug("TmpPath: " + TmpPath)
+		    Debug("CurrentPath: " + CurrentPath)
+		    Debug("RepositoryPathLocal: " + RepositoryPathLocal)
+		    Debug("WinWget: " + WinWget)
+		    Debug("LinuxWget: " + LinuxWget)
+		    Debug("System Drive: " + SysDrive)
+		    Debug("ppApps Drive: " + ppAppsDrive)
+		    Debug("ppGames Drive: " + ppGamesDrive)
+		    Debug("ppApps Path: " + ppApps)
+		    Debug("ppGames Path: " + ppGames + Chr(10))
+		    
+		    Debug("MenuStyle: " + MenuStyle)
+		    Debug("Architecture: " + SysArchitecture)
+		    Debug("Desktop Environment: " + SysDesktopEnvironment)
+		    Debug("Wayland: " + Wayland.ToString)
+		    Debug("Package Manager: " + SysPackageManager)
+		    Debug("Terminal: " + SysTerminal + Chr(10))
+		    
+		    Debug("Args: " + System.CommandLine)
+		    Debug("CommandLineFile: >" + CommandLineFile + "<")
+		    
+		    // --- Fixed Hex Debugger Section ---
+		    Var hexVersion As String = ""
+		    Try
+		      // Using MemoryBlock to see the raw bytes behind the string
+		      Var mb As MemoryBlock = CommandLineFile
+		      If mb <> Nil Then
+		        For i  = 0 To mb.Size - 1
+		          Var h As String = Hex(mb.Byte(i))
+		          If h.Length = 1 Then h = "0" + h // Manual PadLeft
+		          hexVersion = hexVersion + h.Uppercase + " "
+		        Next
+		      End If
+		    Catch
+		      hexVersion = "[Error generating Hex]"
+		    End Try
+		    Debug("CommandLineFile Hex: " + hexVersion.Trim)
+		    // ----------------------------
+		    
+		    Debug("EditorOnly: " + EditorOnly.ToString + " Build: " + Build.ToString + " Compress: " + Compress.ToString)
+		    Debug("LLStoreParent: " + LLStoreParent)
+		  End If
 		  
 		  OriginalStoreMode = StoreMode ' Because I set it to hide main with 99, I use a backup of it
 		  
