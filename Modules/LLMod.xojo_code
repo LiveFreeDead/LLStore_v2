@@ -2088,6 +2088,294 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function Installing(FileIn As String) As Boolean
+		  ' Step 2 of the two-phase install for CommandLine (StoreMode=2).
+		  ' Called by Loading.InstallTimer.Action after PrepareToInstall() returned True.
+		  ' Does the full install: LoadLLFile (extraction), updates notification with real
+		  ' title+icon, then performs all the actual installation steps.
+		  
+		  If Debugging Then Debug("--- Starting Installing() [PrepareToInstall flow] ---")
+		  
+		  If TargetWindows Then
+		    FileIn = FileIn.ReplaceAll("/", "\")
+		  End If
+		  If FileIn.Trim = "" Then Return False
+		  
+		  Dim TempScriptData As String
+		  Dim Suc As Boolean
+		  Dim Success As Boolean
+		  Dim Shelly As New Shell
+		  
+		  Dim FileToExtract, MainFileToExtract As String
+		  
+		  Shelly.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		  Shelly.TimeOut = -1
+		  
+		  ' Clear temp path in case it fails to load
+		  ItemTempPath = ""
+		  
+		  ' Load/extract the LLFile — this is the slow step
+		  Success = LoadLLFile(FileIn, "", True)
+		  If Debugging Then Debug("Installing - Loaded File: " + FileIn + " ItemTempPath: " + ItemTempPath + " Good: " + Success.ToString)
+		  
+		  If Success = False Then Return False
+		  
+		  MakeFolder(Slash(HomePath) + ".local/share/applications")
+		  
+		  ' Now that we have the real title and icon, update the notification
+		  Notify("LLStore Installing", "Installing " + ItemLLItem.BuildType + ":-" + Chr(10) + ItemLLItem.TitleName, ItemLLItem.FileIcon, -1)
+		  Notification.Refresh(True)
+		  App.DoEvents(50)
+		  If Not TargetWindows Then
+		    RunCommand("notify-send --hint=int:transient:1 " + Chr(34) + "Installing " + ItemLLItem.BuildType + ":-" + Chr(10) + ItemLLItem.TitleName + Chr(34))
+		  End If
+		  Notification.Refresh(True)
+		  App.DoEvents(30)
+		  
+		  ' Check for Nonething and set NoInstall if so
+		  If ItemLLItem.PathApp.IndexOf("Nonething") >= 0 Then ItemLLItem.NoInstall = True
+		  
+		  ' Make sure Sudo is available during install
+		  Select Case ItemLLItem.BuildType
+		  Case "ssApp", "ppApp", "ppGame"
+		  Case Else
+		    If SudoAsNeeded = False Then EnableSudoScript
+		  End Select
+		  
+		  If TempInstall = "" Then
+		    InstallFromPath = GetFullParent(FileIn)
+		  Else
+		    InstallFromPath = ItemTempPath
+		  End If
+		  
+		  If Debugging Then Debug("Installing From Path: " + InstallFromPath)
+		  
+		  Dim TempString As String
+		  TempString = ItemLLItem.PathINI
+		  ItemLLItem.PathINI = InstallFromPath
+		  
+		  If Debugging Then Debug("No Install: " + ItemLLItem.NoInstall.ToString)
+		  
+		  If ItemLLItem.NoInstall = False Then
+		    
+		    InstallToPath = Slash(ExpPath(ItemLLItem.PathApp))
+		    If Debugging Then Debug("Installing To Path: " + InstallToPath)
+		    
+		    If ChDirSet(InstallFromPath) = True Then
+		    End If
+		    
+		    If SkippedInstalling = True Then Return False
+		    
+		    RunAssembly
+		    
+		    If SkippedInstalling = True Then Return False
+		    
+		    Dim Inst2 As String
+		    If Not Exist(InstallToPath) Then
+		      Inst2 = InstallToPath.ReplaceAll("Program Files", "Program Files (x86)")
+		      If Exist(Inst2) Then InstallToPath = Inst2
+		    End If
+		    
+		    MakeFolder(InstallToPath)
+		    
+		    If ItemLLItem.BuildType = "LLApp" Then FileToExtract = Slash(InstallFromPath) + "LLApp.tar.gz"
+		    If ItemLLItem.BuildType = "LLGame" Then FileToExtract = Slash(InstallFromPath) + "LLGame.tar.gz"
+		    If ItemLLItem.BuildType = "ppApp" Then FileToExtract = Slash(InstallFromPath) + "ppApp.7z"
+		    If ItemLLItem.BuildType = "ppGame" Then FileToExtract = Slash(InstallFromPath) + "ppGame.7z"
+		    
+		    If FileToExtract <> "" Then
+		      If Exist(FileToExtract) Then
+		        MainFileToExtract = FileToExtract
+		        Success = Extract(FileToExtract, InstallToPath, "")
+		        If Not Success Then Return False
+		      End If
+		    End If
+		    
+		    If SkippedInstalling = True Then Return False
+		    
+		    FileToExtract = Slash(InstallFromPath) + "Patch.7z"
+		    If FileToExtract <> "" Then
+		      If Exist(FileToExtract) Then
+		        Success = Extract(FileToExtract, InstallToPath, "")
+		      End If
+		    End If
+		    
+		    If SkippedInstalling = True Then Return False
+		    
+		    If ItemLLItem.BuildType = "ssApp" Then MainFileToExtract = "NO"
+		    If ItemLLItem.NoInstall = True Then MainFileToExtract = "NO"
+		    
+		    If TargetWindows Then
+		      If InstallFromPath.IndexOf("ppAppsLive") >= 1 Or MainFileToExtract = "" Then
+		        XCopy(InstallFromPath.ReplaceAll("/", "\"), InstallToPath.ReplaceAll("/", "\"))
+		      Else
+		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType + ".app", Slash(InstallToPath) + ItemLLItem.BuildType + ".app")
+		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType + ".ppg", Slash(InstallToPath) + ItemLLItem.BuildType + ".ppg")
+		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType + ".reg", Slash(InstallToPath) + ItemLLItem.BuildType + ".reg")
+		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType + ".cmd", Slash(InstallToPath) + ItemLLItem.BuildType + ".cmd")
+		        CopyWild(Slash(InstallFromPath) + "*.jpg", Slash(InstallToPath))
+		        CopyWild(Slash(InstallFromPath) + "*.png", Slash(InstallToPath))
+		        CopyWild(Slash(InstallFromPath) + "*.ico", Slash(InstallToPath))
+		        CopyWild(Slash(InstallFromPath) + "*.svg", Slash(InstallToPath))
+		        CopyWild(Slash(InstallFromPath) + "*.mp4", Slash(InstallToPath))
+		      End If
+		      If Exist(Slash(InstallToPath) + ItemLLItem.BuildType + ".ico") Then
+		        MakeFolderIcon(InstallToPath, Slash(InstallToPath) + ItemLLItem.BuildType + ".ico")
+		      End If
+		    Else
+		      If InstallFromPath.IndexOf("ppAppsLive") >= 1 Or MainFileToExtract = "" Then
+		        Shelly.Execute("cp -rf " + Chr(34) + Slash(InstallFromPath) + "." + Chr(34) + " " + Chr(34) + InstallToPath + Chr(34))
+		        Do
+		          App.DoEvents(20)
+		        Loop Until Shelly.IsRunning = False
+		      Else
+		        Suc = Copy(Slash(InstallFromPath) + "LLScript.sh", Slash(InstallToPath) + "LLScript.sh")
+		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType + ".app", Slash(InstallToPath) + ItemLLItem.BuildType + ".app")
+		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType + ".ppg", Slash(InstallToPath) + ItemLLItem.BuildType + ".ppg")
+		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType + ".reg", Slash(InstallToPath) + ItemLLItem.BuildType + ".reg")
+		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType + ".cmd", Slash(InstallToPath) + ItemLLItem.BuildType + ".cmd")
+		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType + ".lla", Slash(InstallToPath) + ItemLLItem.BuildType + ".lla")
+		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType + ".llg", Slash(InstallToPath) + ItemLLItem.BuildType + ".llg")
+		        CopyWild(Slash(InstallFromPath) + "*.jpg", Slash(InstallToPath))
+		        CopyWild(Slash(InstallFromPath) + "*.png", Slash(InstallToPath))
+		        CopyWild(Slash(InstallFromPath) + "*.ico", Slash(InstallToPath))
+		        CopyWild(Slash(InstallFromPath) + "*.svg", Slash(InstallToPath))
+		        CopyWild(Slash(InstallFromPath) + "*.mp4", Slash(InstallToPath))
+		        
+		        If ItemLLItem.BuildType = "LLGame" Then
+		          Do
+		            App.DoEvents(20)
+		          Loop Until Shelly.IsRunning = False
+		        End If
+		        If ItemLLItem.BuildType = "ppGame" Then
+		          Do
+		            App.DoEvents(20) 
+		          Loop Until Shelly.IsRunning = False
+		        End If
+		        If ItemLLItem.BuildType = "ppApp" Then
+		          Do 
+		            App.DoEvents(20) 
+		          Loop Until Shelly.IsRunning = False
+		        End If
+		        If ItemLLItem.BuildType = "ssApp" Then
+		          If Not TargetWindows Then
+		            ShellFast.Execute("chmod 775 " + Chr(34) + Slash(InstallToPath) + "*.cmd" + Chr(34))
+		            If Debugging Then Debug("Shell Fast Execute: chmod 775 " + Chr(34) + Slash(InstallToPath) + "*.cmd" + Chr(34) + Chr(10) + "Results: " + ShellFast.ReadAll)
+		            ShellFast.Execute("chmod 775 " + Chr(34) + Slash(InstallToPath) + "*.sh" + Chr(34))
+		            If Debugging Then Debug("Shell Fast Execute: chmod 775 " + Chr(34) + Slash(InstallToPath) + "*.sh" + Chr(34) + Chr(10) + "Results: " + ShellFast.ReadAll)
+		          End If
+		        End If
+		      End If
+		    End If
+		    
+		    If SkippedInstalling = True Then Return False
+		    
+		    If ItemLLItem.BuildType = "ssApp" Then
+		      CurrentssAppFile = Slash(InstallToPath) + "ssApp.app"
+		      If ChDirSet(InstallFromPath) = True Then
+		      End If
+		    Else
+		      If ChDirSet(InstallToPath) = True Then
+		      End If
+		    End If
+		    
+		    RunSudoScripts
+		    If SkippedInstalling = True Then Return False
+		    
+		    RunScripts
+		    If SkippedInstalling = True Then Return False
+		    
+		    RunRegistry
+		    If SkippedInstalling = True Then Return False
+		    
+		    If ItemLLItem.BuildType = "ssApp" Then MoveLinks
+		    MakeLinks
+		    
+		    If TargetLinux Then ShellFast.Execute("update-desktop-database")
+		    
+		    If ItemLLItem.BuildType = "LLGame" Then
+		      If ItemLLItem.InternetRequired = False Then
+		        CopyWild(Slash(ToolPath) + "uninstall.sh", InstallToPath)
+		      End If
+		      If TargetLinux Then
+		        ShellFast.Execute("type -P run-1080p")
+		        If ShellFast.Result = "" Then
+		          If Exist(Slash(InstallToPath) + "start.sh") Then
+		            TempScriptData = LoadDataFromFile(Slash(InstallToPath) + "start.sh")
+		            TempScriptData = TempScriptData.ReplaceAll("run-1080p ", "")
+		            SaveDataToFile(TempScriptData, Slash(InstallToPath) + "start.sh")
+		          End If
+		          If Exist(Slash(InstallToPath) + "run.sh") Then
+		            TempScriptData = LoadDataFromFile(Slash(InstallToPath) + "run.sh")
+		            TempScriptData = TempScriptData.ReplaceAll("run-1080p ", "")
+		            SaveDataToFile(TempScriptData, Slash(InstallToPath) + "run.sh")
+		          End If
+		        End If
+		      End If
+		    End If
+		    
+		  Else ' NoInstall — run scripts from source
+		    
+		    InstallToPath = InstallFromPath
+		    If Debugging Then Debug("Installing From / No Output To Path: " + InstallFromPath)
+		    
+		    If ChDirSet(InstallFromPath) = True Then
+		      If Debugging Then Debug("Change Directory: " + InstallFromPath + " Successfully")
+		    Else
+		      If Debugging Then Debug("Failed to Change Directory: " + InstallFromPath + " Error")
+		    End If
+		    
+		    If SkippedInstalling = True Then Return False
+		    
+		    RunAssembly
+		    If SkippedInstalling = True Then Return False
+		    
+		    RunSudoScripts
+		    If SkippedInstalling = True Then Return False
+		    
+		    RunRegistry
+		    If SkippedInstalling = True Then Return False
+		    
+		    RunScripts
+		    If SkippedInstalling = True Then Return False
+		    
+		    MakeLinks
+		    If SkippedInstalling = True Then Return False
+		    
+		    If TargetLinux Then ShellFast.Execute("update-desktop-database ~/.local/share/applications")
+		    
+		  End If
+		  
+		  If TargetWindows Then
+		    If ItemLLItem.BuildType = "ppGame" Then Deltree(ppGames + "\.lldb")
+		  Else
+		    If ItemLLItem.BuildType = "LLGame" Then Deltree(Slash(HomePath) + "LLGames/.lldb")
+		    If ItemLLItem.BuildType = "ppGame" Then Deltree(ppGames + "/.lldb")
+		  End If
+		  
+		  ' Close the notification (NoteTimeOut=100 closes it shortly after)
+		  Notify("LLStore Installing", "Installing " + ItemLLItem.BuildType + ":-" + Chr(10) + ItemLLItem.TitleName, ItemLLItem.FileIcon, 100)
+		  
+		  ItemLLItem.PathINI = TempString
+		  
+		  If InstallFromPath.IndexOf(TmpPath + "install") >= 0 Then
+		    If Debugging Then Debug("Delete Temp Path: " + InstallFromPath)
+		    Deltree(InstallFromPath)
+		  End If
+		  
+		  Deltree(Slash(TmpPath) + "LLShorts")
+		  Deltree(Slash(TmpPath) + "Expanded_Script.cmd")
+		  Deltree(Slash(TmpPath) + "Expanded_Script.sh")
+		  Deltree(Slash(TmpPath) + "Expanded_Reg.reg")
+		  
+		  If CleanUpIsle2 <> "" Then Deltree(CleanUpIsle2)
+		  CleanUpIsle2 = ""
+		  
+		  Return True
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub InstallLinuxMenuSorting(KeepSudo2 As Boolean = True)
 		  Dim MainPath As String = Slash(AppPath)
 		  
@@ -4865,6 +5153,54 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function PrepareToInstall(FileIn As String) As Boolean
+		  ' Step 1 of the two-phase install for CommandLine (StoreMode=2).
+		  ' Shows a notification immediately with just the filename so the UI draws
+		  ' BEFORE the archive extraction happens in Installing().
+		  
+		  If FileIn.Trim = "" Then Return False
+		  
+		  If TargetWindows Then
+		    FileIn = FileIn.ReplaceAll("/", "\")
+		  End If
+		  
+		  If Not Exist(FileIn) Then Return False
+		  
+		  ' Get just the filename portion for the initial notification
+		  Dim ShortName As String
+		  Dim SlashPos As Integer
+		  If TargetWindows Then
+		    FileIn = FileIn.ReplaceAll("/", "\")
+		    SlashPos = InStrRev(FileIn, "\")
+		  Else
+		    SlashPos = InStrRev(FileIn, "/")
+		  End If
+		  If SlashPos > 0 Then
+		    ShortName = Mid(FileIn, SlashPos + 1)
+		  Else
+		    ShortName = FileIn
+		  End If
+		  
+		  ' Show notification immediately with filename (before any extraction)
+		  Notify("LLStore Installing", "Preparing:-" + Chr(10) + ShortName, "", -1)
+		  Notification.Refresh(True)
+		  App.DoEvents(80)
+		  Notification.Refresh(True)
+		  App.DoEvents(80)
+		  
+		  ' Fire the system notification so something always appears even before our window draws
+		  If Not TargetWindows Then
+		    RunCommand("notify-send --hint=int:transient:1 " + Chr(34) + "LLStore - Preparing: " + ShortName + Chr(34))
+		  End If
+		  
+		  Notification.Refresh(True)
+		  App.DoEvents(50)
+		  
+		  Return True ' File exists and UI has been kicked — InstallTimer will call Installing()
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub PreQuitApp()
 		  If Debugging Then Debug("- Pre Quit LLStore -")
 		  
@@ -6357,7 +6693,7 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
-		Installing As Boolean
+		InstallingItem As Boolean
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -7455,7 +7791,7 @@ Protected Module LLMod
 			EditorType="MultiLineEditor"
 		#tag EndViewProperty
 		#tag ViewProperty
-			Name="Installing"
+			Name="InstallingItem"
 			Visible=false
 			Group="Behavior"
 			InitialValue=""

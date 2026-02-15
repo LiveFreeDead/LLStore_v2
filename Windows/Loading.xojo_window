@@ -26,7 +26,6 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -67,7 +66,6 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -76,7 +74,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -85,7 +82,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -94,10 +90,17 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
+      RunMode         =   0
+      Scope           =   0
+      TabPanelIndex   =   0
+   End
+   Begin Timer InstallTimer
+      Index           =   -2147483648
+      LockedInPosition=   False
+      Period          =   120
       RunMode         =   0
       Scope           =   0
       TabPanelIndex   =   0
@@ -3447,7 +3450,7 @@ End
 		  End If
 		  
 		  ' Refresh UI images if needed
-		  If Main.Visible = True And Installing = False Then
+		  If Main.Visible = True And InstallingItem = False Then
 		    ShowDownloadImages
 		  End If
 		End Sub
@@ -4066,59 +4069,25 @@ End
 		    Loading.Hide
 		    SudoAsNeeded = True 'As your only installing one item, there is no benefit to asking for SUDO if it isn't needed, so don't
 		    InstallOnly = True
-		    If Debugging Then Debug("--- Install From Commandline ---")
+		    If Debugging Then Debug("--- Install From Commandline (PrepareToInstall phase) ---")
 		    #Pragma BreakOnExceptions Off
 		    If CommandLineFile <> "" Then
-		      If Exist (CommandLineFile) Then 'Install it
-		        'MsgBox "Installing: "+ CommandLineFile
-		        'Switched to using System Notify as it fails to show before it's extracted the archive, hopefully it works in Windows
-		        'Notify ASAP so users knows something is happening
-		        'Notify ("LLStore Installing", "Installing:-"+Chr(10)+CommandLineFile, "", -1) 'Mini Installer can't call this and wouldn't want to.
-		        'App.DoEvents(20) 'Putting this here to hopefully redraw the Notification window, it only partly draws otherwise
-		        
-		        
-		        If Not TargetWindows Then
-		          'Show mine (Dual notifications should be ok?), Hey calling the system one makes it draw my notification window too, nice.
-		          Notify ("LLStore Installing", "Installing Item"+":-"+Chr(10)+CommandLineFile, "", -1) 'Mini Installer can't call this and wouldn't want to.
-		          App.DoEvents(30) 'Putting this here to hopefully redraw the Notification window, it only partly draws otherwise
-		          'Show system one
-		          RunCommand ("notify-send --hint=int:transient:1 " + Chr(34) +"Installing Item"+":-"+Chr(10)+CommandLineFile + Chr(34))
-		          Notification.Refresh (True)
-		          App.DoEvents(30) 'Putting this here to hopefully redraw the Notification window, it only partly draws otherwise
-		        Else 'Windows Works, doesn't need this
-		          Notify ("LLStore Installing", "Installing Item"+":-"+Chr(10)+CommandLineFile, "", -1) 'Mini Installer can't call this and wouldn't want to.
-		          App.DoEvents(7) 'Putting this here to hopefully redraw the Notification window, it only partly draws otherwise
-		        End If
-		        
-		        
-		        Success = InstallLLFile (CommandLineFile)
-		        If Success Then 'Worked
-		          If Debugging Then Debug("Installed: "+ CommandLineFile)
-		        Else 'Failed
-		          If Debugging Then Debug("* Error Installing: "+ CommandLineFile)
+		      If Exist(CommandLineFile) Then
+		        ' Phase 1: show notification with filename immediately so the Notification window
+		        ' has a chance to draw BEFORE any archive extraction happens.
+		        ' PrepareToInstall() fires several DoEvents cycles then returns True if file is valid.
+		        If PrepareToInstall(CommandLineFile) Then
+		          ' Phase 2 is kicked off by a one-shot timer (InstallTimer).
+		          ' Returning here yields control back to the Xojo message loop so the OS
+		          ' can composite and paint the Notification window before Installing() runs.
+		          InstallTimer.RunMode = Timer.RunModes.Single
+		          #Pragma BreakOnExceptions On
+		          Return ' InstallTimer.Action handles the rest (install + quit)
 		        End If
 		      End If
 		    End If
-		    
-		    If Not TargetWindows Then 'Only make Sudo in Linux
-		      If SudoEnabled = True Then
-		        SudoEnabled = False
-		        If KeepSudo = False Then ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > /tmp/LLSudoDone") 'Quits Terminal after All items have been installed.
-		      End If
-		      
-		      If RunRefreshScript = True Or ForceDERefresh = True Then RunRefresh("cinnamon -r&") 'Refresh after single item Completes so Panel Items show
-		      'Also do KDE
-		      If SysDesktopEnvironment = "KDE" Then
-		        If RunRefreshScript = True Or ForceDERefresh = True Then 
-		          ForceDERefresh = False
-		          RunRefresh("kquitapp plasmashell && plasmashell&") 'Refresh after single item Completes so Panel Items show
-		        End If
-		      End If
-		      
-		    End If
-		    'PreQuitApp ' Save Debug etc
-		    'QuitApp 'Done installing, exit app, no need to continue
-		    'Return ' Just get out of here once set to show editor
+		    #Pragma BreakOnExceptions On
+		    ' Only reached if file is missing or PrepareToInstall returned False — quit cleanly
 		    QuitNow = True
 		  End If
 		  
@@ -4286,6 +4255,57 @@ End
 		  'ShowDownloadImages ' Show whats available
 		  'End If
 		  'End If
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events InstallTimer
+	#tag Event
+		Sub Action()
+		  ' Phase 2 of the two-phase CommandLine install (StoreMode=2).
+		  ' PrepareToInstall() already showed the notification and returned.
+		  ' The message loop had a full 120ms to draw before we got here.
+		  
+		  InstallTimer.RunMode = Timer.RunModes.Off ' Fire once only
+		  
+		  If CommandLineFile = "" Then
+		    PreQuitApp
+		    QuitApp
+		    Return
+		  End If
+		  
+		  If Debugging Then Debug("--- InstallTimer fired — calling Installing() ---")
+		  
+		  Dim Success As Boolean
+		  #Pragma BreakOnExceptions Off
+		  If Exist(CommandLineFile) Then
+		    Success = Installing(CommandLineFile)
+		    If Success Then
+		      If Debugging Then Debug("Installing() success: " + CommandLineFile)
+		    Else
+		      If Debugging Then Debug("* Installing() failed: " + CommandLineFile)
+		    End If
+		  End If
+		  #Pragma BreakOnExceptions On
+		  
+		  ' Post-install housekeeping (mirrors what VeryFirstRunTimer.Action used to do)
+		  If Not TargetWindows Then
+		    If SudoEnabled = True Then
+		      SudoEnabled = False
+		      If KeepSudo = False Then ShellFast.Execute("echo " + Chr(34) + "Unlock" + Chr(34) + " > /tmp/LLSudoDone")
+		    End If
+		    
+		    If RunRefreshScript = True Or ForceDERefresh = True Then RunRefresh("cinnamon -r&")
+		    
+		    If SysDesktopEnvironment = "kde" Or SysDesktopEnvironment = "KDE" Then
+		      If RunRefreshScript = True Or ForceDERefresh = True Then
+		        ForceDERefresh = False
+		        RunRefresh("kquitapp plasmashell && plasmashell&")
+		      End If
+		    End If
+		  End If
+		  
+		  PreQuitApp
+		  QuitApp
 		End Sub
 	#tag EndEvent
 #tag EndEvents

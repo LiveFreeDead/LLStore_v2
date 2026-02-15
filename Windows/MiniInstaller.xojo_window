@@ -368,7 +368,7 @@ End
 		  Dim I As Integer
 		  Dim  P As Integer
 		  Dim Success As Boolean
-		  Installing = True
+		  InstallingItem = True
 		  For I = 0 To MiniInstaller.Items.RowCount - 1 'Go Through each installer
 		    MiniInstaller.Refresh
 		    App.DoEvents 'Redraw Form
@@ -424,7 +424,7 @@ End
 		    App.DoEvents 'Redraw Form
 		  Next
 		  
-		  Installing = False
+		  InstallingItem = False
 		  
 		  'Default Sorting back to normal
 		  Data.Items.ColumnSortDirectionAt(Data.GetDBHeader("RefID")) = DesktopListBox.SortDirections.Ascending 'Sort by RefID
@@ -776,7 +776,7 @@ End
 		  
 		  If QuitInstaller = False Then 'Bypass everything if you close the form
 		    If Not Paused Then 
-		      Installing = True
+		      InstallingItem = True
 		      If FileToInstallFrom <> "" Then '------------
 		        SuccessfulInstall = InstallLLFile (FileToInstallFrom)
 		        If SuccessfulInstall = False Then 'Check for errors
@@ -785,7 +785,7 @@ End
 		      End If '--------------------
 		      SkippedInstalling = False
 		      MiniUpTo = MiniUpTo + 1 'Move to the Next Item, current item was empty or completed
-		      Installing = False
+		      InstallingItem = False
 		    End If
 		  End If
 		  
@@ -1034,7 +1034,7 @@ End
 		          'MsgBox FileToInstallFrom 'Glenn  'Mesage box needs to be below due to recursive and thread based, For Debugging, Keep
 		        End If
 		      Else
-		        Installing = False
+		        InstallingItem = False
 		        InstallDone = True
 		      End If
 		      
