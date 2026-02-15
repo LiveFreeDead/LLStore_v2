@@ -1348,13 +1348,21 @@ End
 		  
 		  Sp() = OnlineDBs.Split(Chr(13)) 'Text Areas use Chr (13) In Windows
 		  
-		  'MsgBox OnlineDBs.Trim
-		  
 		  'Clean Up
 		  Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
 		  
 		  If Sp.Count >= 1 Then
+		    
+		    ' --- Pass 1: Gather all valid repo URLs and local paths into arrays ---
+		    Dim DBURLs(1024) As String
+		    Dim DBLocals(1024) As String
+		    Dim DBUniqueNames(1024) As String
+		    Dim DBCount As Integer = 0
+		    
 		    For I = 0 To Sp.Count-1
+		      If Left(Sp(I).Trim, 1) = "#" Then Continue 'Skip remarked Repo's
+		      If Sp(I).Trim = "" Then Continue 'Skip blank lines
+		      
 		      UniqueName = Sp(I).ReplaceAll("lldb.ini","")
 		      UniqueName = UniqueName.ReplaceAll(".lldb","")
 		      UniqueName = UniqueName.ReplaceAll("https://","")
@@ -1362,45 +1370,111 @@ End
 		      UniqueName = UniqueName.ReplaceAll("/","")
 		      UniqueName = UniqueName.ReplaceAll(".","")
 		      UniqueName = "00-"+UniqueName+".lldbini"
-		      'MsgBox ForceNoOnlineDBUpdates.ToString
-		      If ForceNoOnlineDBUpdates = False Then 'Don't redownload if Ctrl held in, will add a flag to never update unless you press f5
-		        
-		        If Exist(Slash(RepositoryPathLocal)+UniqueName) Then Deltree(Slash(RepositoryPathLocal)+UniqueName) 'Remove Cached download (Might add a check/setting for doing this, ignore if exists? seem pointless as if your not online, it's gonna skip it anyway
-		        CurrentDBURL = Sp(I).ReplaceAll(".lldb/lldb.ini", "") 'Only want the parent, not the sub path and file
-		        If Left (Sp(I).Trim,1) = "#" Then Continue 'Skip remarked Repo's
-		        GetOnlineFile (Sp(I), Slash(RepositoryPathLocal)+UniqueName)
-		        
-		        TimeOut = System.Microseconds + (15 *1000000) 'Set Timeout after 15 seconds
-		        CancelDownloading = False
-		        
-		        While Downloading
-		          App.DoEvents(20)
-		          
-		          If System.Microseconds >= TimeOut Then
-		            CancelDownloading = True
-		            Exit 'Timeout after 15 seconds, incase net is slow, I give extra seconds to skip each of them
+		      
+		      If ForceNoOnlineDBUpdates = False Then
+		        If Exist(Slash(RepositoryPathLocal)+UniqueName) Then Deltree(Slash(RepositoryPathLocal)+UniqueName) 'Remove Cached download
+		      End If
+		      
+		      CurrentDBURL = Sp(I).ReplaceAll(".lldb/lldb.ini", "") 'Only want the parent, not the sub path and file
+		      DBURLs(DBCount)        = Sp(I)
+		      DBLocals(DBCount)      = Slash(RepositoryPathLocal)+UniqueName
+		      DBUniqueNames(DBCount) = UniqueName
+		      DBCount = DBCount + 1
+		    Next
+		    
+		    ' --- Pass 2: Download (parallel if curl supports it, sequential fallback) ---
+		    If ForceNoOnlineDBUpdates = False And DBCount > 0 Then
+		      
+		      Dim UseParallel As Boolean = False
+		      
+		      If DBCount > 1 Then 'No point parallelising a single file
+		        ' Check curl version supports --parallel (needs 7.66.0+, released Sep 2019)
+		        Dim cvSh As New Shell
+		        cvSh.Execute("curl --version 2>&1")
+		        Dim cvOut As String = cvSh.ReadAll.Trim
+		        Dim cvParts() As String = cvOut.Split(" ")
+		        If cvParts.Count >= 2 Then
+		          Dim vp() As String = cvParts(1).Split(".")
+		          If vp.Count >= 2 Then
+		            If Val(vp(0)) > 7 Or (Val(vp(0)) = 7 And Val(vp(1)) >= 66) Then UseParallel = True
 		          End If
-		          
-		          If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
-		            Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
-		            Exit
+		        End If
+		      End If
+		      
+		      If UseParallel Then
+		        ' === PARALLEL: fire all DB downloads simultaneously in one curl command ===
+		        Dim DoneFlag As String = Slash(RepositoryPathLocal)+"AllDBsDone"
+		        Deltree(DoneFlag)
+		        
+		        Dim ParallelShell As New Shell
+		        ParallelShell.TimeOut = -1
+		        ParallelShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		        
+		        StartParallelDownload(DBURLs, DBLocals, DBCount, DoneFlag, ParallelShell)
+		        
+		        Dim ParallelTimeout As Double = System.Microseconds + (30 * 1000000) '30s total for all DBs together
+		        While ParallelShell.IsRunning
+		          App.DoEvents(20)
+		          If CheckingForDatabases Then UpdateLoading("Databases: Downloading (parallel)...")
+		          If System.Microseconds >= ParallelTimeout Then
+		            ParallelShell.Close
+		            Exit While
+		          End If
+		          If ForceQuit Or CancelDownloading Then
+		            ParallelShell.Close
+		            CancelDownloading = False
+		            Exit While
 		          End If
 		        Wend
 		        
-		      Else ' Just configure the URL path to work
-		        CurrentDBURL = Sp(I).ReplaceAll(".lldb/lldb.ini", "") 'Only want the parent, not the sub path and file
-		        If Left (Sp(I).Trim,1) = "#" Then Continue 'Skip remarked Repo's
+		        ' Rename all .partial -> final
+		        Dim renameSh As New Shell
+		        For I = 0 To DBCount - 1
+		          If Exist(DBLocals(I)+".partial") Then
+		            If Exist(DBLocals(I)) Then Deltree(DBLocals(I))
+		            If TargetWindows Then
+		              renameSh.Execute("move /y "+Chr(34)+DBLocals(I).ReplaceAll("/","\")+ ".partial"+Chr(34)+" "+Chr(34)+DBLocals(I).ReplaceAll("/","\")+Chr(34))
+		            Else
+		              renameSh.Execute("mv "+Chr(34)+DBLocals(I)+".partial"+Chr(34)+" "+Chr(34)+DBLocals(I)+Chr(34))
+		            End If
+		            While renameSh.IsRunning
+		              App.DoEvents(5)
+		            Wend
+		          End If
+		        Next
+		        Deltree(DoneFlag)
 		        
+		      Else
+		        ' === SEQUENTIAL FALLBACK: original one-at-a-time logic, untouched ===
+		        For I = 0 To DBCount - 1
+		          GetOnlineFile(DBURLs(I), DBLocals(I))
+		          TimeOut = System.Microseconds + (15 *1000000) 'Set Timeout after 15 seconds
+		          CancelDownloading = False
+		          While Downloading
+		            App.DoEvents(20)
+		            If System.Microseconds >= TimeOut Then
+		              CancelDownloading = True
+		              Exit While 'Timeout after 15 seconds, incase net is slow, I give extra seconds to skip each of them
+		            End If
+		            If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
+		              Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
+		              Exit While
+		            End If
+		          Wend
+		        Next
 		      End If
 		      
-		      'Try to load the downloaded DB (even if old one)
-		      LoadDB(Slash(RepositoryPathLocal)+UniqueName, True) 'The true allows full DB path to be given, so can use Unique DB names
+		    End If
+		    
+		    ' --- Pass 3: Load all DBs (runs regardless of download path or offline mode) ---
+		    For I = 0 To DBCount - 1
+		      CurrentDBURL = DBURLs(I).ReplaceAll(".lldb/lldb.ini", "") 'Always set before LoadDB - required for %URLPath% substitution to point to correct repo
+		      LoadDB(Slash(RepositoryPathLocal)+DBUniqueNames(I), True) 'The true allows full DB path to be given, so can use Unique DB names
 		    Next
+		    
 		  End If
 		  
-		  
 		  If ForceNoOnlineDBUpdates = True Then ForceNoOnlineDBUpdates = False ' Only block it the first run, not for refresh
-		  
 		  
 		  ''Get Remote WebLinks to use 'Disabled for now due to Google stopping API use with wget
 		  GetOnlineFile ("https://raw.githubusercontent.com/LiveFreeDead/LLStore_v2/refs/heads/main/WebLinks.ini",Slash(RepositoryPathLocal)+"RemoteWebLinks.db")

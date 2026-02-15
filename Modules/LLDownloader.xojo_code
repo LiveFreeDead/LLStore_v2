@@ -26,6 +26,40 @@ Protected Module LLDownloader
 	#tag EndMethod
 
 
+	#tag Method, Flags = &h0
+		Sub StartParallelDownload(URLs() As String, Locals() As String, Count As Integer, DoneFlag As String, ByRef ParallelShell As Shell)
+		  ' Fires all downloads simultaneously using a single curl --parallel command.
+		  ' Each file downloads to LocalPath.partial - caller renames on completion.
+		  ' Writes DoneFlag when finished so the caller can poll without a busy-wait.
+		  ' Falls back gracefully: if Count <= 1 just use the normal queue via GetOnlineFile.
+		  
+		  Dim I As Integer
+		  Dim Pairs As String = ""
+		  Dim Cmd As String
+		  
+		  For I = 0 To Count - 1
+		    If URLs(I).Trim = "" Then Continue
+		    Pairs = Pairs + " -o " + Chr(34) + Locals(I) + ".partial" + Chr(34) + " " + Chr(34) + URLs(I) + Chr(34)
+		  Next
+		  
+		  If Pairs.Trim = "" Then Return
+		  
+		  ' -L: follow redirects (matches wget default - required for some hosts)
+		  ' --parallel-immediate: start all transfers simultaneously rather than in batches
+		  ' --retry 3: retry failed downloads up to 3 times
+		  ' --connect-timeout 9: don't hang on unresponsive servers
+		  Dim CurlBase As String = "curl -L --parallel --parallel-immediate --retry 3 --connect-timeout 9 -s"
+		  
+		  If TargetWindows Then
+		    Cmd = CurlBase + Pairs + " && echo done > " + Chr(34) + DoneFlag + Chr(34)
+		  Else
+		    Cmd = CurlBase + Pairs + " ; echo done > " + Chr(34) + DoneFlag + Chr(34)
+		  End If
+		  
+		  ParallelShell.Execute(Cmd)
+		End Sub
+	#tag EndMethod
+
 	#tag Property, Flags = &h0
 		CurrentDBURL As String
 	#tag EndProperty

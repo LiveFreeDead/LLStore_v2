@@ -2433,8 +2433,8 @@ Protected Module LLMod
 		  RunSudo("cp  -R "+Chr(34)+MainPath+"Tools/LinuxMenuSorting/xdg/menus/applications-merged"+Chr(34)+" "+Chr(34)+"/etc/xdg/menus/"+Chr(34))
 		  RunSudo("cp  -R "+Chr(34)+MainPath+"Tools/LinuxMenuSorting/desktop-directories"+Chr(34)+" "+Chr(34)+"/usr/share/"+Chr(34))
 		  
-		  RunSudo("chmod 777 "+Chr(34)+"/etc/xdg/menus/applications-merged/LastOSLinux_Sorting.menu"+Chr(34)) 'Make all access
-		  RunSudo("chmod 777 "+Chr(34)+"/usr/share/desktop-directories/cinnamon-disk.directory"+Chr(34)) 'Make all access
+		  RunSudo("chmod 644 "+Chr(34)+"/etc/xdg/menus/applications-merged/LastOSLinux_Sorting.menu"+Chr(34)) 'Secure: system config file, root-owned, readable by all
+		  RunSudo("chmod 644 "+Chr(34)+"/usr/share/desktop-directories/cinnamon-disk.directory"+Chr(34)) 'Secure: system config file, root-owned, readable by all
 		  
 		  
 		  'Close Sudo Terminal
@@ -2986,7 +2986,8 @@ Protected Module LLMod
 		    
 		    MakeFolder(Slash(HomePath)+".local/share/applications")
 		    
-		    RunSudo("mkdir -p "+Chr(34)+InstallPath+Chr(34)+ " ; " + "chmod -R 777 "+Chr(34)+InstallPath+Chr(34))
+		    RunSudo("mkdir -p "+Chr(34)+InstallPath+Chr(34)) 'Create install dir first
+		    RunSudo("if [ -f "+Chr(34)+MainPath+"Tools/setup_lastos_group.sh"+Chr(34)+" ]; then bash "+Chr(34)+MainPath+"Tools/setup_lastos_group.sh"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34)+"; else chmod -R 777 "+Chr(34)+InstallPath+Chr(34)+"; fi") 'Secure: group/SGID/ACL if script present, else fall back to 777
 		    
 		    ShellFast.Execute("cp -R "+Chr(34)+MainPath+"llstore Libs"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
 		    ShellFast.Execute("cp -R "+Chr(34)+MainPath+"llstore Resources"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
@@ -3036,7 +3037,7 @@ Protected Module LLMod
 		    ShellFast.Execute("cp "+Chr(34)+MainPath+"libgthread-2.0.so.0"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
 		    ShellFast.Execute("cp "+Chr(34)+MainPath+"libgthread-2.0.so.0.txt"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
 		    
-		    RunSudo("chmod -R 777 "+Chr(34)+InstallPath+Chr(34)) 'Make all executable
+		    RunSudo("if [ -f "+Chr(34)+MainPath+"Tools/setup_lastos_group.sh"+Chr(34)+" ]; then bash "+Chr(34)+MainPath+"Tools/setup_lastos_group.sh"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34)+"; else chmod -R 777 "+Chr(34)+InstallPath+Chr(34)+"; fi") 'Secure: group/SGID/ACL if script present, else fall back to 777
 		    
 		    InstallLinuxMenuSorting(True) 'This adds my own menu sorting style
 		    
@@ -6088,7 +6089,7 @@ Protected Module LLMod
 		        T = TextOutputStream.Create(F)
 		        T.Write(Data)
 		        T.Close
-		        If TargetLinux Then ChMod(FileIn, "777") 'Make at least the File editable by everyone
+		        If TargetLinux Then ChMod(FileIn, "664") 'Secure: group-writable for lastos-users members, not world-writable
 		      End If
 		    End If
 		  Catch
