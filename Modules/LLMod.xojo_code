@@ -2088,6 +2088,57 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub LogInstall(EntryType As String, Message As String)
+		  ' Logs installer events to $HOME/zLastOSRepository/zzLLStore_Installs.log
+		  ' EntryType should be "Success", "Skipped", or "FAIL"
+		  ' FAIL entries automatically include a timestamp for cross-reference with the Debug log
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    ' Build log directory and file path from HomePath global
+		    Dim LogDir As String = Slash(HomePath) + "zLastOSRepository"
+		    MakeFolder(LogDir) ' Create directory if it doesn't exist (safe, no crash)
+		    Dim LogPath As String = Slash(LogDir) + "zzLLStore_Installs.log"
+		    
+		    ' Validate and build the prefix
+		    Dim Prefix As String
+		    If EntryType = "Success" Then
+		      Prefix = "Success: "
+		    ElseIf EntryType = "Skipped" Then
+		      Prefix = "Skipped: "
+		    Else
+		      Prefix = "FAIL: "
+		    End If
+		    
+		    ' Build the log line - add timestamp to FAIL entries for debug log cross-reference
+		    Dim LogLine As String
+		    If EntryType = "FAIL" Then
+		      Var d As DateTime = DateTime.Now
+		      LogLine = Prefix + d.Hour.ToString("00") + ":" + d.Minute.ToString("00") + ":" + d.Second.ToString("00") + Chr(9) + Message + Chr(10)
+		    Else
+		      LogLine = Prefix + Message + Chr(10)
+		    End If
+		    
+		    ' Append to file using BinaryStream (supports true append without overwriting)
+		    Dim LogFI As FolderItem = GetFolderItem(LogPath, FolderItem.PathTypeNative)
+		    Dim BS As BinaryStream
+		    If LogFI.Exists Then
+		      BS = BinaryStream.Open(LogFI, True) ' Open existing for writing
+		      BS.Position = BS.Length ' Seek to end for append
+		    Else
+		      BS = BinaryStream.Create(LogFI, True) ' Create new log file
+		    End If
+		    If BS <> Nil Then
+		      BS.Write(LogLine)
+		      BS.Close
+		    End If
+		  Catch
+		    ' Silently swallow all errors - never crash the app over logging
+		  End Try
+		  #Pragma BreakOnExceptions On
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function Installing(FileIn As String) As Boolean
 		  ' Step 2 of the two-phase install for CommandLine (StoreMode=2).
 		  ' Called by Loading.InstallTimer.Action after PrepareToInstall() returned True.
@@ -2118,7 +2169,10 @@ Protected Module LLMod
 		  Success = LoadLLFile(FileIn, "", True)
 		  If Debugging Then Debug("Installing - Loaded File: " + FileIn + " ItemTempPath: " + ItemTempPath + " Good: " + Success.ToString)
 		  
-		  If Success = False Then Return False
+		  If Success = False Then
+		    LogInstall("FAIL", "LoadLLFile failed for file: " + FileIn)
+		    Return False
+		  End If
 		  
 		  MakeFolder(Slash(HomePath) + ".local/share/applications")
 		  
@@ -2164,11 +2218,17 @@ Protected Module LLMod
 		    If ChDirSet(InstallFromPath) = True Then
 		    End If
 		    
-		    If SkippedInstalling = True Then Return False
+		    If SkippedInstalling = True Then
+		      LogInstall("Skipped", "Install skipped before assembly: " + ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "]")
+		      Return False
+		    End If
 		    
 		    RunAssembly
 		    
-		    If SkippedInstalling = True Then Return False
+		    If SkippedInstalling = True Then
+		      LogInstall("Skipped", "Install skipped after assembly: " + ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "]")
+		      Return False
+		    End If
 		    
 		    Dim Inst2 As String
 		    If Not Exist(InstallToPath) Then
@@ -2187,7 +2247,10 @@ Protected Module LLMod
 		      If Exist(FileToExtract) Then
 		        MainFileToExtract = FileToExtract
 		        Success = Extract(FileToExtract, InstallToPath, "")
-		        If Not Success Then Return False
+		        If Not Success Then
+		          LogInstall("FAIL", "Archive extraction failed for " + ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "] File: " + FileToExtract)
+		          Return False
+		        End If
 		      End If
 		    End If
 		    
@@ -2325,10 +2388,16 @@ Protected Module LLMod
 		      If Debugging Then Debug("Failed to Change Directory: " + InstallFromPath + " Error")
 		    End If
 		    
-		    If SkippedInstalling = True Then Return False
+		    If SkippedInstalling = True Then
+		      LogInstall("Skipped", "Install skipped (no-install mode): " + ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "]")
+		      Return False
+		    End If
 		    
 		    RunAssembly
-		    If SkippedInstalling = True Then Return False
+		    If SkippedInstalling = True Then
+		      LogInstall("Skipped", "Install skipped after assembly (no-install mode): " + ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "]")
+		      Return False
+		    End If
 		    
 		    RunSudoScripts
 		    If SkippedInstalling = True Then Return False
@@ -2371,6 +2440,7 @@ Protected Module LLMod
 		  If CleanUpIsle2 <> "" Then Deltree(CleanUpIsle2)
 		  CleanUpIsle2 = ""
 		  
+		  LogInstall("Success", "Installed: " + ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "] To: " + InstallToPath)
 		  Return True
 		End Function
 	#tag EndMethod
@@ -2431,6 +2501,7 @@ Protected Module LLMod
 		  If Debugging Then Debug("Install Loading in File: "+FileIn + " ItemTempPath: " + ItemTempPath +" Good: "+Success.ToString)
 		  
 		  If Success = False Then
+		    LogInstall("FAIL", "LoadLLFile failed for file: " + FileIn)
 		    Return False ' Couldn't Load Item
 		  End If
 		  
@@ -2494,6 +2565,7 @@ Protected Module LLMod
 		    End If
 		    
 		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      LogInstall("Skipped", "Install skipped before assembly: " + ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "]")
 		      Return False
 		    End If
 		    
@@ -2501,6 +2573,7 @@ Protected Module LLMod
 		    RunAssembly
 		    
 		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      LogInstall("Skipped", "Install skipped after assembly: " + ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "]")
 		      Return False
 		    End If
 		    
@@ -2528,6 +2601,7 @@ Protected Module LLMod
 		        MainFileToExtract = FileToExtract
 		        Success = Extract(FileToExtract, InstallToPath, "")
 		        If Not Success Then 'Clean Up And Return (This is required, else it'll not work anyway, so abort)
+		          LogInstall("FAIL", "Archive extraction failed for " + ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "] File: " + FileToExtract)
 		          Return False ' Failed to extract
 		        End If
 		        'Else 'No Archives, check if extracted file and copy it all if so
@@ -2757,7 +2831,7 @@ Protected Module LLMod
 		    End If
 		    
 		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
-		      
+		      LogInstall("Skipped", "Install skipped (no-install mode): " + ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "]")
 		      Return False
 		    End If
 		    
@@ -2767,7 +2841,7 @@ Protected Module LLMod
 		    
 		    
 		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
-		      
+		      LogInstall("Skipped", "Install skipped after assembly (no-install mode): " + ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "]")
 		      Return False
 		    End If
 		    
@@ -2844,6 +2918,7 @@ Protected Module LLMod
 		  If CleanUpIsle2 <> "" Then Deltree(CleanUpIsle2) 'If used temp
 		  CleanUpIsle2 = ""
 		  
+		  LogInstall("Success", "Installed: " + ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "] To: " + InstallToPath)
 		  Return True ' Successfully Installed
 		End Function
 	#tag EndMethod
