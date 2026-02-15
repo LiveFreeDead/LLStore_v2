@@ -1707,6 +1707,10 @@ End
 		        WebLinksLink(WebLinksCount) = TemStrSp(1).Trim            
 		        'MsgBox WebLinksName(WebLinksCount) + " = " + WebLinksLink(WebLinksCount)
 		        WebLinksCount = WebLinksCount + 1
+		        If WebLinksCount >= 4096 Then
+		          Debug("WebLinks array is full")
+		          WebLinksCount = 4095 'Limit it
+		        End If
 		      End If
 		    Next
 		  End If
@@ -2032,12 +2036,14 @@ End
 		  SettingsFile = AppPath+"LLL_Settings.ini"
 		  F = GetFolderItem(SettingsFile,FolderItem.PathTypeNative)
 		  If Not F.Exists Then Return 'No Settings file found
-		  
-		  InputStream = TextInputStream.Open(F)
-		  While Not inputStream.EndOfFile 'If Empty file this skips it
-		    RL = inputStream.ReadAll
-		  Wend
-		  inputStream.Close
+		  Try
+		    InputStream = TextInputStream.Open(F)
+		    While Not inputStream.EndOfFile 'If Empty file this skips it
+		      RL = inputStream.ReadAll
+		    Wend
+		    inputStream.Close
+		  Catch
+		  End Try
 		  
 		  Dim I As Integer
 		  Dim Sp() As String
@@ -2268,11 +2274,14 @@ End
 		  Dim Lin, LineID, LineData As String
 		  Dim EqPos As Integer
 		  If  F.Exists Then 
-		    inputStream = TextInputStream.Open(F)
-		    While Not inputStream.EndOfFile 'If Empty file this skips it
-		      RL = inputStream.ReadAll
-		    Wend
-		    inputStream.Close
+		    Try
+		      inputStream = TextInputStream.Open(F)
+		      While Not inputStream.EndOfFile 'If Empty file this skips it
+		        RL = inputStream.ReadAll
+		      Wend
+		      inputStream.Close
+		    Catch
+		    End Try
 		  End If
 		  RL = RL.ReplaceAll(Chr(13), Chr(10))
 		  SP()=RL.Split(Chr(10))
@@ -2891,7 +2900,7 @@ End
 		    'Msgbox RunningInIDE.ToString
 		    
 		    'Delete previous Sudo Attempt file:
-		    Deltree("/tmp/LLSudo") 'Remove it
+		    Deltree(BaseDir+"/LLSudo") 'Remove it
 		    
 		    'Check if DB RefreshAfter Time has passed
 		    TimePassed = False
@@ -3592,6 +3601,18 @@ End
 		    MakeAllExec(AppPath)
 		  End If
 		  
+		  BaseDir = HomePath+".llstore_secure"
+		  'Make secure folder
+		  if TargetWindows then
+		    Path = Path.ReplaceAll("/","\")
+		    S = "mkdir " + chr(34) + BaseDir + chr(34)
+		    ShellFast.Execute (S)
+		  Else
+		    MakeFolder (BaseDir)
+		    S = "chmod 700 "+BaseDir
+		    ShellFast.Execute (S)
+		  End If
+		  
 		  If TargetWindows Then 'Need to add Windows ppGames and Apps drives here
 		    HomePath = Slash(FixPath(SpecialFolder.UserHome.NativePath))
 		    RepositoryPathLocal = Slash(HomePath) + "zLastOSRepository/"
@@ -3919,10 +3940,10 @@ End
 		  'Get Shortcut Redirects - This has to be done except when in Launcher mode, so the installer has access to them!
 		  GetCatalogRedirects 'May as well always do this, not needed for Storemode 1 - but what if you change modes? - wont hurt
 		  
-		  'See if /tmp/stopLLStore exists and delete it if so
+		  'See if BaseDir/stopLLStore exists and delete it if so
 		  If TargetLinux Then
 		    Try
-		      If Exist("/tmp/stopLLStore") Then Deltree("/tmp/stopLLStore")
+		      If Exist(BaseDir+"/stopLLStore") Then Deltree(BaseDir+"/stopLLStore")
 		    Catch
 		    End Try
 		  End If
@@ -4293,7 +4314,7 @@ End
 		  If Not TargetWindows Then
 		    If SudoEnabled = True Then
 		      SudoEnabled = False
-		      If KeepSudo = False Then ShellFast.Execute("echo " + Chr(34) + "Unlock" + Chr(34) + " > /tmp/LLSudoDone")
+		      If KeepSudo = False Then ShellFast.Execute("echo " + Chr(34) + "Unlock" + Chr(34) + " > "+BaseDir+"/LLSudoDone")
 		    End If
 		    
 		    If RunRefreshScript = True Or ForceDERefresh = True Then RunRefresh("cinnamon -r&")

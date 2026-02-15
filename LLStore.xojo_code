@@ -5,8 +5,12 @@ Inherits DesktopApplication
 		Sub Closing()
 		  #Pragma BreakOnExceptions Off
 		  Try
-		    If mMutex <> Nil Then mMutex.Leave
-		  Catch
+		    If mMutex <> Nil Then
+		      mMutex.Leave
+		      mMutex = Nil  ' Clean up reference
+		    End If
+		  Catch err As RuntimeException
+		    Debug("Error releasing mutex: " + err.Message)
 		  End Try
 		  #Pragma BreakOnExceptions On
 		  Debug("-- LLStore Closed")
@@ -28,6 +32,23 @@ Inherits DesktopApplication
 		  Debug("-- LLStore Opening")
 		  Loading.VeryFirstRunTimer.RunMode = Timer.RunModes.Single ' Do it this way instead, might fix quit bug
 		End Sub
+	#tag EndEvent
+
+	#tag Event
+		Function UnhandledException(error As RuntimeException) As Boolean
+		  
+		  Dim errorMsg As String
+		  errorMsg = "Unhandled Exception: " + error.Message + EndOfLine
+		  errorMsg = errorMsg + "Error Number: " + Str(error.ErrorNumber) + EndOfLine
+		  errorMsg = errorMsg + "Stack: " + Join(error.Stack, EndOfLine)
+		  
+		  ' Log to file
+		  If Debugging Then Debug(errorMsg)
+		  
+		  ' Optionally show user-friendly message
+		  'MessageBox("An unexpected error occurred. Please check the log file.")
+		  
+		End Function
 	#tag EndEvent
 
 

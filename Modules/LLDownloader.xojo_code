@@ -3,6 +3,13 @@ Protected Module LLDownloader
 	#tag Method, Flags = &h0
 		Sub GetOnlineFile(URL As String, OutPutFile As String)
 		  Dim I As Integer
+		  
+		  ' Check if queue is full
+		  If QueueCount >= 1024 Then
+		    Debug("Download queue is full. Cannot add: " + URL)
+		    Return
+		  End If
+		  
 		  If QueueCount >= 1 Then 'Testing if this causes issues
 		    For I = 0 To QueueCount - 1
 		      If QueueURL(I) = URL Then Return 'Skip existing URL download already queued up

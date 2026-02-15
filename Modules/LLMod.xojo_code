@@ -130,20 +130,22 @@ Protected Module LLMod
 		          Sp(I) = Sp(I).Trim
 		          If Sp(I).IndexOf("=") >=0 Then 'Only do Valid converstions for all lines - regardless of mode
 		            SpLine() = Sp(I).Split("=") 'Split to 0 as Catalog and 1 as Start Path Used, or IconFile/IconIndex and values
-		            SpLine(0)=SpLine(0).Trim 'Catalog, IconFile/IconIndex
-		            SpLine(1)=SpLine(1).Trim 'Start Path, Value
-		          End If
-		          
-		          If CatMode = True Then 'Only process when it's below the right Header
-		            
-		            If Left(SpLine(0),1)="!" Then ' Skip It because it's only a redirect, not used here
-		              Continue
+		            ' Ensure we have at least 2 elements
+		            If SpLine.Count >= 2 Then
+		              SpLine(0)=SpLine(0).Trim 'Catalog, IconFile/IconIndex
+		              SpLine(1)=SpLine(1).Trim 'Start Path, Value
+		              
+		              If CatMode = True Then 'Only process when it's below the right Header
+		                If Left(SpLine(0),1)="!" Then ' Skip It because it's only a redirect, not used here
+		                  Continue
+		                End If
+		                
+		                StartMenuLocations(StartMenuLocationsCount(K),K).Catalog = SpLine(0)
+		                StartMenuLocations(StartMenuLocationsCount(K),K).Path = SpLine(1)
+		                StartMenuLocationsCount(K) = StartMenuLocationsCount(K) + 1
+		                
+		              End If
 		            End If
-		            
-		            StartMenuLocations(StartMenuLocationsCount(K),K).Catalog = SpLine(0)
-		            StartMenuLocations(StartMenuLocationsCount(K),K).Path = SpLine(1)
-		            StartMenuLocationsCount(K) = StartMenuLocationsCount(K) + 1
-		            
 		          End If
 		          
 		          If DesktopMode = True Then 'Get Icon file and index's
@@ -203,9 +205,13 @@ Protected Module LLMod
 		            
 		            If Sp(I).IndexOf("=") >=0 Then 'Only do Valid converstions for all lines - regardless of mode
 		              SpLine() = Sp(I).Split("=") 'Split to 0 as Catalog and 1 as Start Path Used, or IconFile/IconIndex and values
-		              SpLine(0)=Right(SpLine(0).Trim, Len(SpLine(0).Trim)-1) 'Catalog, IconFile/IconIndex, remove ! from start
-		              SpLine(1)=SpLine(1).Trim 'Start Path, Value
+		              ' Ensure we have at least 2 elements
+		              If SpLine.Count >= 2 Then
+		                SpLine(0)=Right(SpLine(0).Trim, Len(SpLine(0).Trim)-1) 'Catalog, IconFile/IconIndex, remove ! from start
+		                SpLine(1)=SpLine(1).Trim 'Start Path, Value
+		              End If
 		            End If
+		            If SpLine.Count <= 1 Then Continue 'If only one or less, skip this as otherwise it's a dud entry
 		            
 		            'MsgBox SpLine(0)+"="+SpLine(1)
 		            
@@ -646,7 +652,7 @@ Protected Module LLMod
 		  Dim F As FolderItem
 		  Dim Test As Boolean
 		  
-		  ShellFast.Execute ("echo "+Chr(34)+"HandShake"+Chr(34)+" > /tmp/LLSudoHandShake")
+		  ShellFast.Execute ("echo "+Chr(34)+"HandShake"+Chr(34)+" > "+BaseDir+"/LLSudoHandShake")
 		  
 		  'Disable it for now, need to check it's running remotely
 		  SudoEnabled = False
@@ -659,14 +665,14 @@ Protected Module LLMod
 		  TimeOut = System.Microseconds + (6 *100000) 'Set Timeout after .6 seconds
 		  While SudoEnabled = False
 		    App.DoEvents(20)
-		    If Not Exist("/tmp/LLSudoHandShake") Then 'If deleted by Sudo script it must be running
+		    If Not Exist(BaseDir+"/LLSudoHandShake") Then 'If deleted by Sudo script it must be running
 		      SudoEnabled = True
 		      If Debugging Then Debug ("# Sudo Script Already Active")
 		      Exit 'Quit loop
 		    End If
 		    If System.Microseconds >= TimeOut Then Exit 'Timeout after set seconds
 		  Wend
-		  Deltree("/tmp/LLSudoHandShake") 'Confirm it's gone after timeout
+		  Deltree(BaseDir+"/LLSudoHandShake") 'Confirm it's gone after timeout
 		  
 		  If SudoEnabled = True Then Return ' It's ready to go
 		  
@@ -680,11 +686,11 @@ Protected Module LLMod
 		  If HasLinuxSudo = True Then ' Don't do this unless it's needed
 		    If Not TargetWindows Then 'Only make Sudo in Linux
 		      If SudoEnabled = False Then
-		        ShellFast.Execute ("rm -f /tmp/LLSudoDone") ' Remove it so will only quit once recreated
+		        ShellFast.Execute ("rm -f "+BaseDir+"/LLSudoDone") ' Remove it so will only quit once recreated
 		        'If KeepSudo = False Then 'Not needed as it's probablly not running by here
-		        If Not Exist("/tmp/LLSudo") Then
-		          ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > /tmp/LLSudo")
-		          SaveDataToFile("Unlock", "/tmp/LLSudo") 'Do 2 methods to make 100% sure it's made and waits
+		        If Not Exist(BaseDir+"/LLSudo") Then
+		          ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > "+BaseDir+"/LLSudo")
+		          SaveDataToFile("Unlock", BaseDir+"/LLSudo") 'Do 2 methods to make 100% sure it's made and waits
 		          
 		          'Don't do below line, if the Sudo Script needs a file, it'll have to use the full path, else it's changes out of the Installers Path to run Sudo script.
 		          'Test = ChDirSet(ToolPath) 'Make sure in the right folder to run script etc
@@ -700,7 +706,7 @@ Protected Module LLMod
 		          End If
 		          
 		          TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
-		          While  Exist("/tmp/LLSudo") 'First thing Sudo script does is delete this file, so we know it's ran ok
+		          While  Exist(BaseDir+"/LLSudo") 'First thing Sudo script does is delete this file, so we know it's ran ok
 		            'if SudoShellLoop.IsRunning = False Then Exit 'MsgBox "Closed Shell?" 'Disabled Line to FORCE it to wait
 		            App.DoEvents(20)
 		            If System.Microseconds >= TimeOut Then Exit 'Timeout after set seconds, Give up after 6 seconds? Testing Glenn
@@ -723,18 +729,18 @@ Protected Module LLMod
 		          End If
 		        Else 'File Exist, wait for a set time and continue
 		          TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
-		          While  Exist("/tmp/LLSudo") 'First thing Sudo script does is delete this file, so we know it's ran ok
+		          While  Exist(BaseDir+"/LLSudo") 'First thing Sudo script does is delete this file, so we know it's ran ok
 		            if SudoShellLoop.IsRunning = False Then Exit 'MsgBox "Closed Shell?"
 		            App.DoEvents(20)
 		            If System.Microseconds >= TimeOut Then Exit 'Timeout after set seconds, Give up after 6 seconds? Testing Glenn
 		          Wend
-		          Deltree("/tmp/LLSudo") 'Remove it, it's obviously not gonna work without user input
+		          Deltree(BaseDir+"/LLSudo") 'Remove it, it's obviously not gonna work without user input
 		        End If
 		      End If
 		    End If
 		  Else
 		    SudoEnabled = False
-		    Deltree("/tmp/LLSudo") 'Remove it, it's obviously not gonna work without user input
+		    Deltree(BaseDir+"/LLSudo") 'Remove it, it's obviously not gonna work without user input
 		  End If
 		End Sub
 	#tag EndMethod
@@ -1382,12 +1388,15 @@ Protected Module LLMod
 		  ScriptFile = Slash(FixPath(TmpPath))+"Expanded_Registry.reg"
 		  
 		  'Load in whole file at once (Fastest Method)
-		  inputStream = TextInputStream.Open(F)
-		  
-		  While Not inputStream.EndOfFile 'If Empty file this skips it
-		    RL = inputStream.ReadAll
-		  Wend
-		  inputStream.Close
+		  Try
+		    inputStream = TextInputStream.Open(F)
+		    
+		    While Not inputStream.EndOfFile 'If Empty file this skips it
+		      RL = inputStream.ReadAll
+		    Wend
+		    inputStream.Close
+		  Catch
+		  End Try
 		  RL = RL.ReplaceAll(Chr(13), Chr(10))
 		  Sp()=RL.Split(Chr(10))
 		  If Sp.Count <= 0 Then Return OrigScript ' Empty File or no header
@@ -1460,16 +1469,19 @@ Protected Module LLMod
 		  End If
 		  
 		  If MakeSudo Then 'Make it ready to run from Sudo directly
-		    ScriptFile = "/tmp/Expanded_Script.sh"
+		    ScriptFile = BaseDir+"/Expanded_Script.sh"
 		  End If
 		  
 		  'Load in whole file at once (Fastest Method)
-		  inputStream = TextInputStream.Open(F)
-		  
-		  While Not inputStream.EndOfFile 'If Empty file this skips it
-		    RL = inputStream.ReadAll
-		  Wend
-		  inputStream.Close
+		  Try
+		    inputStream = TextInputStream.Open(F)
+		    
+		    While Not inputStream.EndOfFile 'If Empty file this skips it
+		      RL = inputStream.ReadAll
+		    Wend
+		    inputStream.Close
+		  Catch
+		  End Try
 		  RL = RL.ReplaceAll(Chr(13), Chr(10))
 		  Sp()=RL.Split(Chr(10))
 		  If Sp.Count <= 0 Then Return OrigScript ' Empty File or no header
@@ -1713,11 +1725,14 @@ Protected Module LLMod
 		  
 		  'Load in whole file at once (Fastest Method)
 		  If F.Exists Then
-		    inputStream = TextInputStream.Open(F)
-		    While Not inputStream.EndOfFile 'If Empty file this skips it
-		      RL = inputStream.ReadAll
-		    Wend
-		    inputStream.Close
+		    Try
+		      inputStream = TextInputStream.Open(F)
+		      While Not inputStream.EndOfFile 'If Empty file this skips it
+		        RL = inputStream.ReadAll
+		      Wend
+		      inputStream.Close
+		    Catch
+		    End Try
 		    RL = RL.ReplaceAll(Chr(13), Chr(10))
 		    RL = RL.ReplaceAll(Chr(10)+Chr(10), Chr(10)) ' Remove Duplicate Chr(10)'s
 		    Sp()=RL.Split(Chr(10))
@@ -1733,6 +1748,12 @@ Protected Module LLMod
 		            LDSplit() =LineData.Split("|") 
 		            If LDSplit.Count >= 1 Then
 		              For J = 0 To LDSplit.Count - 1
+		                ' Check bounds before adding
+		                If RedirectAppCount >= 1024 Then
+		                  Debug("RedirectsApp array is full. Skipping: " + LDSplit(J))
+		                  Exit For  ' Stop adding more items
+		                End If
+		                
 		                RedirectsApp(RedirectAppCount,0) = LDSplit(J)
 		                RedirectsApp(RedirectAppCount,1) = LineID
 		                RedirectAppCount = RedirectAppCount + 1
@@ -1760,11 +1781,14 @@ Protected Module LLMod
 		  
 		  'Load in whole file at once (Fastest Method)
 		  If F.Exists Then
-		    inputStream = TextInputStream.Open(F)
-		    While Not inputStream.EndOfFile 'If Empty file this skips it
-		      RL = inputStream.ReadAll
-		    Wend
-		    inputStream.Close
+		    Try
+		      inputStream = TextInputStream.Open(F)
+		      While Not inputStream.EndOfFile 'If Empty file this skips it
+		        RL = inputStream.ReadAll
+		      Wend
+		      inputStream.Close
+		    Catch
+		    End Try
 		    RL = RL.ReplaceAll(Chr(13), Chr(10))
 		    RL = RL.ReplaceAll(Chr(10)+Chr(10), Chr(10)) ' Remove Duplicate Chr(10)'s
 		    Sp()=RL.Split(Chr(10))
@@ -1808,11 +1832,14 @@ Protected Module LLMod
 		  
 		  'Load in whole file at once (Fastest Method)
 		  If F.Exists Then
-		    inputStream = TextInputStream.Open(F)
-		    While Not inputStream.EndOfFile 'If Empty file this skips it
-		      RL = inputStream.ReadAll
-		    Wend
-		    inputStream.Close
+		    Try
+		      inputStream = TextInputStream.Open(F)
+		      While Not inputStream.EndOfFile 'If Empty file this skips it
+		        RL = inputStream.ReadAll
+		      Wend
+		      inputStream.Close
+		    Catch
+		    End Try
 		    RL = RL.ReplaceAll(Chr(13), Chr(10))
 		    RL = RL.ReplaceAll(Chr(10)+Chr(10), Chr(10)) ' Remove Duplicate Chr(10)'s
 		    Sp()=RL.Split(Chr(10))
@@ -2086,57 +2113,6 @@ Protected Module LLMod
 		  Return Link
 		  #Pragma BreakOnExceptions On
 		End Function
-	#tag EndMethod
-
-	#tag Method, Flags = &h0
-		Sub LogInstall(EntryType As String, Message As String)
-		  ' Logs installer events to $HOME/zLastOSRepository/zzLLStore_Installs.log
-		  ' EntryType should be "Success", "Skipped", or "FAIL"
-		  ' FAIL entries automatically include a timestamp for cross-reference with the Debug log
-		  #Pragma BreakOnExceptions Off
-		  Try
-		    ' Build log directory and file path from HomePath global
-		    Dim LogDir As String = Slash(HomePath) + "zLastOSRepository"
-		    MakeFolder(LogDir) ' Create directory if it doesn't exist (safe, no crash)
-		    Dim LogPath As String = Slash(LogDir) + "zzLLStore_Installs.log"
-		    
-		    ' Validate and build the prefix
-		    Dim Prefix As String
-		    If EntryType = "Success" Then
-		      Prefix = "Success: "
-		    ElseIf EntryType = "Skipped" Then
-		      Prefix = "Skipped: "
-		    Else
-		      Prefix = "FAIL: "
-		    End If
-		    
-		    ' Build the log line - add timestamp to FAIL entries for debug log cross-reference
-		    Dim LogLine As String
-		    If EntryType = "FAIL" Then
-		      Var d As DateTime = DateTime.Now
-		      LogLine = Prefix + d.Hour.ToString("00") + ":" + d.Minute.ToString("00") + ":" + d.Second.ToString("00") + Chr(9) + Message + Chr(10)
-		    Else
-		      LogLine = Prefix + Message + Chr(10)
-		    End If
-		    
-		    ' Append to file using BinaryStream (supports true append without overwriting)
-		    Dim LogFI As FolderItem = GetFolderItem(LogPath, FolderItem.PathTypeNative)
-		    Dim BS As BinaryStream
-		    If LogFI.Exists Then
-		      BS = BinaryStream.Open(LogFI, True) ' Open existing for writing
-		      BS.Position = BS.Length ' Seek to end for append
-		    Else
-		      BS = BinaryStream.Create(LogFI, True) ' Create new log file
-		    End If
-		    If BS <> Nil Then
-		      BS.Write(LogLine)
-		      BS.Close
-		    End If
-		  Catch
-		    ' Silently swallow all errors - never crash the app over logging
-		  End Try
-		  #Pragma BreakOnExceptions On
-		End Sub
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
@@ -2462,7 +2438,7 @@ Protected Module LLMod
 		  
 		  
 		  'Close Sudo Terminal
-		  If KeepSudo2 = False Then ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > /tmp/LLSudoDone") 'Quits Terminal after All items have been installed.
+		  If KeepSudo2 = False Then ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > "+BaseDir+"/LLSudoDone") 'Quits Terminal after All items have been installed.
 		  
 		End Sub
 	#tag EndMethod
@@ -3163,7 +3139,7 @@ Protected Module LLMod
 		    End If
 		    '
 		    'Close Sudo Terminal
-		    If KeepSudo = False Then ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > /tmp/LLSudoDone") 'Quits Terminal after All items have been installed.
+		    If KeepSudo = False Then ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > "+BaseDir+"/LLSudoDone") 'Quits Terminal after All items have been installed.
 		  End If
 		  
 		  Notify ("LLStore Installed", "Installed LL Store:-"+Chr(10)+"LL Store v"+App.MajorVersion.ToString+"."+App.MinorVersion.ToString, ThemePath+"Icon.png", 3000) 'Show its finished installing LL Store
@@ -3885,6 +3861,57 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub LogInstall(EntryType As String, Message As String)
+		  ' Logs installer events to $HOME/zLastOSRepository/zzLLStore_Installs.log
+		  ' EntryType should be "Success", "Skipped", or "FAIL"
+		  ' FAIL entries automatically include a timestamp for cross-reference with the Debug log
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    ' Build log directory and file path from HomePath global
+		    Dim LogDir As String = Slash(HomePath) + "zLastOSRepository"
+		    MakeFolder(LogDir) ' Create directory if it doesn't exist (safe, no crash)
+		    Dim LogPath As String = Slash(LogDir) + "zzLLStore_Installs.log"
+		    
+		    ' Validate and build the prefix
+		    Dim Prefix As String
+		    If EntryType = "Success" Then
+		      Prefix = "Success: "
+		    ElseIf EntryType = "Skipped" Then
+		      Prefix = "Skipped: "
+		    Else
+		      Prefix = "FAIL: "
+		    End If
+		    
+		    ' Build the log line - add timestamp to FAIL entries for debug log cross-reference
+		    Dim LogLine As String
+		    If EntryType = "FAIL" Then
+		      Var d As DateTime = DateTime.Now
+		      LogLine = Prefix + d.Hour.ToString("00") + ":" + d.Minute.ToString("00") + ":" + d.Second.ToString("00") + Chr(9) + Message + Chr(10)
+		    Else
+		      LogLine = Prefix + Message + Chr(10)
+		    End If
+		    
+		    ' Append to file using BinaryStream (supports true append without overwriting)
+		    Dim LogFI As FolderItem = GetFolderItem(LogPath, FolderItem.PathTypeNative)
+		    Dim BS As BinaryStream
+		    If LogFI.Exists Then
+		      BS = BinaryStream.Open(LogFI, True) ' Open existing for writing
+		      BS.Position = BS.Length ' Seek to end for append
+		    Else
+		      BS = BinaryStream.Create(LogFI, True) ' Create new log file
+		    End If
+		    If BS <> Nil Then
+		      BS.Write(LogLine)
+		      BS.Close
+		    End If
+		  Catch
+		    ' Silently swallow all errors - never crash the app over logging
+		  End Try
+		  #Pragma BreakOnExceptions On
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub MakeAllExec(PathIn As String)
 		  If Debugging Then Debug("Make All Exec: "+ PathIn)
 		  
@@ -3944,7 +3971,7 @@ Protected Module LLMod
 		    Shelly.Execute ("gsettings get org.gnome.desktop.interface icon-theme")
 		    CurrentIconTheme = Shelly.Result
 		    CurrentIconTheme = CurrentIconTheme.ReplaceAll ("'", "") 
-		    'ShellFast.Execute ("cp "+Chr(34)+LOGO+Chr(34)+" "+"/tmp/icon.png") 
+		    'ShellFast.Execute ("cp "+Chr(34)+LOGO+Chr(34)+" "+BaseDir+"/icon.png") 
 		    Shelly.Execute ("xdg-icon-resource install --context mimetypes --size 256 --theme " + CurrentIconTheme + " " + Chr(34) +LOGO + Chr(34) + " application-x-" + APP)
 		    Shelly.Execute ("xdg-icon-resource install --context mimetypes --size 256 " + Chr(34) +LOGO + Chr(34) + " application-x-" + APP)
 		    
@@ -3953,7 +3980,7 @@ Protected Module LLMod
 		      RunSudo ("sudo xdg-icon-resource install --context mimetypes --size 256 " + Chr(34) +LOGO + Chr(34) + " application-x-" + APP)
 		    End If
 		    
-		    'Shelly.Execute ("rm /tmp/icon.png") 'I used this before I fixed the chr(34)
+		    'Shelly.Execute ("rm "+BaseDir+"/icon.png") 'I used this before I fixed the chr(34)
 		    
 		    FileOut = Slash(TmpPath) + APP + "-mime.xml"
 		    FileContent = "<?xml version=" + Chr(34) + "1.0" + Chr(34) + " encoding=" + Chr(34) + "UTF-8" + Chr(34) + "?>" + Chr(10)
@@ -5942,9 +5969,9 @@ Protected Module LLMod
 		      SaveDataToFile (Command, Slash(TmpPath)+"Expanded_Script.sh")
 		      Sh.Execute ("chmod 775 "+Chr(34)+Slash(TmpPath)+"Expanded_Script.sh"+Chr(34)) 'Change Read/Write/Execute to Output script
 		      
-		      Sh.Execute("mv -f "+Slash(TmpPath)+"Expanded_Script.sh /tmp/LLScript_Sudo.sh") 'Do it the solid way, not with Xojo
+		      Sh.Execute("mv -f "+Slash(TmpPath)+"Expanded_Script.sh "+BaseDir+"/LLScript_Sudo.sh") 'Do it the solid way, not with Xojo
 		      
-		      While Exist ("/tmp/LLScript_Sudo.sh") 'This script gets removed after it completes, do not continue the processing until this happens
+		      While Exist (BaseDir+"/LLScript_Sudo.sh") 'This script gets removed after it completes, do not continue the processing until this happens
 		        App.DoEvents(20)
 		      Wend
 		      
@@ -5991,9 +6018,9 @@ Protected Module LLMod
 		        
 		        ScriptFile = ExpScript (InstallToPath + "LLScript_Sudo.sh", True)
 		        
-		        Sh.Execute("mv -f /tmp/Expanded_Script.sh /tmp/LLScript_Sudo.sh") 'Do it the solid way, not with Xojo
+		        Sh.Execute("mv -f "+BaseDir+"/Expanded_Script.sh "+BaseDir+"/LLScript_Sudo.sh") 'Do it the solid way, not with Xojo
 		        
-		        While Exist ("/tmp/LLScript_Sudo.sh") 'This script gets removed after it completes, do not continue the processing until this happens
+		        While Exist (BaseDir+"/LLScript_Sudo.sh") 'This script gets removed after it completes, do not continue the processing until this happens
 		          App.DoEvents(20)
 		        Wend
 		        
@@ -6446,6 +6473,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		AvailableWidth As Integer = 0
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		BaseDir As String
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -7029,6 +7060,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		RunUUID As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		ScaledScreenShot As Picture
 	#tag EndProperty
 
@@ -7210,10 +7245,6 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		TmpPathItems As String
-	#tag EndProperty
-
-	#tag Property, Flags = &h0
-		RunUUID As String
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -8753,6 +8784,22 @@ Protected Module LLMod
 			InitialValue="False"
 			Type="Boolean"
 			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="TmpPathBase"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
+			EditorType="MultiLineEditor"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="RunUUID"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
+			EditorType="MultiLineEditor"
 		#tag EndViewProperty
 	#tag EndViewBehavior
 End Module

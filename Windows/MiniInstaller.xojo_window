@@ -228,7 +228,7 @@ End
 		    SkippedInstalling = True
 		    MiniUpTo = 99999
 		    Deltree(Slash(RepositoryPathLocal)+"UpTo.ini") ' Delete previous install queue if user aborted
-		    If TargetLinux Then SaveDataToFile("STOP!","/tmp/stopLLStore") 'Allow the Continue Script to exit so LLStore can close 
+		    If TargetLinux Then SaveDataToFile("STOP!",BaseDir+"/stopLLStore") 'Allow the Continue Script to exit so LLStore can close 
 		    Me.Hide
 		    Return True
 		  Else
@@ -441,7 +441,7 @@ End
 		  If Not TargetWindows Then 'Only make Sudo in Linux
 		    If SudoEnabled = True Then
 		      SudoEnabled = False
-		      ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > /tmp/LLSudoDone") 'Quits Terminal after All items have been installed.
+		      ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > "+BaseDir+"/LLSudoDone") 'Quits Terminal after All items have been installed.
 		    End If
 		  End If
 		  
@@ -809,7 +809,7 @@ End
 		  If MiniInstaller.Visible = False Then QuitInstaller = True
 		  
 		  If MiniUpTo+1 > MiniInstaller.Items.RowCount Then 'Past the end of the installer
-		    If TargetLinux Then SaveDataToFile("STOP!","/tmp/stopLLStore") 'Allow the Continue Script to exit so LLStore can close 
+		    If TargetLinux Then SaveDataToFile("STOP!",BaseDir+"/stopLLStore") 'Allow the Continue Script to exit so LLStore can close 
 		    InstallDone = True ' Trigger to quit MiniInstaller
 		    
 		    InstallItems.Stop 'Disable the Thread Loop
@@ -852,11 +852,11 @@ End
 		    
 		    
 		    
-		    'Make sure Sudo is closed (not added ability to echo to /tmp/LLSudo to close it yet, so disabled)
+		    'Make sure Sudo is closed (not added ability to echo to BaseDir+/LLSudo to close it yet, so disabled)
 		    If Not TargetWindows Then 'Only make Sudo in Linux
 		      If SudoEnabled = True Then
 		        SudoEnabled = False
-		        ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > /tmp/LLSudoDone") 'Quits Terminal after All items have been installed.
+		        ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > "+BaseDir+"/LLSudoDone") 'Quits Terminal after All items have been installed.
 		      End If
 		    End If
 		    
