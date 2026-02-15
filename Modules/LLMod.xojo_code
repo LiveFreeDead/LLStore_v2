@@ -349,6 +349,7 @@ Protected Module LLMod
 		      
 		      Deltree(Slash(TmpPath)+"items")
 		      Deltree(DebugFileName) 'Delete the Log file from Temp, will be copied out by now
+		      Deltree(TmpPath) 'Remove this instance's UUID temp folder on exit
 		    End If
 		  End If
 		End Sub
@@ -2909,7 +2910,7 @@ Protected Module LLMod
 		    Deltree(InstallFromPath) 'This cleans up after itself so you can have multiple installs running at once, unless the package manager is currently used as it locks it
 		  End If
 		  
-		  'Cleanup Temp items after installed (If you have two items installing at once this may remove it's script also, I may need to make random generated number scripts to be used instead, so this wont happen)
+		  'Cleanup Temp items after installed (UUID-per-launch keeps each app run's scripts isolated)
 		  Deltree(Slash(TmpPath)+"LLShorts")
 		  Deltree(Slash(TmpPath)+"Expanded_Script.cmd")
 		  Deltree(Slash(TmpPath)+"Expanded_Script.sh")
@@ -7204,7 +7205,15 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		TmpPathBase As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		TmpPathItems As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		RunUUID As String
 	#tag EndProperty
 
 	#tag Property, Flags = &h0

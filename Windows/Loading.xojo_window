@@ -3595,7 +3595,9 @@ End
 		  If TargetWindows Then 'Need to add Windows ppGames and Apps drives here
 		    HomePath = Slash(FixPath(SpecialFolder.UserHome.NativePath))
 		    RepositoryPathLocal = Slash(HomePath) + "zLastOSRepository/"
-		    TmpPath =  Slash(HomePath) + "LLTemp/"
+		    TmpPathBase = Slash(HomePath) + "LLTemp/"
+		    RunUUID = Randomiser.InRange(100000000, 999999999).ToString + Randomiser.InRange(100000000, 999999999).ToString
+		    TmpPath = TmpPathBase + RunUUID + "/"
 		    
 		    'C: for Defaults, only changes if one found to replace with
 		    ppGames = "C:/ppGames/"
@@ -3612,7 +3614,9 @@ End
 		    
 		    HomePath = Slash(FixPath(SpecialFolder.UserHome.NativePath))
 		    RepositoryPathLocal = Slash(HomePath) + "zLastOSRepository/"
-		    TmpPath =  Slash(HomePath) + ".lltemp/"
+		    TmpPathBase = Slash(HomePath) + ".lltemp/"
+		    RunUUID = Randomiser.InRange(100000000, 999999999).ToString + Randomiser.InRange(100000000, 999999999).ToString
+		    TmpPath = TmpPathBase + RunUUID + "/"
 		    ppGames = Slash(HomePath)+".wine/drive_c/ppGames/"
 		    ppApps = Slash(HomePath)+".wine/drive_c/ppApps/"
 		    
@@ -3632,11 +3636,8 @@ End
 		    SysTerminal = SysTerminal.ReplaceAll(EndOfLine,"")
 		  End If
 		  
-		  'Clean Temp Path if Flagged to
-		  If CleanTempFolders = True Then
-		    Deltree(TmpPath)
-		    CleanTempFolders = False
-		  End If
+		  'Clear the flag - UUID-per-instance already isolates runs from each other, so no parent wipe needed
+		  CleanTempFolders = False
 		  
 		  If TargetWindows Then
 		    StartPathAll = Slash(FixPath(SpecialFolder.SharedApplicationData.NativePath)) + "Microsoft/Windows/Start Menu/Programs/" 'All Users
@@ -3656,6 +3657,7 @@ End
 		  HomePath = HomePath.ReplaceAll("\","/")
 		  RepositoryPathLocal = Slash(RepositoryPathLocal.ReplaceAll("\","/"))
 		  TmpPath = TmpPath.ReplaceAll("\","/")
+		  TmpPathBase = TmpPathBase.ReplaceAll("\","/")
 		  ppGames = ppGames.ReplaceAll("\","/")
 		  ppApps = ppApps.ReplaceAll("\","/")
 		  SysProgramFiles = SysProgramFiles.ReplaceAll("\","/")
