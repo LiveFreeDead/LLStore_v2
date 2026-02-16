@@ -2986,20 +2986,60 @@ Protected Module LLMod
 		    
 		    MakeFolder(Slash(HomePath)+".local/share/applications")
 		    
-		    RunSudo("mkdir -p "+Chr(34)+InstallPath+Chr(34)) 'Create install dir first
-		    RunSudo("if [ -f "+Chr(34)+MainPath+"Tools/setup_lastos_group.sh"+Chr(34)+" ]; then bash "+Chr(34)+MainPath+"Tools/setup_lastos_group.sh"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34)+"; else chmod -R 777 "+Chr(34)+InstallPath+Chr(34)+"; fi") 'Secure: group/SGID/ACL if script present, else fall back to 777
+		    'Build a comprehensive install script to run with sudo once
+		    Dim InstallScript As String
+		    InstallScript = "#!/bin/bash" + Chr(10)
+		    InstallScript = InstallScript + "set -e" + Chr(10) + Chr(10) 'Exit on any error
 		    
-		    ShellFast.Execute("cp -R "+Chr(34)+MainPath+"llstore Libs"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp -R "+Chr(34)+MainPath+"llstore Resources"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp -R "+Chr(34)+MainPath+"Presets"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp -R "+Chr(34)+MainPath+"Templates"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp -R "+Chr(34)+MainPath+"Templates"+Chr(34)+" "+Chr(34)+Slash(HomePath)+Chr(34))
-		    ShellFast.Execute("cp -R "+Chr(34)+MainPath+"Themes"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp -R "+Chr(34)+MainPath+"Tools"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp -R "+Chr(34)+MainPath+"scripts"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
+		    'Create install directory and set initial permissions
+		    InstallScript = InstallScript + "mkdir -p "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "if [ -f "+Chr(34)+MainPath+"Tools/setup_lastos_group.sh"+Chr(34)+" ]; then" + Chr(10)
+		    InstallScript = InstallScript + "  bash "+Chr(34)+MainPath+"Tools/setup_lastos_group.sh"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "else" + Chr(10)
+		    InstallScript = InstallScript + "  chmod -R 777 "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "fi" + Chr(10) + Chr(10)
+		    
+		    'Copy all directories and files to InstallPath
+		    InstallScript = InstallScript + "cp -R "+Chr(34)+MainPath+"llstore Libs"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp -R "+Chr(34)+MainPath+"llstore Resources"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp -R "+Chr(34)+MainPath+"Presets"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp -R "+Chr(34)+MainPath+"Templates"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp -R "+Chr(34)+MainPath+"Themes"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp -R "+Chr(34)+MainPath+"Tools"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp -R "+Chr(34)+MainPath+"scripts"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10) + Chr(10)
+		    
+		    'Copy individual files
+		    InstallScript = InstallScript + "cp "+Chr(34)+MainPath+Chr(34)+"*.dll "+Chr(34)+InstallPath+Chr(34)+" 2>/dev/null || true" + Chr(10)
+		    InstallScript = InstallScript + "cp "+Chr(34)+MainPath+"version.ini"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp "+Chr(34)+MainPath+"LLL_Settings.ini"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp "+Chr(34)+MainPath+"LLL_Repos.ini"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp "+Chr(34)+MainPath+"llstore.exe"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34)+" 2>/dev/null || true" + Chr(10)
+		    InstallScript = InstallScript + "cp "+Chr(34)+MainPath+"llstore"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp "+Chr(34)+MainPath+"LLLauncher.cmd"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp "+Chr(34)+MainPath+"LLLauncher.sh"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp "+Chr(34)+MainPath+"LLStore.sh"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp "+Chr(34)+MainPath+"setup.cmd"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp "+Chr(34)+MainPath+"setup.sh"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "cp "+Chr(34)+MainPath+"libgthread-2.0.so.0"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34)+" 2>/dev/null || true" + Chr(10)
+		    InstallScript = InstallScript + "cp "+Chr(34)+MainPath+"libgthread-2.0.so.0.txt"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34)+" 2>/dev/null || true" + Chr(10) + Chr(10)
 		    
 		    'Copy Icons for file types
-		    If Exist(MainPath+"Tools/hicolor") Then RunSudo ("cp -R "+Chr(34)+MainPath+"Tools/hicolor"+Chr(34)+" "+Chr(34)+"/usr/share/icons/"+Chr(34))
+		    If Exist(MainPath+"Tools/hicolor") Then
+		      InstallScript = InstallScript + "cp -R "+Chr(34)+MainPath+"Tools/hicolor"+Chr(34)+" "+Chr(34)+"/usr/share/icons/"+Chr(34) + Chr(10)
+		    End If
+		    
+		    'Apply final permissions
+		    InstallScript = InstallScript + Chr(10) + "if [ -f "+Chr(34)+MainPath+"Tools/setup_lastos_group.sh"+Chr(34)+" ]; then" + Chr(10)
+		    InstallScript = InstallScript + "  bash "+Chr(34)+MainPath+"Tools/setup_lastos_group.sh"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "else" + Chr(10)
+		    InstallScript = InstallScript + "  chmod -R 777 "+Chr(34)+InstallPath+Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "fi" + Chr(10)
+		    
+		    'Execute the install script with sudo once
+		    RunSudo(InstallScript)
+		    
+		    'Copy user-specific items without sudo (to user's home directory)
+		    ShellFast.Execute("cp -R "+Chr(34)+MainPath+"Templates"+Chr(34)+" "+Chr(34)+Slash(HomePath)+Chr(34))
 		    
 		    If Exist(MainPath+"Tools/hicolor") Then ShellFast.Execute ("cp -R "+Chr(34)+MainPath+"Tools/hicolor"+Chr(34)+" "+Chr(34)+Slash(HomePath)+".local/share/icons/"+Chr(34))
 		    
@@ -3019,25 +3059,6 @@ Protected Module LLMod
 		    If SysDesktopEnvironment.Trim.Lowercase = "gnome" Then 'Add $HOME/.local/share/nautilus/scripts
 		      ShellFast.Execute("cp -R "+Chr(34)+MainPath+"scripts/nautilus"+Chr(34)+" "+Chr(34)+Slash(HomePath)+".local/share/"+Chr(34))
 		    End If
-		    
-		    
-		    ShellFast.Execute("cp "+Chr(34)+MainPath+Chr(34)+"*.dll"+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp "+Chr(34)+MainPath+"version.ini"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp "+Chr(34)+MainPath+"LLL_Settings.ini"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp "+Chr(34)+MainPath+"LLL_Repos.ini"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp "+Chr(34)+MainPath+"llstore.exe"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp "+Chr(34)+MainPath+"llstore"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    
-		    ShellFast.Execute("cp "+Chr(34)+MainPath+"LLLauncher.cmd"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp "+Chr(34)+MainPath+"LLLauncher.sh"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp "+Chr(34)+MainPath+"LLStore.sh"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp "+Chr(34)+MainPath+"setup.cmd"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp "+Chr(34)+MainPath+"setup.sh"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    
-		    ShellFast.Execute("cp "+Chr(34)+MainPath+"libgthread-2.0.so.0"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    ShellFast.Execute("cp "+Chr(34)+MainPath+"libgthread-2.0.so.0.txt"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34))
-		    
-		    RunSudo("if [ -f "+Chr(34)+MainPath+"Tools/setup_lastos_group.sh"+Chr(34)+" ]; then bash "+Chr(34)+MainPath+"Tools/setup_lastos_group.sh"+Chr(34)+" "+Chr(34)+InstallPath+Chr(34)+"; else chmod -R 777 "+Chr(34)+InstallPath+Chr(34)+"; fi") 'Secure: group/SGID/ACL if script present, else fall back to 777
 		    
 		    InstallLinuxMenuSorting(True) 'This adds my own menu sorting style
 		    
