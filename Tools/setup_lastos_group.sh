@@ -2,146 +2,92 @@
 # =============================================================================
 # setup_lastos_group.sh  -  LastOS security-hardened folder permissions
 # =============================================================================
-# Replaces chmod 777 on /LastOS (and sub-dirs) with a proper group-based model:
-#   - Creates the 'lastos-users' group if it doesn't exist
-#   - Adds the calling (non-root) user to that group
-#   - Sets ownership  :  root:lastos-users
-#   - Sets SGID       :  2775  (new files inherit the group automatically)
-#   - Applies ACLs    :  default ACLs so every new file/dir gets group rwx
-#
-# Usage:
-#   sudo bash setup_lastos_group.sh [target_dir]
-#   Default target_dir is /LastOS
-#
-# Compatible with: Debian/Ubuntu, Fedora/RHEL/CentOS, Arch, openSUSE,
-#                  Solus, Alpine, Void, and any distro with useradd/groupadd
-#                  or adduser/addgroup (BusyBox/Alpine).
+# Optimized for Xojo tools and multi-user/Live environments:
+#   - Creates 'lastos-users' group for administrative/write access.
+#   - Sets 2775 permissions: Group can write, but EVERYONE can execute.
+#   - Ensures Xojo .so libraries are globally readable to prevent load errors.
+#   - Configures system defaults so future users are added to the group.
 # =============================================================================
 
 GROUP="lastos-users"
 TARGET_DIR="${1:-/LastOS}"
 
 # --------------------------------------------------------------------------
-# Detect the real user (works whether called via sudo, pkexec, or kdesu)
+# Detect the real user (even under sudo/pkexec)
 # --------------------------------------------------------------------------
 REAL_USER="${SUDO_USER:-${PKEXEC_UID:+$(id -nu "$PKEXEC_UID")}}"
-if [ -z "$REAL_USER" ]; then
-    # Last resort: walk up PPID tree looking for a non-root login
-    REAL_USER=$(who am i 2>/dev/null | awk '{print $1}')
-fi
-if [ -z "$REAL_USER" ] || [ "$REAL_USER" = "root" ]; then
-    REAL_USER="$USER"
-fi
+[ -z "$REAL_USER" ] && REAL_USER=$(who am i 2>/dev/null | awk '{print $1}')
+[ -z "$REAL_USER" ] || [ "$REAL_USER" = "root" ] && REAL_USER="$USER"
 
-# --------------------------------------------------------------------------
-# Helper: print a notice
-# --------------------------------------------------------------------------
 info() { echo "[LastOS] $*"; }
 
 # --------------------------------------------------------------------------
-# Fallback: if group setup fails at any point, use chmod 777
-# --------------------------------------------------------------------------
-fallback_777() {
-    info "WARNING: Falling back to chmod -R 777 on $TARGET_DIR (group setup unavailable)"
-    chmod -R 777 "$TARGET_DIR"
-    exit 0
-}
-
-# --------------------------------------------------------------------------
-# 1. Create group if it doesn't exist
+# 1. Create group and ensure future users get it
 # --------------------------------------------------------------------------
 if ! getent group "$GROUP" > /dev/null 2>&1; then
     info "Creating group: $GROUP"
-    if command -v groupadd >/dev/null 2>&1; then
-        groupadd --system "$GROUP" 2>/dev/null || groupadd "$GROUP" 2>/dev/null
-    elif command -v addgroup >/dev/null 2>&1; then
-        addgroup --system "$GROUP" 2>/dev/null || addgroup "$GROUP" 2>/dev/null
-    fi
-    # Check if group creation actually succeeded — if not, fall back
-    if ! getent group "$GROUP" > /dev/null 2>&1; then
-        info "WARNING: Could not create group '$GROUP'."
-        fallback_777
-    fi
-else
-    info "Group '$GROUP' already exists."
+    groupadd --system "$GROUP" 2>/dev/null || addgroup --system "$GROUP" 2>/dev/null
+fi
+
+# Attempt to make 'lastos-users' a default for new users (Debian/Ubuntu/Arch)
+if [ -f /etc/adduser.conf ]; then
+    sed -i 's/^#EXTRA_GROUPS=.*/EXTRA_GROUPS="'"$GROUP"'"/' /etc/adduser.conf
+    sed -i 's/^#ADD_EXTRA_GROUPS=.*/ADD_EXTRA_GROUPS=1/' /etc/adduser.conf
 fi
 
 # --------------------------------------------------------------------------
-# 2. Add the real (non-root) user to the group
+# 2. Add current user to group
 # --------------------------------------------------------------------------
 if [ -n "$REAL_USER" ] && [ "$REAL_USER" != "root" ]; then
-    if id -nG "$REAL_USER" 2>/dev/null | grep -qw "$GROUP"; then
-        info "User '$REAL_USER' is already in group '$GROUP'."
-    else
-        info "Adding user '$REAL_USER' to group '$GROUP'..."
-        if command -v usermod >/dev/null 2>&1; then
-            usermod -aG "$GROUP" "$REAL_USER"
-        elif command -v adduser >/dev/null 2>&1; then
-            adduser "$REAL_USER" "$GROUP"
-        elif command -v gpasswd >/dev/null 2>&1; then
-            gpasswd -a "$REAL_USER" "$GROUP"
-        else
-            info "WARNING: Cannot add user to group - no usermod/adduser/gpasswd found."
-        fi
-    fi
+    info "Adding user '$REAL_USER' to group '$GROUP'..."
+    usermod -aG "$GROUP" "$REAL_USER" 2>/dev/null || adduser "$REAL_USER" "$GROUP" 2>/dev/null
 fi
 
 # --------------------------------------------------------------------------
-# 3. Create the target directory if needed
+# 3. Directory Setup and Ownership
 # --------------------------------------------------------------------------
-if [ ! -d "$TARGET_DIR" ]; then
-    info "Creating directory: $TARGET_DIR"
-    mkdir -p "$TARGET_DIR"
-fi
-
-# --------------------------------------------------------------------------
-# 4. Set ownership  root:lastos-users  recursively
-# --------------------------------------------------------------------------
+mkdir -p "$TARGET_DIR"
 info "Setting ownership: root:$GROUP on $TARGET_DIR"
 chown -R root:"$GROUP" "$TARGET_DIR"
 
 # --------------------------------------------------------------------------
-# 5. Set SGID 2775 on all directories, and 664/775 on files
-#    2775 = setgid + rwxrwxr-x
-#    Capital X = execute only if already executable or is a directory
+# 4. Apply Robust Permissions (Xojo Compatible)
+#    We use 2775 for dirs and 775/664 for files. 
+#    This allows 'others' to READ/EXECUTE but NOT WRITE.
 # --------------------------------------------------------------------------
-info "Setting SGID 2775 on directories under $TARGET_DIR"
-# Files get u=rwX,g=rwX,o=rX  (executable bit kept if file was already exec)
-chmod -R u=rwX,g=rwX,o=rX "$TARGET_DIR"
-# Apply setgid to every directory so new files inherit lastos-users group
-find "$TARGET_DIR" -type d -exec chmod g+s {} \;
+info "Applying 2775/775 permissions for Xojo compatibility..."
+
+# Set Directories: drwxrwsr-x (SGID ensures new files stay in the group)
+find "$TARGET_DIR" -type d -exec chmod 2775 {} +
+
+# Set Files: -rw-rw-r-- (Standard files)
+find "$TARGET_DIR" -type f -exec chmod 664 {} +
+
+# Set Executables: -rwxrwxr-x (Binaries and Scripts)
+# We find anything already marked executable and ensure 'others' have 'x'
+find "$TARGET_DIR" -type f \( -perm -100 -o -name "*.so" -o -name "llstore" \) -exec chmod 775 {} +
 
 # --------------------------------------------------------------------------
-# 6. Apply POSIX ACLs if setfacl is available
-#    Default ACLs ensure every new file/subdir inherits group rwx
+# 5. Apply POSIX ACLs (The "Safety Net")
 # --------------------------------------------------------------------------
 if command -v setfacl >/dev/null 2>&1; then
-    info "Applying POSIX ACLs (default ACL inheritance) on $TARGET_DIR"
-    # Set current ACLs
-    setfacl -m g:"$GROUP":rwx "$TARGET_DIR"
-    # Set default ACLs (inherited by new files/dirs)
-    setfacl -d -m u::rwx  "$TARGET_DIR"
-    setfacl -d -m g:"$GROUP":rwx "$TARGET_DIR"
-    setfacl -d -m o::rx   "$TARGET_DIR"
-    # Propagate default ACLs to all existing subdirectories as well
-    find "$TARGET_DIR" -type d | while IFS= read -r dir; do
-        setfacl -m  g:"$GROUP":rwx "$dir" 2>/dev/null
-        setfacl -d -m u::rwx       "$dir" 2>/dev/null
-        setfacl -d -m g:"$GROUP":rwx "$dir" 2>/dev/null
-        setfacl -d -m o::rx        "$dir" 2>/dev/null
-    done
+    info "Applying POSIX ACLs (Inheritance)..."
+    # Recursive application: Group gets rwx, Others get r-x
+    setfacl -R -m g:"$GROUP":rwx "$TARGET_DIR"
+    setfacl -R -m o::rx "$TARGET_DIR"
+    
+    # Default ACLs: Ensures new files created later follow this rule
+    setfacl -R -d -m g:"$GROUP":rwx "$TARGET_DIR"
+    setfacl -R -d -m o::rx "$TARGET_DIR"
 else
-    info "Note: 'setfacl' not found - skipping ACL setup (SGID is still active)."
-    info "      Install 'acl' package for full ACL support: apt/dnf/pacman install acl"
+    info "Note: 'setfacl' not found. Permissions rely on SGID bits."
 fi
 
 # --------------------------------------------------------------------------
-# 7. Summary
+# 6. Summary
 # --------------------------------------------------------------------------
-info "Done. $TARGET_DIR is now owned by root:$GROUP with SGID 2775."
-info ""
-if [ -n "$REAL_USER" ] && [ "$REAL_USER" != "root" ]; then
-    info "IMPORTANT: '$REAL_USER' has been added to '$GROUP'."
-    info "           A logout/login (or 'newgrp $GROUP') is required"
-    info "           for the new group membership to take effect in this session."
+info "Done. $TARGET_DIR is secured but executable by all users."
+info "Xojo libraries in $TARGET_DIR/LLStore/ should now load correctly."
+if [ -n "$REAL_USER" ]; then
+    info "Note: $REAL_USER may need to re-login to gain WRITE access."
 fi
