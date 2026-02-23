@@ -4935,6 +4935,86 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub MakeSFX(FileINI As String)
+		  ' 
+		  ' ' Builds a self-extracting .run package for a store item.
+		  '
+		  ' Pass FileINI directly from Data.Items — do NOT rely on ItemLLItem being populated,
+		  ' and do NOT call LoadLLFile first (it has side-effects: resets ItemLLItem, loads
+		  ' icons, may extract archives to temp).
+		  '
+		  ' FileINI is the full path to the descriptor file, e.g.:
+		  '   /store/MyGame/LLGame.llg
+		  '   /store/MyApp/LLApp.lla
+		  '   /store/MyApp/ssApp.app
+		  '
+		  ' GetFullParent() strips the filename to give the source folder, which is exactly
+		  ' what make_sfx.sh expects as its $1 argument — the same pattern Installing() uses.
+		  '
+		  ' Window handler usage:
+		  '   MakeSFX(Data.Items(CurrentItemID).FileINI)
+		  
+		  If Debugging Then Debug("--- MakeSFX --- FileINI: " + FileINI)
+		  
+		  If FileINI.Trim = "" Then
+		    MessageBox("Make SFX: No item path available. Is an item selected?")
+		    Return
+		  End If
+		  
+		  ' Derive the source folder from the descriptor file path — same as Installing() does.
+		  Dim SourcePath As String = NoSlash(GetFullParent(FileINI))
+		  
+		  If SourcePath = "" Or Not Exist(SourcePath) Then
+		    If Debugging Then Debug("MakeSFX: source folder not found: " + SourcePath)
+		    MessageBox("Make SFX: Source folder not found:" + Chr(10) + SourcePath + Chr(10) + Chr(10) + "Derived from: " + FileINI)
+		    Return
+		  End If
+		  
+		  ' Confirm make_sfx.sh is present
+		  Dim ScriptPath As String = Slash(ToolPath) + "make_sfx.sh"
+		  If Not Exist(ScriptPath) Then
+		    If Debugging Then Debug("MakeSFX: make_sfx.sh not found: " + ScriptPath)
+		    MessageBox("Make SFX: make_sfx.sh not found at:" + Chr(10) + ScriptPath)
+		    Return
+		  End If
+		  
+		  ' Ensure the script is executable
+		  Dim ChSh As New Shell
+		  ChSh.Execute("chmod +x " + Chr(34) + ScriptPath + Chr(34))
+		  While ChSh.IsRunning
+		    App.DoEvents(20)
+		  Wend
+		  
+		  ' Build the command — quote both paths to handle spaces
+		  Dim Cmd As String = Chr(34) + ScriptPath + Chr(34) + " " + Chr(34) + FileINI + Chr(34) + " " + Chr(34) + Slash(SourcePath) + Chr(34)
+		  If Debugging Then Debug("MakeSFX Cmd: " + Cmd)
+		  
+		  ' Launch in a visible terminal so the user can see the build log.
+		  ' Uses the same SysTerminal branching as EnableSudoScript().
+		  Dim TermSh As New Shell
+		  TermSh.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		  TermSh.TimeOut = -1
+		  
+		  If SysTerminal.Trim = "gnome-terminal" Then
+		    TermSh.Execute(SysTerminal.Trim + " --wait -e " + Chr(39) + Cmd + Chr(39))
+		  ElseIf SysTerminal.Trim = "kde-ptyxis" Then
+		    TermSh.Execute(SysTerminal.Trim + " -x " + Chr(39) + Cmd + Chr(39))
+		  Else
+		    TermSh.Execute(SysTerminal.Trim + " -e " + Chr(39) + Cmd + Chr(39))
+		  End If
+		  
+		  If Debugging Then Debug("MakeSFX: launched for: " + FileINI)
+		  
+		  While TermSh.IsRunning
+		    App.DoEvents(20)
+		  Wend
+		  
+		  If Debugging Then Debug("MakeSFX script returned: " + TermSh.ReadAll)
+		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub MkDir(InPath As String)
 		  MakeFolder (InPath) 'Forward it on to the good one
 		End Sub
@@ -8822,6 +8902,14 @@ Protected Module LLMod
 			InitialValue=""
 			Type="String"
 			EditorType="MultiLineEditor"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="BaseDir"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
+			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
 End Module

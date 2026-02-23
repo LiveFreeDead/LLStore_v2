@@ -1312,6 +1312,11 @@ End
 		  base.Append New MenuItem("Open Item Location") '0
 		  MC = MC + 1 
 		  
+		  If TargetLinux Then
+		    base.Append New MenuItem("Make SFX") '0
+		    MC = MC + 1
+		    base.Item(MC).Shortcut  = "X"
+		  End If
 		  
 		  '-------------------------------------------------------------------- Do Actions Below ----------------------------------------------------------------------
 		  
@@ -1340,6 +1345,11 @@ End
 		    MakeDesktopShortcut()
 		  Case "Build I"
 		    BuildToDesktop()
+		  Case "Make SF"
+		    Try
+		      MakeSFX(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("FileINI")).ReplaceAll("\","/"))
+		    Catch
+		    End Try
 		  Case "Save Cu" 'Save Current List
 		    SaveCurrentList()
 		  Case "Open It"
