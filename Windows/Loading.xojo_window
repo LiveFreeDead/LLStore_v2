@@ -3563,6 +3563,9 @@ End
 		    SysPackageManager = ""
 		    SysTerminal = ""
 		    ManualLocationsFile = "Linux"
+		    
+		    SaveDesktopEnvironment()
+		    
 		  Else
 		    SysDesktopEnvironment = "explorer" 'Windows only uses Explorer
 		    SysPackageManager = ""

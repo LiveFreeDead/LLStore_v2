@@ -356,6 +356,7 @@ Protected Module LLMod
 		      Deltree(Slash(TmpPath)+"items")
 		      Deltree(DebugFileName) 'Delete the Log file from Temp, will be copied out by now
 		      Deltree(TmpPath) 'Remove this instance's UUID temp folder on exit
+		      If TargetLinux Then Deltree("/tmp/LLDesktopEnv.ini") 'Don't leave things behind
 		    End If
 		  End If
 		End Sub
@@ -6204,6 +6205,41 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub SaveDesktopEnvironment()
+		  If TargetWindows Then Return 'Not needed on Windows
+		  
+		  If Debugging Then Debug("--- Saving Desktop Environment Info ---")
+		  
+		  Dim EnvData As String
+		  Dim Sh As New Shell
+		  
+		  Sh.ExecuteMode = Shell.ExecuteModes.Synchronous
+		  Sh.TimeOut = 5000
+		  
+		  ' Capture all relevant desktop environment variables
+		  Sh.Execute("printenv | grep -E '^XDG_SESSION_DESKTOP=|^XDG_CURRENT_DESKTOP=|^DESKTOP_SESSION=|^GDMSESSION=' > /tmp/LLDesktopEnv.ini")
+		  
+		  ' Fallback: if file is empty or doesn't exist, try to get at least one variable
+		  If Not Exist("/tmp/LLDesktopEnv.ini") Or LoadDataFromFile("/tmp/LLDesktopEnv.ini").Trim = "" Then
+		    ' Build environment file with explicit variable expansion
+		    Sh.Execute("echo ""XDG_SESSION_DESKTOP=$XDG_SESSION_DESKTOP"" > /tmp/LLDesktopEnv.ini")
+		    Sh.Execute("echo ""XDG_CURRENT_DESKTOP=$XDG_CURRENT_DESKTOP"" >> /tmp/LLDesktopEnv.ini")
+		    Sh.Execute("echo ""DESKTOP_SESSION=$DESKTOP_SESSION"" >> /tmp/LLDesktopEnv.ini")
+		    Sh.Execute("echo ""GDMSESSION=$GDMSESSION"" >> /tmp/LLDesktopEnv.ini")
+		  End If
+		  
+		  'If Debugging Then
+		  'If Exist("/tmp/LLDesktopEnv.ini") Then
+		  'EnvData = LoadDataFromFile("/tmp/LLDesktopEnv.ini")
+		  'Debug("Saved Desktop Environment: " + Chr(10) + EnvData)
+		  'Else
+		  'Debug("Warning: Could not save desktop environment")
+		  'End If
+		  'End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function SaveDialog(FileTyp As FileType, Title As String, InitialPath As String, DefaultName As String) As String
 		  Dim F, Init As FolderItem
 		  Dim dlg As SaveAsDialog
@@ -8909,7 +8945,7 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue=""
 			Type="String"
-			EditorType=""
+			EditorType="MultiLineEditor"
 		#tag EndViewProperty
 	#tag EndViewBehavior
 End Module
