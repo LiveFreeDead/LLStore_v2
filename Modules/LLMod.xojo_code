@@ -2332,7 +2332,7 @@ Protected Module LLMod
 		    If ItemLLItem.BuildType = "ssApp" Then MoveLinks
 		    MakeLinks
 		    
-		    If TargetLinux Then ShellFast.Execute("update-desktop-database")
+		    If TargetLinux Then ShellFast.Execute("bash -c 'update-desktop-database ~/.local/share/applications > /dev/null 2>&1 &'") 'Backgrounded: cache refresh only, does not need to block install
 		    
 		    If ItemLLItem.BuildType = "LLGame" Then
 		      If ItemLLItem.InternetRequired = False Then
@@ -2389,7 +2389,7 @@ Protected Module LLMod
 		    MakeLinks
 		    If SkippedInstalling = True Then Return False
 		    
-		    If TargetLinux Then ShellFast.Execute("update-desktop-database ~/.local/share/applications")
+		    If TargetLinux Then ShellFast.Execute("bash -c 'update-desktop-database ~/.local/share/applications > /dev/null 2>&1 &'") 'Backgrounded: cache refresh only
 		    
 		  End If
 		  
@@ -2761,7 +2761,7 @@ Protected Module LLMod
 		    MakeLinks
 		    
 		    'Update Linux Links Database
-		    If TargetLinux Then ShellFast.Execute ("update-desktop-database")
+		    If TargetLinux Then ShellFast.Execute ("bash -c 'update-desktop-database ~/.local/share/applications > /dev/null 2>&1 &'") 'Backgrounded: cache refresh only, does not need to block install
 		    
 		    'If it's a LLGame copy the uninstall.sh script to the root folder
 		    If ItemLLItem.BuildType = "LLGame"  Then
@@ -2865,7 +2865,7 @@ Protected Module LLMod
 		    
 		    
 		    'Update Linux .desktop Links Database
-		    If TargetLinux Then ShellFast.Execute ("update-desktop-database ~/.local/share/applications")
+		    If TargetLinux Then ShellFast.Execute ("bash -c 'update-desktop-database ~/.local/share/applications > /dev/null 2>&1 &'") 'Backgrounded: cache refresh only
 		    
 		  End If
 		  
@@ -3160,6 +3160,12 @@ Protected Module LLMod
 		        ShellFast.Execute(Slash(ToolPath)+"WaylandFixes.sh")
 		      End If
 		    End If
+		    '
+		    'Refresh desktop database — must happen before Unlock closes the sudo terminal.
+		    'User path: backgrounded via ShellFast, no privileges needed.
+		    '/usr/share/applications: root-owned, sent through the still-open sudo terminal with & so it doesn't block.
+		    If TargetLinux Then ShellFast.Execute ("bash -c 'update-desktop-database ~/.local/share/applications > /dev/null 2>&1 &'")
+		    If TargetLinux Then RunSudo ("sudo update-desktop-database /usr/share/applications &")
 		    '
 		    'Close Sudo Terminal
 		    If KeepSudo = False Then ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > "+BaseDir+"/LLSudoDone") 'Quits Terminal after All items have been installed.
@@ -3995,8 +4001,8 @@ Protected Module LLMod
 		    CurrentIconTheme = Shelly.Result
 		    CurrentIconTheme = CurrentIconTheme.ReplaceAll ("'", "") 
 		    'ShellFast.Execute ("cp "+Chr(34)+LOGO+Chr(34)+" "+BaseDir+"/icon.png") 
-		    Shelly.Execute ("xdg-icon-resource install --context mimetypes --size 256 --theme " + CurrentIconTheme + " " + Chr(34) +LOGO + Chr(34) + " application-x-" + APP)
-		    Shelly.Execute ("xdg-icon-resource install --context mimetypes --size 256 " + Chr(34) +LOGO + Chr(34) + " application-x-" + APP)
+		    ShellFast.Execute ("bash -c 'xdg-icon-resource install --context mimetypes --size 256 --theme " + CurrentIconTheme + " " + Chr(34) +LOGO + Chr(34) + " application-x-" + APP + " > /dev/null 2>&1 &'") 'Backgrounded: rebuilds icon cache, does not need to block
+		    ShellFast.Execute ("bash -c 'xdg-icon-resource install --context mimetypes --size 256 " + Chr(34) +LOGO + Chr(34) + " application-x-" + APP + " > /dev/null 2>&1 &'") 'Backgrounded: rebuilds icon cache, does not need to block
 		    
 		    If  SystemWide = True Then
 		      'System wide doesn't need per theme, it's system wide
@@ -4026,12 +4032,12 @@ Protected Module LLMod
 		    SaveDataToFile(FileContent, FileOut)
 		    Shelly.Execute ("xdg-mime install " + FileOut)
 		    
-		    Shelly.Execute ("update-mime-database $HOME/.local/share/mime")
+		    ShellFast.Execute ("bash -c 'update-mime-database $HOME/.local/share/mime > /dev/null 2>&1 &'") 'Backgrounded: cache refresh only
 		    
 		    'I could add sudo above to install system wide then update mime database below with update-mime-database /usr/share/mime/ 'But not sure I want this yet
 		    If  SystemWide = True Then
 		      RunSudo ("sudo xdg-mime install " + FileOut)
-		      RunSudo ("sudo update-mime-database /usr/share/mime/") 'This line is very slow
+		      RunSudo ("sudo update-mime-database /usr/share/mime/ &") 'Backgrounded: very slow, cache refresh only
 		    End If
 		    Shelly.Execute ("rm " + FileOut)
 		    
@@ -4080,9 +4086,9 @@ Protected Module LLMod
 		    
 		    Shelly.Execute ("desktop-file-install --dir=$HOME/.local/share/applications " + FileOut)
 		    Shelly.Execute (" rm " + FileOut)
-		    Shelly.Execute ("update-desktop-database $HOME/.local/share/applications")
+		    ShellFast.Execute ("bash -c 'update-desktop-database $HOME/.local/share/applications > /dev/null 2>&1 &'") 'Backgrounded: cache refresh only
 		    Shelly.Execute ("xdg-mime default " + APP + ".desktop application/x-" + APP)
-		    Shelly.Execute ("update-icon-caches $HOME/.local/share/icons/*")
+		    ShellFast.Execute ("bash -c 'update-icon-caches $HOME/.local/share/icons/* > /dev/null 2>&1 &'") 'Backgrounded: cache refresh only
 		    
 		    ShellFast.Execute ("chmod 775 "+Chr(34)+"$HOME/.local/share/applications/"+ APP + "_filetype.desktop"+Chr(34)) 'Change Read/Write/Execute to defaults
 		  End If
