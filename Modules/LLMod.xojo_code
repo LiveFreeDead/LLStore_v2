@@ -2534,6 +2534,320 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub InstallLinuxContextMenus()
+		  ' -----------------------------------------------------------------------
+		  ' Installs LLFile context-menu entries into every detectable Linux file
+		  ' manager using only user-writable paths. No sudo required.
+		  '
+		  ' WITH SUBMENU (all 4 items grouped under "LLFile"):
+		  '   Nautilus  — ~/.local/share/nautilus/scripts/LLFile/
+		  '   Caja      — ~/.config/caja/scripts/LLFile/
+		  '   Dolphin   — ~/.local/share/kio/servicemenus/llfile.desktop
+		  '   PCManFM   — ~/.local/share/file-manager/actions/  (menu container)
+		  '
+		  ' FLAT / NO SUBMENU (Install + Edit, filtered to LLFile types + folders):
+		  '   Nemo      — ~/.local/share/nemo/actions/
+		  '   Thunar    — ~/.config/Thunar/uca.xml  (merged, not replaced)
+		  '   Files     — ~/.local/share/contractor/  (elementary OS / Pantheon)
+		  ' -----------------------------------------------------------------------
+		  
+		  If Debugging Then Debug("--- InstallLinuxContextMenus ---")
+		  
+		  Dim DE As String  = SysDesktopEnvironment.Trim.Lowercase
+		  Dim Icon As String = "/LastOS/LLStore/llstore Resources/appicon_256.png"
+		  Dim LL As String   = "env GDK_BACKEND=x11 llfile"
+		  Dim NL As String   = Chr(10)
+		  Dim Q As String    = Chr(34)
+		  Dim S As String
+		  
+		  ' =====================================================================
+		  ' NAUTILUS — GNOME / Ubuntu / Pop!_OS / Zorin / Budgie
+		  ' A subfolder inside nautilus/scripts/ becomes a "Scripts > LLFile"
+		  ' submenu automatically. Nautilus passes paths via env variable.
+		  ' =====================================================================
+		  If RunCommandResults("which nautilus 2>/dev/null").Trim <> "" _
+		  Or DE = "gnome" Or DE = "ubuntu" Or DE = "budgie-desktop" Or DE = "zorin" Then
+		    If Debugging Then Debug("  Context menus: Nautilus")
+		    Dim NauDir As String = Slash(HomePath)+".local/share/nautilus/scripts/LLFile/"
+		    ShellFast.Execute("mkdir -p "+Q+NauDir+Q)
+		    
+		    Dim NauBase As String = "#!/bin/bash"+NL+"IFS=$'\n'"+NL
+		    NauBase = NauBase + "for f in $NAUTILUS_SCRIPT_SELECTED_FILE_PATHS; do"+NL
+		    
+		    S = NauBase+"  "+LL+" -i "+Q+"$f"+Q+" &"+NL+"done"+NL
+		    SaveDataToFile(S, NauDir+"Install with LLFile")
+		    S = NauBase+"  "+LL+" -e "+Q+"$f"+Q+" &"+NL+"done"+NL
+		    SaveDataToFile(S, NauDir+"Edit in LLFile Editor")
+		    S = NauBase+"  "+LL+" -c "+Q+"$f"+Q+" &"+NL+"done"+NL
+		    SaveDataToFile(S, NauDir+"Compress as LLFile")
+		    S = NauBase+"  "+LL+" -b "+Q+"$f"+Q+" &"+NL+"done"+NL
+		    SaveDataToFile(S, NauDir+"Build as LLFile")
+		    
+		    ShellFast.Execute("chmod +x " _
+		    +Q+NauDir+"Install with LLFile"+Q+" " _
+		    +Q+NauDir+"Edit in LLFile Editor"+Q+" " _
+		    +Q+NauDir+"Compress as LLFile"+Q+" " _
+		    +Q+NauDir+"Build as LLFile"+Q)
+		  End If
+		  
+		  ' =====================================================================
+		  ' CAJA — MATE Desktop
+		  ' Identical subfolder mechanism to Nautilus; Caja passes paths as $@.
+		  ' =====================================================================
+		  If RunCommandResults("which caja 2>/dev/null").Trim <> "" Or DE = "mate" Then
+		    If Debugging Then Debug("  Context menus: Caja")
+		    Dim CajaDir As String = Slash(HomePath)+".config/caja/scripts/LLFile/"
+		    ShellFast.Execute("mkdir -p "+Q+CajaDir+Q)
+		    
+		    Dim CajaBase As String = "#!/bin/bash"+NL+"for f in "+Q+"$@"+Q+"; do"+NL
+		    
+		    S = CajaBase+"  "+LL+" -i "+Q+"$f"+Q+" &"+NL+"done"+NL
+		    SaveDataToFile(S, CajaDir+"Install with LLFile")
+		    S = CajaBase+"  "+LL+" -e "+Q+"$f"+Q+" &"+NL+"done"+NL
+		    SaveDataToFile(S, CajaDir+"Edit in LLFile Editor")
+		    S = CajaBase+"  "+LL+" -c "+Q+"$f"+Q+" &"+NL+"done"+NL
+		    SaveDataToFile(S, CajaDir+"Compress as LLFile")
+		    S = CajaBase+"  "+LL+" -b "+Q+"$f"+Q+" &"+NL+"done"+NL
+		    SaveDataToFile(S, CajaDir+"Build as LLFile")
+		    
+		    ShellFast.Execute("chmod +x " _
+		    +Q+CajaDir+"Install with LLFile"+Q+" " _
+		    +Q+CajaDir+"Edit in LLFile Editor"+Q+" " _
+		    +Q+CajaDir+"Compress as LLFile"+Q+" " _
+		    +Q+CajaDir+"Build as LLFile"+Q)
+		  End If
+		  
+		  ' =====================================================================
+		  ' DOLPHIN — KDE Plasma
+		  ' X-KDE-Submenu groups all Desktop Actions under one "LLFile" submenu.
+		  ' MimeType list controls which right-clicks show the menu.
+		  ' kbuildsycoca rebuilds the KDE service cache without requiring logout.
+		  ' =====================================================================
+		  If RunCommandResults("which dolphin 2>/dev/null").Trim <> "" _
+		  Or DE = "kde" Or DE = "plasma" Then
+		    If Debugging Then Debug("  Context menus: Dolphin/KDE")
+		    Dim DolDir As String = Slash(HomePath)+".local/share/kio/servicemenus/"
+		    ShellFast.Execute("mkdir -p "+Q+DolDir+Q)
+		    
+		    Dim KDE As String
+		    KDE = "[Desktop Entry]"+NL
+		    KDE = KDE+"Type=Service"+NL
+		    KDE = KDE+"ServiceTypes=KonqPopupMenu/Plugin"+NL
+		    KDE = KDE+"MimeType=application/x-llfile;application/x-tar;inode/directory;application/octet-stream;"+NL
+		    KDE = KDE+"X-KDE-Submenu=LLFile"+NL
+		    KDE = KDE+"Actions=llf_install;llf_edit;llf_compress;llf_build"+NL+NL
+		    KDE = KDE+"[Desktop Action llf_install]"+NL
+		    KDE = KDE+"Name=Install with LLFile"+NL
+		    KDE = KDE+"Icon="+Icon+NL
+		    KDE = KDE+"Exec="+LL+" -i %F"+NL+NL
+		    KDE = KDE+"[Desktop Action llf_edit]"+NL
+		    KDE = KDE+"Name=Edit in LLFile Editor"+NL
+		    KDE = KDE+"Icon="+Icon+NL
+		    KDE = KDE+"Exec="+LL+" -e %F"+NL+NL
+		    KDE = KDE+"[Desktop Action llf_compress]"+NL
+		    KDE = KDE+"Name=Compress as LLFile"+NL
+		    KDE = KDE+"Icon="+Icon+NL
+		    KDE = KDE+"Exec="+LL+" -c %F"+NL+NL
+		    KDE = KDE+"[Desktop Action llf_build]"+NL
+		    KDE = KDE+"Name=Build as LLFile"+NL
+		    KDE = KDE+"Icon="+Icon+NL
+		    KDE = KDE+"Exec="+LL+" -b %F"+NL
+		    
+		    SaveDataToFile(KDE, DolDir+"llfile.desktop")
+		    ShellFast.Execute("chmod +x "+Q+DolDir+"llfile.desktop"+Q)
+		    'Rebuild KDE sycoca so the service menu is active without a logout
+		    ShellFast.Execute("kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true")
+		  End If
+		  
+		  ' =====================================================================
+		  ' NEMO — Cinnamon / Linux Mint
+		  ' .nemo_action files sit flat in the context menu (no submenu support).
+		  ' Filtered to LLFile types + folders.
+		  ' =====================================================================
+		  If RunCommandResults("which nemo 2>/dev/null").Trim <> "" _
+		  Or DE = "cinnamon" Or DE = "x-cinnamon" Then
+		    If Debugging Then Debug("  Context menus: Nemo")
+		    Dim NemoDir As String = Slash(HomePath)+".local/share/nemo/actions/"
+		    ShellFast.Execute("mkdir -p "+Q+NemoDir+Q)
+		    
+		    Dim NemoTypes As String = "apz;pgz;app;ppg;lla;llg;tar;dir;"
+		    Dim NemoMimes As String = "application/x-llfile;application/x-tar;inode/directory;"
+		    
+		    Dim NemoInst As String
+		    NemoInst = "[Nemo Action]"+NL
+		    NemoInst = NemoInst+"Name=Install with LLFile"+NL
+		    NemoInst = NemoInst+"Comment=Install with LLStore"+NL
+		    NemoInst = NemoInst+"Exec="+LL+" -i %F"+NL
+		    NemoInst = NemoInst+"Icon-Name="+Icon+NL
+		    NemoInst = NemoInst+"Selection=Any"+NL
+		    NemoInst = NemoInst+"Extensions="+NemoTypes+NL
+		    NemoInst = NemoInst+"Mimetypes="+NemoMimes+NL
+		    SaveDataToFile(NemoInst, NemoDir+"llfile_install.nemo_action")
+		    
+		    Dim NemoEdit As String
+		    NemoEdit = "[Nemo Action]"+NL
+		    NemoEdit = NemoEdit+"Name=Edit in LLFile Editor"+NL
+		    NemoEdit = NemoEdit+"Comment=Open in LLFile Editor"+NL
+		    NemoEdit = NemoEdit+"Exec="+LL+" -e %F"+NL
+		    NemoEdit = NemoEdit+"Icon-Name="+Icon+NL
+		    NemoEdit = NemoEdit+"Selection=Any"+NL
+		    NemoEdit = NemoEdit+"Extensions="+NemoTypes+NL
+		    NemoEdit = NemoEdit+"Mimetypes="+NemoMimes+NL
+		    SaveDataToFile(NemoEdit, NemoDir+"llfile_edit.nemo_action")
+		  End If
+		  
+		  ' =====================================================================
+		  ' THUNAR — XFCE (and standalone installs on any DE)
+		  ' Custom Actions live in ~/.config/Thunar/uca.xml.
+		  ' We MERGE into an existing file (never replace it) so the user's own
+		  ' actions survive. Idempotent — checks unique-id before injecting.
+		  ' NOTE: Runs after the cp -R scripts/Thunar block above, so any
+		  '       existing uca.xml copied from scripts/ is safely extended.
+		  ' =====================================================================
+		  If RunCommandResults("which thunar 2>/dev/null").Trim <> "" Or DE = "xfce" Then
+		    If Debugging Then Debug("  Context menus: Thunar")
+		    Dim ThunarDir As String = Slash(HomePath)+".config/Thunar/"
+		    ShellFast.Execute("mkdir -p "+Q+ThunarDir+Q)
+		    Dim UcaFile As String = ThunarDir+"uca.xml"
+		    
+		    Dim Existing As String = ""
+		    If Exist(UcaFile) Then Existing = LoadDataFromFile(UcaFile)
+		    
+		    'Skip if we already installed (idempotent on reinstall)
+		    If InStr(Existing, "llfile_install_uca") = 0 Then
+		      Dim ThunarPat As String = "*.apz;*.pgz;*.app;*.ppg;*.lla;*.llg;*.tar"
+		      Dim TB As String = ""
+		      
+		      TB = TB+"  <action>"+NL
+		      TB = TB+"    <icon>"+Icon+"</icon>"+NL
+		      TB = TB+"    <n>Install with LLFile</n>"+NL
+		      TB = TB+"    <unique-id>llfile_install_uca</unique-id>"+NL
+		      TB = TB+"    <command>"+LL+" -i %f</command>"+NL
+		      TB = TB+"    <description>Install with LLStore</description>"+NL
+		      TB = TB+"    <patterns>"+ThunarPat+"</patterns>"+NL
+		      TB = TB+"    <directories/>"+NL
+		      TB = TB+"  </action>"+NL
+		      
+		      TB = TB+"  <action>"+NL
+		      TB = TB+"    <icon>"+Icon+"</icon>"+NL
+		      TB = TB+"    <n>Edit in LLFile Editor</n>"+NL
+		      TB = TB+"    <unique-id>llfile_edit_uca</unique-id>"+NL
+		      TB = TB+"    <command>"+LL+" -e %f</command>"+NL
+		      TB = TB+"    <description>Open in LLFile Editor</description>"+NL
+		      TB = TB+"    <patterns>"+ThunarPat+"</patterns>"+NL
+		      TB = TB+"    <directories/>"+NL
+		      TB = TB+"  </action>"+NL
+		      
+		      If Existing <> "" And InStr(Existing, "</actions>") > 0 Then
+		        'Inject our entries just before the closing tag
+		        Existing = Existing.ReplaceAll("</actions>", TB+"</actions>")
+		        SaveDataToFile(Existing, UcaFile)
+		      Else
+		        'No existing file (or malformed) — write a fresh one
+		        Dim NewUca As String
+		        NewUca = "<?xml version="+Q+"1.0"+Q+" encoding="+Q+"UTF-8"+Q+"?>"+NL
+		        NewUca = NewUca+"<actions>"+NL+TB+"</actions>"+NL
+		        SaveDataToFile(NewUca, UcaFile)
+		      End If
+		    End If
+		  End If
+		  
+		  ' =====================================================================
+		  ' FILES — elementary OS / Pantheon
+		  ' Contractor .contract files appear individually in the context menu.
+		  ' Filtered to LLFile types + folders (no submenu support).
+		  ' =====================================================================
+		  If RunCommandResults("which io.elementary.files 2>/dev/null || which pantheon-files 2>/dev/null").Trim <> "" _
+		  Or DE = "pantheon" Or DE = "elementary" Then
+		    If Debugging Then Debug("  Context menus: Files (elementary/Pantheon)")
+		    Dim ConDir As String = Slash(HomePath)+".local/share/contractor/"
+		    ShellFast.Execute("mkdir -p "+Q+ConDir+Q)
+		    
+		    Dim ConMimes As String = "application/x-llfile;application/x-tar;inode/directory;"
+		    
+		    Dim ConInst As String
+		    ConInst = "[Contractor Entry]"+NL
+		    ConInst = ConInst+"Name=Install with LLFile"+NL
+		    ConInst = ConInst+"Description=Install with LLStore"+NL
+		    ConInst = ConInst+"MimeType="+ConMimes+NL
+		    ConInst = ConInst+"Exec="+LL+" -i %f"+NL
+		    ConInst = ConInst+"Icon="+Icon+NL
+		    SaveDataToFile(ConInst, ConDir+"llfile_install.contract")
+		    
+		    Dim ConEdit As String
+		    ConEdit = "[Contractor Entry]"+NL
+		    ConEdit = ConEdit+"Name=Edit in LLFile Editor"+NL
+		    ConEdit = ConEdit+"Description=Open in LLFile Editor"+NL
+		    ConEdit = ConEdit+"MimeType="+ConMimes+NL
+		    ConEdit = ConEdit+"Exec="+LL+" -e %f"+NL
+		    ConEdit = ConEdit+"Icon="+Icon+NL
+		    SaveDataToFile(ConEdit, ConDir+"llfile_edit.contract")
+		  End If
+		  
+		  ' =====================================================================
+		  ' PCMANFM / PCMANFM-QT — LXDE / LXQt
+		  ' freedesktop.org file-manager-actions format.
+		  ' Type=Menu container creates a submenu in supporting builds; older
+		  ' builds that ignore it will still show the individual action items.
+		  ' =====================================================================
+		  If RunCommandResults("which pcmanfm 2>/dev/null || which pcmanfm-qt 2>/dev/null").Trim <> "" _
+		  Or DE = "lxde" Or DE = "lxqt" Then
+		    If Debugging Then Debug("  Context menus: PCManFM/PCManFM-Qt")
+		    Dim FmaDir As String = Slash(HomePath)+".local/share/file-manager/actions/"
+		    ShellFast.Execute("mkdir -p "+Q+FmaDir+Q)
+		    
+		    'Menu container — groups items under "LLFile" in capable versions
+		    Dim FmaMenu As String
+		    FmaMenu = "[Desktop Entry]"+NL+"Type=Menu"+NL+"Name=LLFile"+NL
+		    FmaMenu = FmaMenu+"Icon="+Icon+NL
+		    FmaMenu = FmaMenu+"ItemsList=llfile_fma_install;llfile_fma_edit;llfile_fma_compress;llfile_fma_build;"+NL
+		    SaveDataToFile(FmaMenu, FmaDir+"llfile_menu.desktop")
+		    
+		    Dim FI As String
+		    FI = "[Desktop Entry]"+NL+"Type=Action"+NL+"Name=Install with LLFile"+NL
+		    FI = FI+"Icon="+Icon+NL+"Profiles=p;"+NL+NL
+		    FI = FI+"[X-Action-Profile p]"+NL+"Name=Default"+NL
+		    FI = FI+"Exec="+LL+" -i %f"+NL
+		    FI = FI+"MimeTypes=application/x-llfile;application/x-tar;inode/directory;"+NL
+		    SaveDataToFile(FI, FmaDir+"llfile_fma_install.desktop")
+		    
+		    Dim FE As String
+		    FE = "[Desktop Entry]"+NL+"Type=Action"+NL+"Name=Edit in LLFile Editor"+NL
+		    FE = FE+"Icon="+Icon+NL+"Profiles=p;"+NL+NL
+		    FE = FE+"[X-Action-Profile p]"+NL+"Name=Default"+NL
+		    FE = FE+"Exec="+LL+" -e %f"+NL
+		    FE = FE+"MimeTypes=application/x-llfile;application/x-tar;inode/directory;"+NL
+		    SaveDataToFile(FE, FmaDir+"llfile_fma_edit.desktop")
+		    
+		    Dim FC As String
+		    FC = "[Desktop Entry]"+NL+"Type=Action"+NL+"Name=Compress as LLFile"+NL
+		    FC = FC+"Icon="+Icon+NL+"Profiles=p;"+NL+NL
+		    FC = FC+"[X-Action-Profile p]"+NL+"Name=Default"+NL
+		    FC = FC+"Exec="+LL+" -c %f"+NL
+		    FC = FC+"MimeTypes=all/allfiles;inode/directory;"+NL
+		    SaveDataToFile(FC, FmaDir+"llfile_fma_compress.desktop")
+		    
+		    Dim FB As String
+		    FB = "[Desktop Entry]"+NL+"Type=Action"+NL+"Name=Build as LLFile"+NL
+		    FB = FB+"Icon="+Icon+NL+"Profiles=p;"+NL+NL
+		    FB = FB+"[X-Action-Profile p]"+NL+"Name=Default"+NL
+		    FB = FB+"Exec="+LL+" -b %f"+NL
+		    FB = FB+"MimeTypes=inode/directory;"+NL
+		    SaveDataToFile(FB, FmaDir+"llfile_fma_build.desktop")
+		    
+		    ShellFast.Execute("chmod +x " _
+		    +Q+FmaDir+"llfile_menu.desktop"+Q+" " _
+		    +Q+FmaDir+"llfile_fma_install.desktop"+Q+" " _
+		    +Q+FmaDir+"llfile_fma_edit.desktop"+Q+" " _
+		    +Q+FmaDir+"llfile_fma_compress.desktop"+Q+" " _
+		    +Q+FmaDir+"llfile_fma_build.desktop"+Q)
+		  End If
+		  
+		  If Debugging Then Debug("--- InstallLinuxContextMenus Done ---")
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub InstallLinuxMenuSorting(KeepSudo2 As Boolean = True)
 		  Dim MainPath As String = Slash(AppPath)
 		  
@@ -3259,6 +3573,8 @@ Protected Module LLMod
 		    If SysDesktopEnvironment.Trim.Lowercase = "gnome" Then 'Add $HOME/.local/share/nautilus/scripts
 		      ShellFast.Execute("cp -R "+Chr(34)+MainPath+"scripts/nautilus"+Chr(34)+" "+Chr(34)+Slash(HomePath)+".local/share/"+Chr(34))
 		    End If
+		    
+		    InstallLinuxContextMenus 'Install context menus for all detected Linux file managers
 		    
 		    InstallLinuxMenuSorting(True) 'This adds my own menu sorting style
 		    
