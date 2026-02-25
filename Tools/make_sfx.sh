@@ -227,6 +227,11 @@ cp -f "$INSTALL_SCRIPT" "$DEST_TOOLS/install.sh"
 cp -f "$SFX_HEADER"     "$DEST_TOOLS/sfx-header.sh"
 cp -f "$0"              "$DEST_TOOLS/make_sfx.sh"
 
+# LLScript_Core.sh / LLScript_Sudo_Core.sh are NOT bundled as loose files.
+# Instead, they are inlined directly into any LLScript.sh / LLScript_Sudo.sh
+# found in the package (see inline_core below).  This means SFX installers
+# have zero external dependency on a host LLStore installation.
+
 # ── Linux 7z binary (always needed for extraction) ──────────────────────────
 [ -f "$TOOLS_DIR/7zzs" ] && cp -f "$TOOLS_DIR/7zzs" "$DEST_TOOLS/" || true
 
@@ -253,6 +258,80 @@ fi
 [ -f "$DEST_TOOLS/7zzs" ]   && chmod +x "$DEST_TOOLS/7zzs"   || true
 [ -f "$DEST_TOOLS/7z.exe" ] && chmod +x "$DEST_TOOLS/7z.exe" || true
 find "$DEST_TOOLS" -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Stage 4b  –  inline LLScript_Core.sh / LLScript_Sudo_Core.sh into user
+#              scripts at build time.
+#
+# Why inline rather than bundle loose files?
+# • SFX installers run on systems that have NO LLStore installation.
+# • Sourcing from /LastOS/LLStore/Tools/ is not reliable in that context.
+# • Bundling loose core files + a runtime search chain is fragile spaghetti.
+# • Inlining is deterministic: the script is always self-contained.
+#
+# How it works:
+#   Any .sh file in the work directory whose source-line ends with the
+#   comment "#LLCore" (the marker LLStore writes into user scripts) has
+#   that entire line replaced with the content of the matching core script.
+#   Non-SFX scripts (run from a live LLStore install) never hit this path
+#   because make_sfx.sh is only called when building an SFX.
+# ---------------------------------------------------------------------------
+
+inline_core() {
+    local script="$1" core="$2"
+    [ -f "$script" ] || return 0
+    if [ ! -f "$core" ]; then
+        log "Warning: $(basename "$core") not found – core NOT inlined in $(basename "$script")."
+        return 0
+    fi
+
+    # Core content: skip the shebang line so we don't get a double #!/bin/bash
+    local core_content
+    core_content="$(tail -n +2 "$core")"
+
+    local tmp="${script}.sfx_inline_tmp"
+    local inlined=0
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" == *"#LLCore"* ]]; then
+            printf '# vvv LLCore inlined by make_sfx at build time – no external dependency vvv\n'
+            printf '%s\n' "$core_content"
+            printf '# ^^^ End inlined LLCore ^^^\n'
+            inlined=$(( inlined + 1 ))
+        else
+            printf '%s\n' "$line"
+        fi
+    done < "$script" > "$tmp"
+
+    mv "$tmp" "$script"
+    chmod +x "$script"
+
+    if [ "$inlined" -gt 0 ]; then
+        log "  Inlined $(basename "$core") into $(basename "$script") ($inlined occurrence(s))"
+    else
+        log "  Warning: #LLCore marker not found in $(basename "$script") – nothing inlined."
+    fi
+}
+
+log "Inlining core scripts into user scripts..."
+CORE_USER="$TOOLS_DIR/LLScript_Core.sh"
+CORE_SUDO="$TOOLS_DIR/LLScript_Sudo_Core.sh"
+
+# Check all .sh files in the work dir root (user scripts live alongside the LLFile)
+for sh_file in "$WORK_DIR"/*.sh; do
+    [ -f "$sh_file" ] || continue
+    case "$(basename "$sh_file")" in
+        LLScript_Sudo.sh) inline_core "$sh_file" "$CORE_SUDO" ;;
+        LLScript.sh)      inline_core "$sh_file" "$CORE_USER" ;;
+        *)
+            # Any other .sh that carries a #LLCore marker gets the user core by convention
+            if grep -q "#LLCore" "$sh_file" 2>/dev/null; then
+                log "  Found #LLCore in $(basename "$sh_file") – applying user core"
+                inline_core "$sh_file" "$CORE_USER"
+            fi
+            ;;
+    esac
+done
 
 # ---------------------------------------------------------------------------
 # Stage 5  –  output filename

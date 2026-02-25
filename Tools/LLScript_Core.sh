@@ -66,6 +66,34 @@ done
 # Detect OS
 . /etc/os-release
 
+#---------- Write LLDesktopEnv.ini ----------
+# Saves the current desktop environment variables so that sudo-level scripts
+# can read them back (sudo strips XDG_* from the environment on most distros).
+# Also ensures SFX-built installers work on systems without LLStore installed.
+_LLDE_DIR="$HOME/zLastOSRepository"
+_LLDE_FILE="$_LLDE_DIR/LLDesktopEnv.ini"
+mkdir -p "$_LLDE_DIR" 2>/dev/null || true
+
+# Prefer printenv (catches vars set by the display manager but not exported
+# into sub-shells) then fall back to explicit expansion.
+if printenv XDG_SESSION_DESKTOP XDG_CURRENT_DESKTOP DESKTOP_SESSION GDMSESSION \
+        2>/dev/null | grep -q '='; then
+    printenv | grep -E '^(XDG_SESSION_DESKTOP|XDG_CURRENT_DESKTOP|DESKTOP_SESSION|GDMSESSION)=' \
+        > "$_LLDE_FILE" 2>/dev/null || true
+fi
+
+# If the file is still empty/missing, write what we can from the current shell
+if [ ! -s "$_LLDE_FILE" ]; then
+    {
+        [ -n "${XDG_SESSION_DESKTOP:-}" ] && echo "XDG_SESSION_DESKTOP=$XDG_SESSION_DESKTOP"
+        [ -n "${XDG_CURRENT_DESKTOP:-}"  ] && echo "XDG_CURRENT_DESKTOP=$XDG_CURRENT_DESKTOP"
+        [ -n "${DESKTOP_SESSION:-}"      ] && echo "DESKTOP_SESSION=$DESKTOP_SESSION"
+        [ -n "${GDMSESSION:-}"           ] && echo "GDMSESSION=$GDMSESSION"
+    } > "$_LLDE_FILE" 2>/dev/null || true
+fi
+
+unset _LLDE_DIR _LLDE_FILE
+
 echo
 echo -e "\033[1;4m            System Details            \033[0m"
 echo "Terminal Used:   ${OSTERM:-"None found"}"

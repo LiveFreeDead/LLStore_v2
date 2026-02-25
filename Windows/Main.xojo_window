@@ -3259,6 +3259,7 @@ End
 	#tag Event
 		Sub Action()
 		  ResizeMainForm
+		  If TargetLinux Then SaveDesktopEnvironment
 		End Sub
 	#tag EndEvent
 #tag EndEvents
