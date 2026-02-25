@@ -305,49 +305,49 @@ echo "OS ID:           $ID"
 # Refresh package manager cache if missing or older than 24 hours
 case "$PM" in
     pamac|pacman)
-        if [[ $(find /var/lib/pacman/sync -name "*.db" -mmin -1440 2>/dev/null | wc -l) -eq 0 ]]; then
+        if ! find /var/lib/pacman/sync -name "*.db" -mmin -1440 -print -quit 2>/dev/null | grep -q .; then
             echo "Updating package cache..."
             sudo pacman -Sy --noconfirm &>/dev/null
         fi
         ;;
     dnf)
-        if [[ $(find /var/cache/dnf -name "*.solv" -mmin -1440 2>/dev/null | wc -l) -eq 0 ]]; then
+        if ! find /var/cache/dnf -name "*.solv" -mmin -1440 -print -quit 2>/dev/null | grep -q .; then
             echo "Updating package cache..."
             sudo dnf makecache --quiet &>/dev/null
         fi
         ;;
     apt)
-        if [[ $(find /var/lib/apt/lists -name "*_Packages" -mmin -1440 2>/dev/null | wc -l) -eq 0 ]]; then
+        if ! find /var/lib/apt/lists -name "*_Packages" -mmin -1440 -print -quit 2>/dev/null | grep -q .; then
             echo "Updating package cache..."
             sudo apt-get update -qq &>/dev/null
         fi
         ;;
     zypper)
-        if [[ $(find /var/cache/zypp/solv -name "*.solv" -mmin -1440 2>/dev/null | wc -l) -eq 0 ]]; then
+        if ! find /var/cache/zypp/solv -name "*.solv" -mmin -1440 -print -quit 2>/dev/null | grep -q .; then
             echo "Updating package cache..."
             sudo zypper --quiet refresh &>/dev/null
         fi
         ;;
     yum)
-        if [[ $(find /var/cache/yum -name "repomd.xml" -mmin -1440 2>/dev/null | wc -l) -eq 0 ]]; then
+        if ! find /var/cache/yum -name "repomd.xml" -mmin -1440 -print -quit 2>/dev/null | grep -q .; then
             echo "Updating package cache..."
             sudo yum makecache --quiet &>/dev/null
         fi
         ;;
     emerge)
-        if [[ $(find /var/cache/eix -name "portage.eix" -mmin -1440 2>/dev/null | wc -l) -eq 0 ]]; then
+        if ! find /var/cache/eix -name "portage.eix" -mmin -1440 -print -quit 2>/dev/null | grep -q .; then
             echo "Updating package cache..."
             sudo emerge --sync &>/dev/null
         fi
         ;;
     eopkg)
-        if [[ $(find /var/lib/eopkg/index -name "*.xml.bz2" -mmin -1440 2>/dev/null | wc -l) -eq 0 ]]; then
+        if ! find /var/lib/eopkg/index -name "*.xml.bz2" -mmin -1440 -print -quit 2>/dev/null | grep -q .; then
             echo "Updating package cache..."
             sudo eopkg update-repo &>/dev/null
         fi
         ;;
     apk)
-        if [[ $(find /var/cache/apk -name "APKINDEX*" -mmin -1440 2>/dev/null | wc -l) -eq 0 ]]; then
+        if ! find /var/cache/apk -name "APKINDEX*" -mmin -1440 -print -quit 2>/dev/null | grep -q .; then
             echo "Updating package cache..."
             sudo apk update &>/dev/null
         fi

@@ -153,15 +153,13 @@ Protected Module LLMod
 		              
 		              If SpLine(0) = "IconFile" Then IconFile = SpLine(1) 'Set Icon File to go through the list of known paths to attach it to (Duplicate paths but different Categories)
 		              
-		              If SpLine(0) = "IconIndex" Then 'Once the Index is read in we can apply it to each stored path/catalog.
+		              If SpLine(0) = "IconIndex" Then 'Once the Index is read in we can apply it to the matched location.
 		                IconIndex = SpLine(1) 'Set IconIndex
-		                'Do The complete check after the IconIndex line as it may be a duplicate path with a different catalog
-		                For J = 1 To StartMenuLocationsCount(K)
-		                  If StartMenuLocations(J, K).Path = StartMenuPath Then 'Check each item for matching path and set icon and index if same
-		                    StartMenuLocations(J, K).IconFile = IconFile
-		                    StartMenuLocations(J, K).IconIndex = IconIndex
-		                  End If
-		                Next J
+		                'DetectedItem already holds the exact index of the matching entry — use it directly
+		                'rather than scanning all entries again. If multiple catalog entries share the same
+		                'path (which would need the loop), add a comment here explaining that case.
+		                StartMenuLocations(DetectedItem, K).IconFile = IconFile
+		                StartMenuLocations(DetectedItem, K).IconIndex = IconIndex
 		              End If
 		            End If
 		            
@@ -283,10 +281,9 @@ Protected Module LLMod
 		    
 		    'Set the directory
 		    If System.IsFunctionAvailable( "SetCurrentDirectoryW", "Kernel32" ) Then
-		      Success = SetCurrentDirectoryW( myPath )
-		      Success = SetCurrentDirectoryA( myPath )
+		      Success = SetCurrentDirectoryW( myPath ) 'Use Unicode variant when available
 		    Else
-		      Success = SetCurrentDirectoryA( myPath )
+		      Success = SetCurrentDirectoryA( myPath ) 'Fallback to ANSI on older systems
 		    End If
 		  #EndIf
 		  
@@ -774,11 +771,15 @@ Protected Module LLMod
 		Function ExpPath(PathIn As String, WinPaths As Boolean = False) As String
 		  'If Debugging Then Debug("ExpPath = " +PathIn) 'Too Many calls to bother logging
 		  
-		  Dim UserName As String
+		  'Use module-level CachedUserName to avoid recomputing on every Exp call.
+		  'Populate lazily here in case HomePath was set before CachedUserName was assigned.
+		  If TargetLinux And CachedUserName = "" Then
+		    CachedUserName = Right( NoSlash(HomePath), Len( NoSlash(HomePath)) - InStrRev( NoSlash(HomePath), "/"))
+		  End If
+		  Dim UserName As String = CachedUserName
 		  
 		  PathIn = PathIn.ReplaceAll("\", "/")
 		  
-		  If TargetLinux Then UserName = Right( NoSlash(HomePath), Len( NoSlash(HomePath)) - InStrRev( NoSlash(HomePath), "/"))
 		  
 		  'Convert x-terminal-emulator to SysTerminal
 		  'If SysTerminal.Trim = "gnome-terminal" Then
@@ -808,8 +809,6 @@ Protected Module LLMod
 		      PathIn = PathIn.ReplaceAll("%ppApps%", Left(RegenPathIn,9))
 		    End If
 		    
-		    PathIn = PathIn.ReplaceAll("%SourcePath%", ItemLLItem.PathINI)
-		    
 		    PathIn = PathIn.ReplaceAll("%INIPath%", ItemLLItem.PathINI)
 		    PathIn = PathIn.ReplaceAll("%ProgramFiles%", NoSlash(SysProgramFiles))
 		    PathIn = PathIn.ReplaceAll("%ProgramFiles(x86)%", NoSlash(SysProgramFiles)+" (x86)")
@@ -818,8 +817,7 @@ Protected Module LLMod
 		    PathIn = PathIn.ReplaceAll("%SystemRoot%", NoSlash(SysRoot))
 		    PathIn = PathIn.ReplaceAll("%WinDir%", NoSlash(SysRoot))
 		    
-		    
-		    PathIn = PathIn.ReplaceAll("%SourcePath%", ItemLLItem.PathINI)
+		    PathIn = PathIn.ReplaceAll("%SourcePath%", ItemLLItem.PathINI) '%SourcePath% is an alias for %INIPath% - kept together for clarity
 		    PathIn = PathIn.ReplaceAll("%SourceDrive%", Left(ItemLLItem.PathINI,2))
 		    PathIn = PathIn.ReplaceAll("%SystemDir%", Slash(SysRoot)+"System32")
 		    PathIn = PathIn.ReplaceAll("%CommonProgramFiles%", Slash(SysProgramFiles)+"Common Files")
@@ -968,7 +966,7 @@ Protected Module LLMod
 		  PathIn = PathIn.ReplaceAll("$HOME", NoSlash(HomePath))
 		  
 		  'Change Flatpak --user to --system Or Vice Versa as set (Defaults to User)
-		  If FlatPakAsUser = True Then
+		  If FlatpakAsUser = True Then
 		    PathIn = PathIn.ReplaceAll("--system", "--user")
 		  Else 'Must be System Wide
 		    PathIn = PathIn.ReplaceAll("--user", "--system")
@@ -982,9 +980,13 @@ Protected Module LLMod
 		Function ExpPathReg(PathIn As String, WinPaths As Boolean = False) As String
 		  If Debugging Then Debug("ExpReg = " +PathIn)
 		  
-		  Dim UserName As String
+		  'Use module-level CachedUserName to avoid recomputing on every Exp call.
+		  'Populate lazily here in case HomePath was set before CachedUserName was assigned.
+		  If TargetLinux And CachedUserName = "" Then
+		    CachedUserName = Right( NoSlash(HomePath), Len( NoSlash(HomePath)) - InStrRev( NoSlash(HomePath), "/"))
+		  End If
+		  Dim UserName As String = CachedUserName
 		  
-		  If TargetLinux Then UserName = Right( NoSlash(HomePath), Len( NoSlash(HomePath)) - InStrRev( NoSlash(HomePath), "/"))
 		  
 		  'MsgBox UserName
 		  Dim Dat As String
@@ -1154,8 +1156,12 @@ Protected Module LLMod
 		  'Make sure I convert ALL the Variables I need in all these expanders
 		  
 		  If Debugging Then Debug("ExpPathScript = " +PathIn)
-		  Dim UserName As String
-		  If TargetLinux Then UserName = Right( NoSlash(HomePath), Len( NoSlash(HomePath)) - InStrRev( NoSlash(HomePath), "/"))
+		  'Use module-level CachedUserName to avoid recomputing on every Exp call.
+		  'Populate lazily here in case HomePath was set before CachedUserName was assigned.
+		  If TargetLinux And CachedUserName = "" Then
+		    CachedUserName = Right( NoSlash(HomePath), Len( NoSlash(HomePath)) - InStrRev( NoSlash(HomePath), "/"))
+		  End If
+		  Dim UserName As String = CachedUserName
 		  
 		  'Convert x-terminal-emulator to SysTerminal
 		  'If SysTerminal.Trim = "gnome-terminal" Then
@@ -2323,11 +2329,63 @@ Protected Module LLMod
 		    RunSudoScripts
 		    If SkippedInstalling = True Then Return False
 		    
-		    RunScripts
-		    If SkippedInstalling = True Then Return False
-		    
-		    RunRegistry
-		    If SkippedInstalling = True Then Return False
+		    ' Combined Wine bat optimization — runs script and registry in one Wine/cmd.exe launch
+		    If (TargetLinux Or TargetWindows) Then
+		      CombinedWineBat = "@echo off" + Chr(13) + Chr(10)
+		      BuildingCombinedBat = True
+		      CombinedWineRegIdx = 0
+		      
+		      RunScripts
+		      If SkippedInstalling = True Then
+		        BuildingCombinedBat = False
+		        Return False
+		      End If
+		      
+		      RunRegistry
+		      If SkippedInstalling = True Then
+		        BuildingCombinedBat = False
+		        Return False
+		      End If
+		      
+		      BuildingCombinedBat = False
+		      If CombinedWineBat <> "@echo off" + Chr(13) + Chr(10) Then
+		        Dim CombinedBatPath As String = TmpPath + "install_combined_" + ItemLLItem.BuildType + ".bat"
+		        SaveDataToFile(CombinedWineBat, CombinedBatPath)
+		        If Debugging Then Debug("Running combined bat: " + CombinedBatPath)
+		        
+		        Dim CombinedSh As New Shell
+		        CombinedSh.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		        CombinedSh.TimeOut = -1
+		        
+		        If TargetWindows Then
+		          Dim WinBatPath As String = CombinedBatPath.ReplaceAll("/", "\")
+		          CombinedSh.Execute("cmd.exe /c " + Chr(34) + WinBatPath + Chr(34))
+		        Else
+		          Dim WineBatWinePath As String = "z:" + CombinedBatPath.ReplaceAll("/", "\")
+		          CombinedSh.Execute("wine cmd.exe /c " + Chr(34) + WineBatWinePath + Chr(34))
+		        End If
+		        
+		        While CombinedSh.IsRunning
+		          App.DoEvents(20)
+		        Wend
+		        If Debugging Then Debug("Combined bat result: " + CombinedSh.ReadAll)
+		        
+		        If TargetWindows Then
+		          Try
+		            Deltree(CombinedBatPath)
+		          Catch
+		          End Try
+		        Else
+		          ShellFast.Execute("bash -c 'rm -f " + Chr(34) + TmpPath + "bat_reg_*.reg" + Chr(34) + " " + Chr(34) + CombinedBatPath + Chr(34) + "'"  )
+		        End If
+		      End If
+		    Else
+		      ' Fallback for other platforms
+		      RunScripts
+		      If SkippedInstalling = True Then Return False
+		      RunRegistry
+		      If SkippedInstalling = True Then Return False
+		    End If
 		    
 		    If ItemLLItem.BuildType = "ssApp" Then MoveLinks
 		    MakeLinks
@@ -2380,11 +2438,63 @@ Protected Module LLMod
 		    RunSudoScripts
 		    If SkippedInstalling = True Then Return False
 		    
-		    RunRegistry
-		    If SkippedInstalling = True Then Return False
-		    
-		    RunScripts
-		    If SkippedInstalling = True Then Return False
+		    ' Combined Wine bat optimization for NoInstall mode
+		    If (TargetLinux Or TargetWindows) Then
+		      CombinedWineBat = "@echo off" + Chr(13) + Chr(10)
+		      BuildingCombinedBat = True
+		      CombinedWineRegIdx = 0
+		      
+		      RunRegistry
+		      If SkippedInstalling = True Then
+		        BuildingCombinedBat = False
+		        Return False
+		      End If
+		      
+		      RunScripts
+		      If SkippedInstalling = True Then
+		        BuildingCombinedBat = False
+		        Return False
+		      End If
+		      
+		      BuildingCombinedBat = False
+		      If CombinedWineBat <> "@echo off" + Chr(13) + Chr(10) Then
+		        Dim CombinedBatPath As String = TmpPath + "install_noinstall_combined_" + ItemLLItem.BuildType + ".bat"
+		        SaveDataToFile(CombinedWineBat, CombinedBatPath)
+		        If Debugging Then Debug("Running combined bat (NoInstall): " + CombinedBatPath)
+		        
+		        Dim CombinedSh As New Shell
+		        CombinedSh.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		        CombinedSh.TimeOut = -1
+		        
+		        If TargetWindows Then
+		          Dim WinBatPath As String = CombinedBatPath.ReplaceAll("/", "\")
+		          CombinedSh.Execute("cmd.exe /c " + Chr(34) + WinBatPath + Chr(34))
+		        Else
+		          Dim WineBatWinePath As String = "z:" + CombinedBatPath.ReplaceAll("/", "\")
+		          CombinedSh.Execute("wine cmd.exe /c " + Chr(34) + WineBatWinePath + Chr(34))
+		        End If
+		        
+		        While CombinedSh.IsRunning
+		          App.DoEvents(20)
+		        Wend
+		        If Debugging Then Debug("Combined bat result (NoInstall): " + CombinedSh.ReadAll)
+		        
+		        If TargetWindows Then
+		          Try
+		            Deltree(CombinedBatPath)
+		          Catch
+		          End Try
+		        Else
+		          ShellFast.Execute("bash -c 'rm -f " + Chr(34) + TmpPath + "bat_reg_*.reg" + Chr(34) + " " + Chr(34) + CombinedBatPath + Chr(34) + "'"  )
+		        End If
+		      End If
+		    Else
+		      ' Fallback for other platforms
+		      RunRegistry
+		      If SkippedInstalling = True Then Return False
+		      RunScripts
+		      If SkippedInstalling = True Then Return False
+		    End If
 		    
 		    MakeLinks
 		    If SkippedInstalling = True Then Return False
@@ -2735,21 +2845,66 @@ Protected Module LLMod
 		    End If
 		    
 		    
-		    'Run Scripts
-		    RunScripts
-		    
-		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		    'Run Scripts and Registry — combined into one Wine/cmd.exe launch
+		    If (TargetLinux Or TargetWindows) Then
+		      CombinedWineBat = "@echo off" + Chr(13) + Chr(10)
+		      BuildingCombinedBat = True
+		      CombinedWineRegIdx = 0
 		      
-		      Return False
-		    End If
-		    
-		    
-		    'Run Registry Enteries
-		    RunRegistry
-		    
-		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      RunScripts
+		      If SkippedInstalling = True Then
+		        BuildingCombinedBat = False
+		        Return False
+		      End If
 		      
-		      Return False
+		      RunRegistry
+		      If SkippedInstalling = True Then
+		        BuildingCombinedBat = False
+		        Return False
+		      End If
+		      
+		      BuildingCombinedBat = False
+		      If CombinedWineBat <> "@echo off" + Chr(13) + Chr(10) Then
+		        Dim CombinedBatPath As String = TmpPath + "install_combined_" + ItemLLItem.BuildType + ".bat"
+		        SaveDataToFile(CombinedWineBat, CombinedBatPath)
+		        If Debugging Then Debug("Running combined bat: " + CombinedBatPath)
+		        
+		        Dim CombinedSh As New Shell
+		        CombinedSh.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		        CombinedSh.TimeOut = -1
+		        
+		        If TargetWindows Then
+		          Dim WinBatPath As String = CombinedBatPath.ReplaceAll("/", "\")
+		          CombinedSh.Execute("cmd.exe /c " + Chr(34) + WinBatPath + Chr(34))
+		        Else
+		          Dim WineBatWinePath As String = "z:" + CombinedBatPath.ReplaceAll("/", "\")
+		          CombinedSh.Execute("wine cmd.exe /c " + Chr(34) + WineBatWinePath + Chr(34))
+		        End If
+		        
+		        While CombinedSh.IsRunning
+		          App.DoEvents(20)
+		        Wend
+		        If Debugging Then Debug("Combined bat result: " + CombinedSh.ReadAll)
+		        
+		        If TargetWindows Then
+		          Try
+		            Deltree(CombinedBatPath)
+		          Catch
+		          End Try
+		        Else
+		          ShellFast.Execute("bash -c 'rm -f " + Chr(34) + TmpPath + "bat_reg_*.reg" + Chr(34) + " " + Chr(34) + CombinedBatPath + Chr(34) + "'"  )
+		        End If
+		      End If
+		    Else
+		      ' Fallback for other platforms
+		      RunScripts
+		      If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		        Return False
+		      End If
+		      RunRegistry
+		      If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		        Return False
+		      End If
 		    End If
 		    
 		    
@@ -2835,22 +2990,66 @@ Protected Module LLMod
 		    End If
 		    
 		    
-		    'No need to do Registry Stuff for linux items, but will see if any is in there anyway
-		    RunRegistry
-		    
-		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		    'Combined Wine bat optimization for NoInstall mode — registry first, then scripts
+		    If (TargetLinux Or TargetWindows) Then
+		      CombinedWineBat = "@echo off" + Chr(13) + Chr(10)
+		      BuildingCombinedBat = True
+		      CombinedWineRegIdx = 0
 		      
-		      Return False
-		    End If
-		    
-		    
-		    'Run Scripts
-		    RunScripts
-		    
-		    
-		    If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		      RunRegistry
+		      If SkippedInstalling = True Then
+		        BuildingCombinedBat = False
+		        Return False
+		      End If
 		      
-		      Return False
+		      RunScripts
+		      If SkippedInstalling = True Then
+		        BuildingCombinedBat = False
+		        Return False
+		      End If
+		      
+		      BuildingCombinedBat = False
+		      If CombinedWineBat <> "@echo off" + Chr(13) + Chr(10) Then
+		        Dim CombinedBatPath As String = TmpPath + "install_noinstall_combined_" + ItemLLItem.BuildType + ".bat"
+		        SaveDataToFile(CombinedWineBat, CombinedBatPath)
+		        If Debugging Then Debug("Running combined bat (NoInstall): " + CombinedBatPath)
+		        
+		        Dim CombinedSh As New Shell
+		        CombinedSh.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		        CombinedSh.TimeOut = -1
+		        
+		        If TargetWindows Then
+		          Dim WinBatPath As String = CombinedBatPath.ReplaceAll("/", "\")
+		          CombinedSh.Execute("cmd.exe /c " + Chr(34) + WinBatPath + Chr(34))
+		        Else
+		          Dim WineBatWinePath As String = "z:" + CombinedBatPath.ReplaceAll("/", "\")
+		          CombinedSh.Execute("wine cmd.exe /c " + Chr(34) + WineBatWinePath + Chr(34))
+		        End If
+		        
+		        While CombinedSh.IsRunning
+		          App.DoEvents(20)
+		        Wend
+		        If Debugging Then Debug("Combined bat result (NoInstall): " + CombinedSh.ReadAll)
+		        
+		        If TargetWindows Then
+		          Try
+		            Deltree(CombinedBatPath)
+		          Catch
+		          End Try
+		        Else
+		          ShellFast.Execute("bash -c 'rm -f " + Chr(34) + TmpPath + "bat_reg_*.reg" + Chr(34) + " " + Chr(34) + CombinedBatPath + Chr(34) + "'"  )
+		        End If
+		      End If
+		    Else
+		      ' Fallback for other platforms
+		      RunRegistry
+		      If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		        Return False
+		      End If
+		      RunScripts
+		      If SkippedInstalling = True Then 'Allows aborting a installation part way through
+		        Return False
+		      End If
 		    End If
 		    
 		    
@@ -4079,7 +4278,7 @@ Protected Module LLMod
 		    If  SystemWide = True Then
 		      RunSudo ("sudo desktop-file-install --dir=/usr/share/applications " + FileOut)
 		      'MsgBox ("sudo desktop-file-install --dir=/usr/share/applications " + FileOut)
-		      RunSudo ("sudo update-desktop-database /usr/share/applications")
+		      RunSudo ("sudo update-desktop-database /usr/share/applications &") 'Backgrounded: cache refresh only
 		      RunSudo ("sudo xdg-mime default " + APP + ".desktop application/x-" + APP)
 		      'RunSudo ("sudo update-icon-caches /usr/share/icons/*") 'This is WAY too slow to do all the time, disabled!!!!
 		    End If
@@ -5931,10 +6130,19 @@ Protected Module LLMod
 		      WEnd
 		    Else
 		      ScriptFile = ExpReg (InstallToPath + ItemLLItem.BuildType+".reg")
-		      Shelly.Execute("wine regedit.exe /s " + Chr(34) + ScriptFile+ Chr(34))
-		      While Shelly.IsRunning
-		        App.DoEvents(20)
-		      WEnd
+		      If BuildingCombinedBat Then
+		        'Save expanded reg to a unique path so it persists until wine runs at end of regen
+		        CombinedWineRegIdx = CombinedWineRegIdx + 1
+		        Dim UniqueRegPath As String = TmpPath + "bat_reg_" + CombinedWineRegIdx.ToString + ".reg"
+		        SaveDataToFile(LoadDataFromFile(ScriptFile), UniqueRegPath)
+		        Dim WineRegPath As String = "z:" + UniqueRegPath.ReplaceAll("/", "\")
+		        CombinedWineBat = CombinedWineBat + "regedit /s " + Chr(34) + WineRegPath + Chr(34) + Chr(13) + Chr(10)
+		      Else
+		        Shelly.Execute("wine regedit.exe /s " + Chr(34) + ScriptFile+ Chr(34))
+		        While Shelly.IsRunning
+		          App.DoEvents(20)
+		        WEnd
+		      End If
 		    End If
 		  Else 'Try the InstallFrom Path just in case (Like with 143 ppGames)
 		    FileToUse = InstallFromPath + ItemLLItem.BuildType+".reg"
@@ -5950,10 +6158,19 @@ Protected Module LLMod
 		        WEnd
 		      Else
 		        ScriptFile = ExpReg (InstallFromPath + ItemLLItem.BuildType+".reg")
-		        Shelly.Execute("wine regedit.exe /s " + Chr(34) + ScriptFile+ Chr(34))
-		        While Shelly.IsRunning
-		          App.DoEvents(20)
-		        WEnd
+		        If BuildingCombinedBat Then
+		          'Save expanded reg to a unique path so it persists until wine runs at end of regen
+		          CombinedWineRegIdx = CombinedWineRegIdx + 1
+		          Dim UniqueRegPath As String = TmpPath + "bat_reg_" + CombinedWineRegIdx.ToString + ".reg"
+		          SaveDataToFile(LoadDataFromFile(ScriptFile), UniqueRegPath)
+		          Dim WineRegPath As String = "z:" + UniqueRegPath.ReplaceAll("/", "\")
+		          CombinedWineBat = CombinedWineBat + "regedit /s " + Chr(34) + WineRegPath + Chr(34) + Chr(13) + Chr(10)
+		        Else
+		          Shelly.Execute("wine regedit.exe /s " + Chr(34) + ScriptFile+ Chr(34))
+		          While Shelly.IsRunning
+		            App.DoEvents(20)
+		          WEnd
+		        End If
 		      End If
 		    End If
 		  End If
@@ -6012,11 +6229,21 @@ Protected Module LLMod
 		        If TargetWindows Then
 		          Shelly.Execute ("cmd.exe /c",Chr(34)+FixPath(F.NativePath)+Chr(34))
 		        Else
-		          Shelly.Execute("cd " + Chr(34) + InstallFromPath + Chr(34) + " ; wine " + Chr(34) + ScriptFile + Chr(34)) ' Use && Here because if path fails, then script will anyway
+		          If BuildingCombinedBat Then
+		            'Accumulate into combined bat — wine will be run once at end of regen
+		            Dim BatCdPath As String = "z:" + InstallFromPath.ReplaceAll("/", "\")
+		            Dim BatScriptContent As String = LoadDataFromFile(ScriptFile)
+		            CombinedWineBat = CombinedWineBat + "cd " + Chr(34) + BatCdPath + Chr(34) + Chr(13) + Chr(10)
+		            CombinedWineBat = CombinedWineBat + BatScriptContent + Chr(13) + Chr(10)
+		          Else
+		            Shelly.Execute("cd " + Chr(34) + InstallFromPath + Chr(34) + " ; wine " + Chr(34) + ScriptFile + Chr(34)) ' Use && Here because if path fails, then script will anyway
+		          End If
 		        End If
-		        While Shelly.IsRunning
-		          App.DoEvents(20)
-		        Wend
+		        If Not BuildingCombinedBat Then
+		          While Shelly.IsRunning
+		            App.DoEvents(20)
+		          Wend
+		        End If
 		        If Debugging Then Debug("Script Return (ssApp.cmd): "+ Shelly.ReadAll)
 		      End If
 		    Catch
@@ -6035,11 +6262,21 @@ Protected Module LLMod
 		        If TargetWindows Then
 		          Shelly.Execute ("cmd.exe /c",Chr(34)+FixPath(F.NativePath)+Chr(34))
 		        Else
-		          Shelly.Execute("cd " + Chr(34) + InstallToPath + Chr(34) + " ; wine " + Chr(34) + ScriptFile + Chr(34))
+		          If BuildingCombinedBat Then
+		            'Accumulate into combined bat — wine will be run once at end of regen
+		            Dim BatCdPath As String = "z:" + InstallToPath.ReplaceAll("/", "\")
+		            Dim BatScriptContent As String = LoadDataFromFile(ScriptFile)
+		            CombinedWineBat = CombinedWineBat + "cd " + Chr(34) + BatCdPath + Chr(34) + Chr(13) + Chr(10)
+		            CombinedWineBat = CombinedWineBat + BatScriptContent + Chr(13) + Chr(10)
+		          Else
+		            Shelly.Execute("cd " + Chr(34) + InstallToPath + Chr(34) + " ; wine " + Chr(34) + ScriptFile + Chr(34))
+		          End If
 		        End If
-		        While Shelly.IsRunning
-		          App.DoEvents(20)
-		        Wend
+		        If Not BuildingCombinedBat Then
+		          While Shelly.IsRunning
+		            App.DoEvents(20)
+		          Wend
+		        End If
 		        If Debugging Then Debug("Script Return ("+ItemLLItem.BuildType+".cmd): "+ Shelly.ReadAll)
 		      End If
 		    Catch
@@ -6928,6 +7165,12 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		'Cached Linux username extracted from HomePath — avoids repeated string operations in every Exp call.
+		'Updated by SetHomePath or wherever HomePath is assigned.
+		CachedUserName As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		InputStream As TextInputStream
 	#tag EndProperty
 
@@ -7249,6 +7492,18 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		ShellFast As Shell
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		CombinedWineBat As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		BuildingCombinedBat As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		CombinedWineRegIdx As Integer = 0
 	#tag EndProperty
 
 	#tag Property, Flags = &h0

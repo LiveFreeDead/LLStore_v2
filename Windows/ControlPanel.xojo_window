@@ -1295,216 +1295,151 @@ End
 		    End Try
 		    
 		  Else 'Linux
-		    ScanPath = HomePath +  "/.wine/drive_c/Program Files (x86)"
 		    
-		    If Debugging Then Debug ("Check for ssApp.app files in: "+ScanPath)
+		    'Hide main window and show progress notification — only when triggered from GUI, not command line
+		    If Loading.Regenerate = False Then Main.Hide
+		    Notify ("Regenerating Items", "Scanning for items...", ThemePath+"Icon.png", -1)
 		    
-		    Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"ssApp.app"+Chr(34))
+		    'Single combined find across all 6 scan paths and all 5 file types in one process.
+		    'Errors (missing paths) suppressed with 2>/dev/null — find handles nonexistent paths gracefully.
+		    Dim FindCmd As String
+		    FindCmd = "find"
+		    FindCmd = FindCmd + " "+Chr(34)+HomePath+"/.wine/drive_c/Program Files (x86)"+Chr(34)
+		    FindCmd = FindCmd + " "+Chr(34)+HomePath+"/.wine/drive_c/Program Files"+Chr(34)
+		    FindCmd = FindCmd + " "+Chr(34)+ppApps+Chr(34)
+		    FindCmd = FindCmd + " "+Chr(34)+ppGames+Chr(34)
+		    FindCmd = FindCmd + " "+Chr(34)+Slash(HomePath)+"LLApps"+Chr(34)
+		    FindCmd = FindCmd + " "+Chr(34)+Slash(HomePath)+"LLGames"+Chr(34)
+		    FindCmd = FindCmd + " -type f \( -name "+Chr(34)+"ssApp.app"+Chr(34)
+		    FindCmd = FindCmd + " -o -name "+Chr(34)+"ppApp.app"+Chr(34)
+		    FindCmd = FindCmd + " -o -name "+Chr(34)+"ppGame.ppg"+Chr(34)
+		    FindCmd = FindCmd + " -o -name "+Chr(34)+"LLApp.lla"+Chr(34)
+		    FindCmd = FindCmd + " -o -name "+Chr(34)+"LLGame.llg"+Chr(34)
+		    FindCmd = FindCmd + " \) 2>/dev/null"
+		    
+		    If Debugging Then Debug ("Combined find command: "+FindCmd)
+		    
+		    Notification.Status.Text = "Scanning for items..."
+		    Notification.Refresh
+		    
+		    Sh.Execute (FindCmd)
 		    While Sh.IsRunning
 		      App.DoEvents(20)
 		    Wend
+		    
 		    Sp = Sh.Result.Split(EndOfLine)
-		    If Sp.Count >=1 Then
-		      For I = 0 To Sp.Count -1
-		        Sp(I) = Sp(I).Trim
-		        If Sp(I).Trim <> "" Then
-		          Suc = LoadLLFile(Sp(I).Trim, "", False, True) 'The 2nd True makes it skip loading the Icons etc, only gets the details
-		          If Suc Then ' Only do for valid items
-		            InstallFromPath = GetFullParent(Sp(I).Trim) 'Removes .lla .app etc file ' just keep path
-		            InstallToPath = InstallFromPath
+		    
+		    Dim TotalItems As Integer = 0
+		    Dim DoneItems As Integer = 0
+		    'Count valid items first for progress display
+		    For I = 0 To Sp.Count - 1
+		      If Sp(I).Trim <> "" Then TotalItems = TotalItems + 1
+		    Next I
+		    
+		    If Debugging Then Debug ("Found "+TotalItems.ToString+" items to regenerate")
+		    
+		    'Initialise combined Wine bat - Scripts and Registry from all items are accumulated
+		    'into a single .bat then Wine is launched once at the end instead of once per item.
+		    CombinedWineBat = "@echo off" + Chr(13) + Chr(10)
+		    BuildingCombinedBat = True
+		    CombinedWineRegIdx = 0
+		    
+		    For I = 0 To Sp.Count - 1
+		      Sp(I) = Sp(I).Trim
+		      If Sp(I).Trim <> "" Then
+		        DoneItems = DoneItems + 1
+		        
+		        'Split filename for type check
+		        Dim ItemParts() As String = Sp(I).Trim.Split("/")
+		        Dim ItemName As String = ItemParts(ItemParts.LastIndex)
+		        
+		        'Update notification and reset timer so it doesn't auto-hide during a long regen
+		        Notification.Status.Text = "("+DoneItems.ToString+"/"+TotalItems.ToString+") Loading: "+Chr(10)+Sp(I).Trim
+		        Notification.NotifyTimeOut.Reset
+		        Notification.Refresh
+		        App.DoEvents(1)
+		        
+		        Suc = LoadLLFile(Sp(I).Trim, "", False, True) 'True skips loading icons/screenshots, only gets details
+		        If Suc Then ' Only process valid items
+		          InstallFromPath = GetFullParent(Sp(I).Trim) 'Removes .lla .app etc file, just keep path
+		          InstallToPath = InstallFromPath
+		          
+		          Suc = ChDirSet(InstallFromPath) 'Change to item path
+		          If Suc Then
 		            
-		            Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
-		            If Suc Then ' Only do if in right path
-		              RunScripts 'Run Script File from the path (Expanded variables)
-		              RunRegistry'Run The Reg File from the path (Expanded variables)
-		              
-		              'Make Links
-		              MakeLinks
-		              
+		            Dim TitleDisplay As String
+		            If ItemLLItem.TitleName.Trim <> "" Then
+		              TitleDisplay = ItemLLItem.TitleName.Trim
+		            Else
+		              TitleDisplay = ItemName
 		            End If
+		            
+		            'Update loading line now we have the title
+		            Notification.Status.Text = "("+DoneItems.ToString+"/"+TotalItems.ToString+") "+TitleDisplay
+		            Notification.Refresh
+		            App.DoEvents(1)
+		            
+		            Dim WineLabel As String
+		            If ItemLLItem.BuildType = "ssApp" And TargetLinux Then WineLabel = " (Wine)" Else WineLabel = ""
+		            Notification.Status.Text = "("+DoneItems.ToString+"/"+TotalItems.ToString+") Scripts"+WineLabel+": "+Chr(10)+TitleDisplay
+		            Notification.NotifyTimeOut.Reset
+		            Notification.Refresh
+		            App.DoEvents(1)
+		            RunScripts
+		            
+		            'LLApp and LLGame types do not use registry - matches original behaviour
+		            If Not (ItemName = "LLApp.lla" Or ItemName = "LLGame.llg") Then
+		              Notification.Status.Text = "("+DoneItems.ToString+"/"+TotalItems.ToString+") Registry"+WineLabel+": "+Chr(10)+TitleDisplay
+		              Notification.NotifyTimeOut.Reset
+		              Notification.Refresh
+		              App.DoEvents(1)
+		              RunRegistry
+		            End If
+		            
+		            Notification.Status.Text = "("+DoneItems.ToString+"/"+TotalItems.ToString+") Links: "+Chr(10)+TitleDisplay
+		            Notification.NotifyTimeOut.Reset
+		            Notification.Refresh
+		            App.DoEvents(1)
+		            MakeLinks
+		            
 		          End If
 		        End If
-		      Next I
-		      'Update Linux .desktop Links Database
-		      If TargetLinux Then ShellFast.Execute ("update-desktop-database ~/.local/share/applications")
+		        
+		        App.DoEvents(1) 'Keep UI responsive between items
+		      End If
+		    Next I
+		    
+		    'All items processed - now run Wine once with the combined bat
+		    BuildingCombinedBat = False
+		    If CombinedWineBat <> "@echo off" + Chr(13) + Chr(10) Then
+		      Dim CombinedBatPath As String = TmpPath + "regen_combined.bat"
+		      SaveDataToFile(CombinedWineBat, CombinedBatPath)
+		      If Debugging Then Debug ("Running combined Wine bat: " + CombinedBatPath)
+		      Notification.Status.Text = "Running Wine (scripts + registry)..."
+		      Notification.NotifyTimeOut.Reset
+		      Notification.Refresh
+		      App.DoEvents(1)
+		      Dim WineSh As New Shell
+		      WineSh.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		      WineSh.TimeOut = -1
+		      Dim WineBatWinePath As String = "z:" + CombinedBatPath.ReplaceAll("/", Chr(92))
+		      WineSh.Execute("wine cmd.exe /c " + Chr(34) + WineBatWinePath + Chr(34))
+		      While WineSh.IsRunning
+		        App.DoEvents(20)
+		      Wend
+		      If Debugging Then Debug ("Combined Wine bat result: " + WineSh.ReadAll)
+		      'Clean up temp reg files and combined bat
+		      ShellFast.Execute("bash -c 'rm -f " + Chr(34) + TmpPath + "bat_reg_*.reg" + Chr(34) + " " + Chr(34) + CombinedBatPath + Chr(34) + "'")
 		    End If
 		    
-		    ScanPath = HomePath +  "/.wine/drive_c/Program Files"
-		    
-		    If Debugging Then Debug ("Check for ssApp.app files in: "+ScanPath)
-		    
-		    Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"ssApp.app"+Chr(34))
-		    While Sh.IsRunning
-		      App.DoEvents(20)
-		    Wend
-		    Sp = Sh.Result.Split(EndOfLine)
-		    If Sp.Count >=1 Then
-		      For I = 0 To Sp.Count -1
-		        Sp(I) = Sp(I).Trim
-		        If Sp(I).Trim <> "" Then
-		          Suc = LoadLLFile(Sp(I).Trim, "", False, True) 'The 2nd True makes it skip loading the Icons etc, only gets the details
-		          If Suc Then ' Only do for valid items
-		            InstallFromPath = GetFullParent(Sp(I).Trim) 'Removes .lla .app etc file ' just keep path
-		            InstallToPath = InstallFromPath
-		            
-		            Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
-		            If Suc Then ' Only do if in right path
-		              RunScripts 'Run Script File from the path (Expanded variables)
-		              RunRegistry'Run The Reg File from the path (Expanded variables)
-		              
-		              'Make Links
-		              MakeLinks
-		              
-		            End If
-		          End If
-		        End If
-		      Next I
-		      'Update Linux .desktop Links Database
-		      If TargetLinux Then ShellFast.Execute ("update-desktop-database ~/.local/share/applications")
-		    End If
-		    
-		    
-		    
-		    
-		    ScanPath = ppApps
-		    
-		    If Debugging Then Debug ("Check for ppApp.app files in: "+ScanPath)
-		    
-		    Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"ppApp.app"+Chr(34))
-		    While Sh.IsRunning
-		      App.DoEvents(20)
-		    Wend
-		    Sp = Sh.Result.Split(EndOfLine)
-		    If Sp.Count >=1 Then
-		      For I = 0 To Sp.Count -1
-		        Sp(I) = Sp(I).Trim
-		        If Sp(I).Trim <> "" Then
-		          Suc = LoadLLFile(Sp(I).Trim, "", False, True) 'The 2nd True makes it skip loading the Icons etc, only gets the details
-		          If Suc Then ' Only do for valid items
-		            InstallFromPath = GetFullParent(Sp(I).Trim) 'Removes .lla .app etc file ' just keep path
-		            InstallToPath = InstallFromPath
-		            
-		            Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
-		            If Suc Then ' Only do if in right path
-		              RunScripts 'Run Script File from the path (Expanded variables)
-		              RunRegistry'Run The Reg File from the path (Expanded variables)
-		              
-		              'Make Links
-		              MakeLinks
-		            End If
-		          End If
-		        End If
-		      Next I
-		      'Update Linux .desktop Links Database
-		      If TargetLinux Then ShellFast.Execute ("update-desktop-database ~/.local/share/applications")
-		    End If
-		    
-		    ScanPath = ppGames
-		    
-		    If Debugging Then Debug ("Check for ppGame.ppg files in: "+ScanPath)
-		    
-		    Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"ppGame.ppg"+Chr(34))
-		    While Sh.IsRunning
-		      App.DoEvents(20)
-		    Wend
-		    Sp = Sh.Result.Split(EndOfLine)
-		    If Sp.Count >=1 Then
-		      For I = 0 To Sp.Count -1
-		        Sp(I) = Sp(I).Trim
-		        If Sp(I).Trim <> "" Then
-		          Suc = LoadLLFile(Sp(I).Trim, "", False, True) 'The 2nd True makes it skip loading the Icons etc, only gets the details
-		          If Suc Then ' Only do for valid items
-		            InstallFromPath = GetFullParent(Sp(I).Trim) 'Removes .lla .app etc file ' just keep path
-		            InstallToPath = InstallFromPath
-		            
-		            Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
-		            If Suc Then ' Only do if in right path
-		              RunScripts 'Run Script File from the path (Expanded variables)
-		              RunRegistry'Run The Reg File from the path (Expanded variables)
-		              
-		              'Make Links
-		              MakeLinks
-		              
-		            End If
-		          End If
-		        End If
-		      Next I
-		      'Update Linux .desktop Links Database
-		      If TargetLinux Then ShellFast.Execute ("update-desktop-database ~/.local/share/applications")
-		    End If
-		    
-		    
-		    ScanPath = Slash(HomePath)+"LLApps"
-		    
-		    If Debugging Then Debug ("Check for LLApp.lla files in: "+ScanPath)
-		    
-		    Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"LLApp.lla"+Chr(34))
-		    While Sh.IsRunning
-		      App.DoEvents(20)
-		    Wend
-		    Sp = Sh.Result.Split(EndOfLine)
-		    If Sp.Count >=1 Then
-		      For I = 0 To Sp.Count -1
-		        Sp(I) = Sp(I).Trim
-		        If Sp(I).Trim <> "" Then
-		          Suc = LoadLLFile(Sp(I).Trim, "", False, True) 'The 2nd True makes it skip loading the Icons etc, only gets the details
-		          If Suc Then ' Only do for valid items
-		            InstallFromPath = GetFullParent(Sp(I).Trim) 'Removes .lla .app etc file ' just keep path
-		            InstallToPath = InstallFromPath
-		            
-		            Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
-		            If Suc Then ' Only do if in right path
-		              RunScripts 'Run Script File from the path (Expanded variables)
-		              '''''RunRegistry'Run The Reg File from the path (Expanded variables)
-		              
-		              'Make Links
-		              MakeLinks
-		              
-		            End If
-		          End If
-		        End If
-		      Next I
-		      'Update Linux .desktop Links Database
-		      If TargetLinux Then ShellFast.Execute ("update-desktop-database ~/.local/share/applications")
-		    End If
-		    
-		    
-		    ScanPath = Slash(HomePath)+"LLGames"
-		    
-		    If Debugging Then Debug ("Check for LLGame.llg files in: "+ScanPath)
-		    
-		    Sh.Execute ("find "+Chr(34)+ScanPath+Chr(34)+" -type f -name "+Chr(34)+"LLGame.llg"+Chr(34))
-		    While Sh.IsRunning
-		      App.DoEvents(20)
-		    Wend
-		    Sp = Sh.Result.Split(EndOfLine)
-		    If Sp.Count >=1 Then
-		      For I = 0 To Sp.Count -1
-		        Sp(I) = Sp(I).Trim
-		        If Sp(I).Trim <> "" Then
-		          Suc = LoadLLFile(Sp(I).Trim, "", False, True) 'The 2nd True makes it skip loading the Icons etc, only gets the details
-		          If Suc Then ' Only do for valid items
-		            InstallFromPath = GetFullParent(Sp(I).Trim) 'Removes .lla .app etc file ' just keep path
-		            InstallToPath = InstallFromPath
-		            
-		            Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
-		            If Suc Then ' Only do if in right path
-		              RunScripts 'Run Script File from the path (Expanded variables)
-		              '''''RunRegistry'Run The Reg File from the path (Expanded variables)
-		              
-		              'Make Links
-		              MakeLinks
-		              
-		            End If
-		          End If
-		        End If
-		      Next I
-		      'Update Linux .desktop Links Database
-		      If TargetLinux Then ShellFast.Execute ("update-desktop-database ~/.local/share/applications")
-		    End If
-		    
+		    'Restore main window - only when triggered from GUI, not command line
+		    Notification.Hide
+		    If Loading.Regenerate = False Then Main.Show
 		    
 		  End If
+		  
+		  'Single refresh at the end covers all groups — backgrounded so it does not block completion
+		  If TargetLinux Then ShellFast.Execute ("bash -c 'update-desktop-database ~/.local/share/applications > /dev/null 2>&1 &'")
 		  
 		  'Enable Them Again
 		  EnableButtons()
