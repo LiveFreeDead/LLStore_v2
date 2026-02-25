@@ -353,7 +353,6 @@ Protected Module LLMod
 		      Deltree(Slash(TmpPath)+"items")
 		      Deltree(DebugFileName) 'Delete the Log file from Temp, will be copied out by now
 		      Deltree(TmpPath) 'Remove this instance's UUID temp folder on exit
-		      If TargetLinux Then Deltree("/tmp/LLDesktopEnv.ini") 'Don't leave things behind
 		    End If
 		  End If
 		End Sub
@@ -1281,6 +1280,7 @@ Protected Module LLMod
 		      PathIn = PathIn.ReplaceAll("%AppData%", "C:/users/"+UserName+"/AppData/Roaming")
 		      
 		    Else 'Linux Path, not windows paths for scripts to use
+		      PathIn = PathIn.ReplaceAll("%ToolPath%", NoSlash(ToolPath)) 'LLStore Tools folder - resolves to wherever LLStore is running from (USB or installed)
 		      PathIn = PathIn.ReplaceAll("%AppPath%", ItemLLItem.PathApp)
 		      PathIn = PathIn.ReplaceAll("%ppGames%", NoSlash(ppGames))
 		      PathIn = PathIn.ReplaceAll("%ppApps%", NoSlash(ppApps))
@@ -1492,6 +1492,40 @@ Protected Module LLMod
 		  RL = RL.ReplaceAll(Chr(13), Chr(10))
 		  Sp()=RL.Split(Chr(10))
 		  If Sp.Count <= 0 Then Return OrigScript ' Empty File or no header
+		  
+		  'Inject LLScript_Core source into .sh scripts that don't already have it.
+		  'This gives old LLApp/LLGame scripts updated DE detection (reads LLDesktopEnv.ini)
+		  'and exports XDG_SESSION_DESKTOP so old case statements work correctly under sudo.
+		  'Note: old scripts that define inst() inline will still override the core inst()
+		  'below the injection point - this is expected and safe, their inst() still works.
+		  If Right(OrigScript, 3) = ".sh" And Not TargetWindows Then
+		    If InStr(RL, "LLScript_Core") = 0 Then 'Only inject if not already sourcing the core
+		      '%ToolPath% is resolved by ExpPathScript (called per-line below) to wherever LLStore
+		      'is currently running from - USB or installed. The /LastOS/LLStore/ path is the
+		      'fallback for when LLStore is installed and ToolPath matches it anyway, but it also
+		      'covers edge cases where the core file exists installed but ToolPath pointed elsewhere.
+		      Dim CoreName As String
+		      If MakeSudo Then
+		        CoreName = "LLScript_Sudo_Core.sh"
+		      Else
+		        CoreName = "LLScript_Core.sh"
+		      End If
+		      Dim Q As String = Chr(34)
+		      'Try /LastOS/LLStore/Tools/ first - stable installed path, works when user runs script manually.
+		      'Fall back to %ToolPath%/ (USB/portable path resolved at install time) if not installed.
+		      Dim CoreSourceLine As String = "if [ -f "+Q+"%ToolPath%/"+CoreName+Q+" ]; then source "+Q+"%ToolPath%/"+CoreName+Q+"; elif [ -f "+Q+"/LastOS/LLStore/Tools/"+CoreName+Q+" ]; then source "+Q+"/LastOS/LLStore/Tools/"+CoreName+Q+"; fi #LLCore"
+		      'Insert at index 1 (after shebang) so it runs before any other script content.
+		      'The cd injection at I=1 means the actual execution order is: shebang, cd, source.
+		      Dim NewSp() As String
+		      NewSp.Add(Sp(0)) 'Keep shebang as first line
+		      NewSp.Add(CoreSourceLine) 'Source the core immediately after shebang
+		      For Idx As Integer = 1 To Sp.Count - 1
+		        NewSp.Add(Sp(Idx))
+		      Next Idx
+		      Sp = NewSp
+		    End If
+		  End If
+		  
 		  For I = 0 To Sp().Count -1
 		    If InstallToPath <> "" Then 'Only add CD if it's a valid path given ' We use InstallToPath even on NoInstalls as I set that path to be InstallFromPath.
 		      If I = 1 Then
@@ -2170,8 +2204,8 @@ Protected Module LLMod
 		  Notification.Refresh(True)
 		  App.DoEvents(30)
 		  
-		  ' Check for Nonething and set NoInstall if so
-		  If ItemLLItem.PathApp.IndexOf("Nonething") >= 0 Then ItemLLItem.NoInstall = True
+		  ' No PathApp or Nonething = NoInstall (scripts only, nothing to extract/copy)
+		  If ItemLLItem.PathApp.Trim = "" Or ItemLLItem.PathApp.IndexOf("Nonething") >= 0 Then ItemLLItem.NoInstall = True
 		  
 		  ' Make sure Sudo is available during install
 		  Select Case ItemLLItem.BuildType
@@ -2909,8 +2943,8 @@ Protected Module LLMod
 		  
 		  MakeFolder(Slash(HomePath)+".local/share/applications")
 		  
-		  'Check for Nonething and set to InstallOnly if so: Nonething is a special case used by ssApps mostly.
-		  If ItemLLItem.PathApp.IndexOf("Nonething") >=0 Then ItemLLItem.NoInstall = True 'This will not use a folder on the computer to install the item to.
+		  'Check for Nonething or empty PathApp and set NoInstall: no destination path means scripts-only run.
+		  If ItemLLItem.PathApp.Trim = "" Or ItemLLItem.PathApp.IndexOf("Nonething") >= 0 Then ItemLLItem.NoInstall = True 'This will not use a folder on the computer to install the item to.
 		  
 		  
 		  'Make sure Sudo is available during ANY install (if not required for instaling one item then can skip it)
@@ -6776,20 +6810,20 @@ Protected Module LLMod
 		  Sh.TimeOut = 5000
 		  
 		  ' Capture all relevant desktop environment variables
-		  Sh.Execute("printenv | grep -E '^XDG_SESSION_DESKTOP=|^XDG_CURRENT_DESKTOP=|^DESKTOP_SESSION=|^GDMSESSION=' > /tmp/LLDesktopEnv.ini")
+		  Sh.Execute("mkdir -p "+Chr(34)+Slash(HomePath)+"zLastOSRepository"+Chr(34)+" && printenv | grep -E '^XDG_SESSION_DESKTOP=|^XDG_CURRENT_DESKTOP=|^DESKTOP_SESSION=|^GDMSESSION=' > "+Chr(34)+Slash(HomePath)+"zLastOSRepository/LLDesktopEnv.ini"+Chr(34))
 		  
 		  ' Fallback: if file is empty or doesn't exist, try to get at least one variable
-		  If Not Exist("/tmp/LLDesktopEnv.ini") Or LoadDataFromFile("/tmp/LLDesktopEnv.ini").Trim = "" Then
+		  If Not Exist(Slash(HomePath)+"zLastOSRepository/LLDesktopEnv.ini") Or LoadDataFromFile(Slash(HomePath)+"zLastOSRepository/LLDesktopEnv.ini").Trim = "" Then
 		    ' Build environment file with explicit variable expansion
-		    Sh.Execute("echo ""XDG_SESSION_DESKTOP=$XDG_SESSION_DESKTOP"" > /tmp/LLDesktopEnv.ini")
-		    Sh.Execute("echo ""XDG_CURRENT_DESKTOP=$XDG_CURRENT_DESKTOP"" >> /tmp/LLDesktopEnv.ini")
-		    Sh.Execute("echo ""DESKTOP_SESSION=$DESKTOP_SESSION"" >> /tmp/LLDesktopEnv.ini")
-		    Sh.Execute("echo ""GDMSESSION=$GDMSESSION"" >> /tmp/LLDesktopEnv.ini")
+		    Sh.Execute("echo ""XDG_SESSION_DESKTOP=$XDG_SESSION_DESKTOP"" > "+Chr(34)+Slash(HomePath)+"zLastOSRepository/LLDesktopEnv.ini"+Chr(34))
+		    Sh.Execute("echo ""XDG_CURRENT_DESKTOP=$XDG_CURRENT_DESKTOP"" >> "+Chr(34)+Slash(HomePath)+"zLastOSRepository/LLDesktopEnv.ini"+Chr(34))
+		    Sh.Execute("echo ""DESKTOP_SESSION=$DESKTOP_SESSION"" >> "+Chr(34)+Slash(HomePath)+"zLastOSRepository/LLDesktopEnv.ini"+Chr(34))
+		    Sh.Execute("echo ""GDMSESSION=$GDMSESSION"" >> "+Chr(34)+Slash(HomePath)+"zLastOSRepository/LLDesktopEnv.ini"+Chr(34))
 		  End If
 		  
 		  'If Debugging Then
-		  'If Exist("/tmp/LLDesktopEnv.ini") Then
-		  'EnvData = LoadDataFromFile("/tmp/LLDesktopEnv.ini")
+		  'If Exist(Slash(HomePath)+"zLastOSRepository/LLDesktopEnv.ini") Then
+		  'EnvData = LoadDataFromFile(Slash(HomePath)+"zLastOSRepository/LLDesktopEnv.ini")
 		  'Debug("Saved Desktop Environment: " + Chr(10) + EnvData)
 		  'Else
 		  'Debug("Warning: Could not save desktop environment")
