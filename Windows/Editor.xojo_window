@@ -5189,6 +5189,22 @@ End
 		  
 		  GlobalCompressedFileOut = "" 'Clear last build name
 		  
+		  ' Note: Notification.StartBuild() and window hiding are done by PrepareToBuild()
+		  ' which is called BEFORE BuildTimer fires this method, so the notification is
+		  ' already visible and painted before any compression work begins here.
+		  ' BT icon was resolved in PrepareToBuild() — keep a local copy for FinishBuild.
+		  Dim BuildIconFile As String = ""
+		  Dim IconCandidates(2) As String
+		  IconCandidates(0) = Slash(TextIncludeFolder.Text) + BT + ".png"
+		  IconCandidates(1) = Slash(TextBuildToFolder.Text) + BT + ".png"
+		  IconCandidates(2) = Slash(AppPath) + BT + ".png"
+		  For Each ic As String In IconCandidates
+		    If ic <> "" And Exist(ic) Then
+		      BuildIconFile = ic
+		      Exit
+		    End If
+		  Next
+		  
 		  'DISABLE setting Dekstop or HOME as BuildTo folders as it does a clean up of the files, which deletes everything off the desktop etc, BAD!
 		  Dim BuildTo As String
 		  Dim FailBuild As Boolean = False
@@ -5205,10 +5221,11 @@ End
 		  If FailBuild = True Then
 		    Status.Text = "Failed to Build LLFile"
 		    If Debugging Then Debug ("Built Failed! Output path: " + BuildTo)
-		    If Not AutoBuild Then MsgBox "Failed to Build LLFile: BuildPath is important folder (change it)"+ Chr(13)+BuildTo
+		    Notification.FinishBuild(False, BuildIconFile)
 		    Return
 		  End If
 		  
+		  Notification.UpdateBuildStatus("Saving LLFile...")
 		  Success = SaveLLFileComplete 'This also updates Compressed Item resources
 		  
 		  If Success = True Then 'Check if saved correctly and build only if required (May need for 7z if can't just update them like the tar files
@@ -5222,6 +5239,7 @@ End
 		      OutFolder = Slash(TextBuildToFolder.Text)
 		      If Exist (OutFolder+"Patch") Then
 		        Status.Text =  "Compressing Patch..."
+		        Notification.UpdateBuildStatus("Compressing Patch...")
 		        SevenZip = Linux7z
 		        If TargetWindows Then SevenZip = Win7z
 		        Commands = SevenZip +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFolder+"Patch.7z"+Chr(34)+" "+Chr(34)+Slash(OutFolder+"Patch")+"*"+Chr(34)  ' -m0=lzma2 -mx=2  Faster but less compressed
@@ -5248,6 +5266,7 @@ End
 		              If Not Exist(InFile) Then 'If doesn't have the compressed file make it still
 		                If ItemLLItem.NoInstall = False Then 
 		                  Status.Text =  "Compressing Files..."
+		                  Notification.UpdateBuildStatus("Compressing Files...")
 		                  'Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"--exclude=*.jpg "+ "--exclude=*.png "+"--exclude=*.mp4 "+"--exclude=*.svg "+"--exclude=*.ico "+"-czf "+Chr(34)+OutFile+Chr(34)+" *"
 		                  Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"-czf "+Chr(34)+OutFile+Chr(34)+" *" 'Can NOT exclude all png's etc, it leaves them missing from the sub folders too, they may be needed
 		                  Sh.Execute (Commands)
@@ -5268,6 +5287,7 @@ End
 		            If Not Exist(InFile) Then 'If doesn't have the compressed file make it still
 		              If  ItemLLItem.NoInstall = False Then 
 		                Status.Text =  "Compressing Files..."
+		                Notification.UpdateBuildStatus("Compressing Files...")
 		                'Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"--exclude=*.jpg "+ "--exclude=*.png "+"--exclude=*.mp4 "+"--exclude=*.svg "+"--exclude=*.ico "+"-czf "+Chr(34)+OutFile+Chr(34)+" *"
 		                Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"-czf "+Chr(34)+OutFile+Chr(34)+" *"
 		                Sh.Execute (Commands)
@@ -5295,25 +5315,38 @@ End
 		                F = GetFolderItem(OutFolder, FolderItem.PathTypeNative)
 		                If F <> Nil Then
 		                  FC = F.Count
-		                  For I = FC To 1 Step -1 'Do backwards so it doesn't remove them and make the folder count less/reordered and skip removing some of them
-		                    If Debugging Then Debug("Testing If Deletion "+I.ToString+"/"+FC.ToString+": "+F.Item(I).NativePath)
-		                    Status.Text =  "Clean Up Files..."
-		                    'May also need to check for patch folder/files and other stuff like Files with same name as title (Like pics for multi shortcut items) Glenn
-		                    If Left(F.Item(I).Name, 5) = Left(BT, 5) Or Left(F.Item(I).Name, 5) = "LLScr" Or Left(F.Item(I).Name, 8) = "Patch.7z"  Then 'Keep
-		                    Else 'Not a LLFile type or a script
-		                      If Right(F.Item(I).Name, 4) <> ".jpg" Then 'If the file to delete isn't a picture, movie etc then it gets deleted, else it gets kept
-		                        If Right(F.Item(I).Name, 4) <> ".mp4" Then
-		                          If Right(F.Item(I).Name, 4) <> ".png" Then
-		                            If Right(F.Item(I).Name, 4) <> ".svg" Then
-		                              If Right(F.Item(I).Name, 4) <> ".ico" Then
-		                                Deltree (F.Item(I).NativePath)
-		                              End If
-		                            End If
-		                          End If
-		                        End If
+		                  Status.Text = "Clean Up Files..."
+		                  Notification.UpdateBuildStatus("Cleaning Up Files...")
+		                  ' Collect all paths to delete.
+		                  ' Windows: build per-file rmdir/del lines (for %f is silently ignored inside .cmd files).
+		                  ' Linux: build a single rm -rf with space-separated quoted paths.
+		                  Dim WinCmds As String = ""
+		                  Dim LinuxPaths As String = ""
+		                  For I = 1 To FC
+		                    If Left(F.Item(I).Name, 5) = Left(BT, 5) Or Left(F.Item(I).Name, 5) = "LLScr" Or Left(F.Item(I).Name, 8) = "Patch.7z" Then 'Keep
+		                    Else
+		                      If Right(F.Item(I).Name, 4) <> ".jpg" And Right(F.Item(I).Name, 4) <> ".mp4" And _
+		                         Right(F.Item(I).Name, 4) <> ".png" And Right(F.Item(I).Name, 4) <> ".svg" And _
+		                         Right(F.Item(I).Name, 4) <> ".ico" Then
+		                        WinCmds = WinCmds + "rmdir /q /s " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
+		                        WinCmds = WinCmds + "del /f /q " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
+		                        LinuxPaths = LinuxPaths + Chr(34) + F.Item(I).NativePath + Chr(34) + " "
 		                      End If
 		                    End If
 		                  Next
+		                  If TargetWindows Then
+		                    If WinCmds.Trim <> "" Then RunCommand(WinCmds)
+		                    ' .lnk files: Xojo resolves shortcuts on Windows so NativePath points to the target, not
+		                    ' the .lnk itself. Use a wildcard del to catch them directly by path construction instead.
+		                    RunCommand("del /f /q " + Chr(34) + NoSlash(OutFolder) + "\*.lnk" + Chr(34))
+		                  Else
+		                    If LinuxPaths.Trim <> "" Then
+		                      Sh.Execute("rm -rf " + LinuxPaths)
+		                      While Sh.IsRunning
+		                        App.DoEvents(20)
+		                      Wend
+		                    End If
+		                  End If
 		                End If
 		              End If
 		            End If
@@ -5351,6 +5384,7 @@ End
 		          
 		          Commands = "cd "+Chr(34)+OutFolder+Chr(34)+" && tar -cf " +Chr(34)+CompressedFileOut+Chr(34)+" *"
 		          Status.Text =  "Compressing to " + CompressedFileOut
+		          Notification.UpdateBuildStatus("Compressing Archive...")
 		          If Debugging Then Debug("Compressing to file: "+CompressedFileOut)
 		          Sh.Execute (Commands)
 		          While Sh.IsRunning
@@ -5403,7 +5437,7 @@ End
 		              If Not Exist(InFile) Then 'If doesn't have the compressed file make it still
 		                If BT <> "ssApp" Then 'ssApp is Windows NoInstall
 		                  Status.Text =  "Compressing Files..."
-		                  Status.Text =  "Compressing to " + CompressedFileOut
+		                  Notification.UpdateBuildStatus("Compressing Files...")
 		                  Commands = Win7z +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+Chr(34)+InFolder+"*"+Chr(34)+" -x!"+BT+".*" ' -m0=lzma2 -mx=2  Faster but less compressed
 		                  If Debugging Then Debug (Commands)
 		                  Res = RunCommandResults(Commands)
@@ -5424,6 +5458,7 @@ End
 		            If Not Exist(InFile) Then 'If doesn't have the compressed file make it still
 		              If ItemLLItem.NoInstall = False Then 
 		                Status.Text =  "Compressing Files..."
+		                Notification.UpdateBuildStatus("Compressing Files...")
 		                'Commands = Win7z +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+InFolder+"* "+"-x!"+BT+".* "+"-x!"+"*.jpg "+"-x!"+"*.png "+"-x!"+"*.mp4 "+"-x!"+"*.svg "+"-x!"+"*.ico" ' -m0=lzma2 -mx=2  Faster but less compressed
 		                Commands = Win7z +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+Chr(34)+InFolder+"*"+Chr(34)+" -x!"+BT+".* " ' -m0=lzma2 -mx=2  Faster but less compressed
 		                If Debugging Then Debug (Commands)
@@ -5452,25 +5487,38 @@ End
 		                F = GetFolderItem(OutFolder, FolderItem.PathTypeNative)
 		                If F <> Nil Then
 		                  FC = F.Count
-		                  For I = FC To 1 Step -1 'Do backwards so it doesn't remove them and make the folder count less/reordered and skip removing some of them
-		                    If Debugging Then Debug("Testing If Deletion "+I.ToString+"/"+FC.ToString+": "+F.Item(I).NativePath)
-		                    Status.Text =  "Clean Up Files..."
-		                    'May also need to check for patch folder/files and other stuff like Files with same name as title (Like pics for multi shortcut items) Glenn
-		                    If Left(F.Item(I).Name, 5) = Left(BT, 5) Then
-		                    Else 'Not a LLFile type or a script
-		                      If Right(F.Item(I).Name, 4) <> ".jpg" Then 'If the file to delete isn't a picture, movie etc then it gets deleted, else it gets kept
-		                        If Right(F.Item(I).Name, 4) <> ".mp4" Then
-		                          If Right(F.Item(I).Name, 4) <> ".png" Then
-		                            If Right(F.Item(I).Name, 4) <> ".svg" Then
-		                              If Right(F.Item(I).Name, 4) <> ".ico" Then
-		                                Deltree (F.Item(I).NativePath)
-		                              End If
-		                            End If
-		                          End If
-		                        End If
+		                  Status.Text = "Clean Up Files..."
+		                  Notification.UpdateBuildStatus("Cleaning Up Files...")
+		                  ' Collect all paths to delete.
+		                  ' Windows: build per-file rmdir/del lines (for %f is silently ignored inside .cmd files).
+		                  ' Linux: build a single rm -rf with space-separated quoted paths.
+		                  Dim WinCmds As String = ""
+		                  Dim LinuxPaths As String = ""
+		                  For I = 1 To FC
+		                    If Left(F.Item(I).Name, 5) = Left(BT, 5) Then 'Keep
+		                    Else
+		                      If Right(F.Item(I).Name, 4) <> ".jpg" And Right(F.Item(I).Name, 4) <> ".mp4" And _
+		                         Right(F.Item(I).Name, 4) <> ".png" And Right(F.Item(I).Name, 4) <> ".svg" And _
+		                         Right(F.Item(I).Name, 4) <> ".ico" Then
+		                        WinCmds = WinCmds + "rmdir /q /s " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
+		                        WinCmds = WinCmds + "del /f /q " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
+		                        LinuxPaths = LinuxPaths + Chr(34) + F.Item(I).NativePath + Chr(34) + " "
 		                      End If
 		                    End If
 		                  Next
+		                  If TargetWindows Then
+		                    If WinCmds.Trim <> "" Then RunCommand(WinCmds)
+		                    ' .lnk files: Xojo resolves shortcuts on Windows so NativePath points to the target, not
+		                    ' the .lnk itself. Use a wildcard del to catch them directly by path construction instead.
+		                    RunCommand("del /f /q " + Chr(34) + NoSlash(OutFolder) + "\*.lnk" + Chr(34))
+		                  Else
+		                    If LinuxPaths.Trim <> "" Then
+		                      Sh.Execute("rm -rf " + LinuxPaths)
+		                      While Sh.IsRunning
+		                        App.DoEvents(20)
+		                      Wend
+		                    End If
+		                  End If
 		                End If
 		              End If
 		            End If
@@ -5483,6 +5531,7 @@ End
 		        'Update INI with compress size
 		        If CheckGetSizeComp.Value = True Then
 		          If Exist (OutFile) Then
+		            Notification.UpdateBuildStatus("Getting Compressed Size...")
 		            TextInstalledSize.Text = GetUnCompressedSize(OutFile) 'ZippedOut
 		            '''''MsgBox GetUnCompressedSize (OutFile)
 		            
@@ -5524,6 +5573,7 @@ End
 		          End If
 		          
 		          Status.Text =  "Compressing to " + CompressedFileOut
+		          Notification.UpdateBuildStatus("Compressing Final Archive...")
 		          
 		          Commands = Win7z +" a -mx0 "+Chr(34)+CompressedFileOut+Chr(34)+" "+Chr(34)+InputFolder+"*"+Chr(34) '-mx0 is store
 		          If Debugging Then Debug (Commands)
@@ -5540,11 +5590,11 @@ End
 		    End If
 		    Status.Text = "Built Successfully"
 		    If Debugging Then Debug ("Built Successfully")
-		    If Not AutoBuild Then MsgBox "Built Successfully"
+		    Notification.FinishBuild(True, BuildIconFile)
 		  Else
 		    Status.Text = "Failed to Build LLFile"
 		    If Debugging Then Debug ("Built Failed")
-		    If Not AutoBuild Then MsgBox "Failed to Build LLFile"
+		    Notification.FinishBuild(False, BuildIconFile)
 		  End If
 		  
 		  
@@ -6341,16 +6391,20 @@ End
 #tag Events ButtonBuild
 	#tag Event
 		Sub Pressed()
-		  BuildLLFile()
+		  ' Show the Notification FIRST while this process is still the foreground window.
+		  ' On Windows, showing a window while you are already foreground is guaranteed to work.
+		  ' Hiding the Editor AFTER means the notification is already painted before the
+		  ' Editor disappears — Windows won't silently send focus elsewhere mid-show.
+		  PrepareToBuild()
 		  
-		  'Quit after Building (If the Include Folder gets compressed then it needs to reopen the compressed file for editing, so best just quit if built, But I can change it to re-open the built item if I so wanted.
-		  If EditorOnly Then
-		    PreQuitApp ' Save Debug etc
-		    QuitApp 'Done installing, exit app, no need to continue
-		  Else
-		    Editor.Hide
-		    Editor.Close
+		  ' Now hide the GUI windows
+		  Editor.Hide
+		  If Not AutoBuild Then
+		    If Main.Visible Then Main.Hide
 		  End If
+		  
+		  ' Arm the timer and return — BuildTimer.Action handles BuildLLFile() + close
+		  Loading.BuildTimer.RunMode = Timer.RunModes.Single
 		End Sub
 	#tag EndEvent
 #tag EndEvents

@@ -2600,7 +2600,7 @@ Protected Module LLMod
 		  ' submenu automatically. Nautilus passes paths via env variable.
 		  ' =====================================================================
 		  If RunCommandResults("which nautilus 2>/dev/null").Trim <> "" _
-		  Or DE = "gnome" Or DE = "ubuntu" Or DE = "budgie-desktop" Or DE = "zorin" Then
+		    Or DE = "gnome" Or DE = "ubuntu" Or DE = "budgie-desktop" Or DE = "zorin" Then
 		    If Debugging Then Debug("  Context menus: Nautilus")
 		    Dim NauDir As String = Slash(HomePath)+".local/share/nautilus/scripts/LLFile/"
 		    ShellFast.Execute("mkdir -p "+Q+NauDir+Q)
@@ -2658,7 +2658,7 @@ Protected Module LLMod
 		  ' kbuildsycoca rebuilds the KDE service cache without requiring logout.
 		  ' =====================================================================
 		  If RunCommandResults("which dolphin 2>/dev/null").Trim <> "" _
-		  Or DE = "kde" Or DE = "plasma" Then
+		    Or DE = "kde" Or DE = "plasma" Then
 		    If Debugging Then Debug("  Context menus: Dolphin/KDE")
 		    Dim DolDir As String = Slash(HomePath)+".local/share/kio/servicemenus/"
 		    ShellFast.Execute("mkdir -p "+Q+DolDir+Q)
@@ -2699,7 +2699,7 @@ Protected Module LLMod
 		  ' Filtered to LLFile types + folders.
 		  ' =====================================================================
 		  If RunCommandResults("which nemo 2>/dev/null").Trim <> "" _
-		  Or DE = "cinnamon" Or DE = "x-cinnamon" Then
+		    Or DE = "cinnamon" Or DE = "x-cinnamon" Then
 		    If Debugging Then Debug("  Context menus: Nemo")
 		    Dim NemoDir As String = Slash(HomePath)+".local/share/nemo/actions/"
 		    ShellFast.Execute("mkdir -p "+Q+NemoDir+Q)
@@ -2792,7 +2792,7 @@ Protected Module LLMod
 		  ' Filtered to LLFile types + folders (no submenu support).
 		  ' =====================================================================
 		  If RunCommandResults("which io.elementary.files 2>/dev/null || which pantheon-files 2>/dev/null").Trim <> "" _
-		  Or DE = "pantheon" Or DE = "elementary" Then
+		    Or DE = "pantheon" Or DE = "elementary" Then
 		    If Debugging Then Debug("  Context menus: Files (elementary/Pantheon)")
 		    Dim ConDir As String = Slash(HomePath)+".local/share/contractor/"
 		    ShellFast.Execute("mkdir -p "+Q+ConDir+Q)
@@ -2825,7 +2825,7 @@ Protected Module LLMod
 		  ' builds that ignore it will still show the individual action items.
 		  ' =====================================================================
 		  If RunCommandResults("which pcmanfm 2>/dev/null || which pcmanfm-qt 2>/dev/null").Trim <> "" _
-		  Or DE = "lxde" Or DE = "lxqt" Then
+		    Or DE = "lxde" Or DE = "lxqt" Then
 		    If Debugging Then Debug("  Context menus: PCManFM/PCManFM-Qt")
 		    Dim FmaDir As String = Slash(HomePath)+".local/share/file-manager/actions/"
 		    ShellFast.Execute("mkdir -p "+Q+FmaDir+Q)
@@ -3483,7 +3483,59 @@ Protected Module LLMod
 		    XCopyFile(MainPath+"version.ini", InstallPath)
 		    XCopyFile(MainPath+"LLL_Settings.ini", InstallPath)
 		    XCopyFile(MainPath+"LLL_Repos.ini", InstallPath)
-		    XCopyFile(MainPath+"llstore.exe", InstallPath)
+		    ' Copy llstore.exe with lock detection — on Windows a running exe cannot be overwritten.
+		    ' Snapshot src and dst dates before copying. If src=dst date it's a reinstall of the
+		    ' same version, so an unchanged dst date after the copy is not treated as a failure.
+		    Dim SrcExe As FolderItem = GetFolderItem(MainPath+"llstore.exe", FolderItem.PathTypeNative)
+		    Dim DstExePath As String = InstallPath + "llstore.exe"
+		    Dim DstExe As FolderItem = GetFolderItem(DstExePath, FolderItem.PathTypeNative)
+		    Dim PreCopyDate As DateTime
+		    Dim SrcDate As DateTime
+		    If DstExe <> Nil And DstExe.Exists Then
+		      Try
+		        PreCopyDate = DstExe.ModificationDate
+		      Catch
+		        PreCopyDate = Nil
+		      End Try
+		    End If
+		    If SrcExe <> Nil And SrcExe.Exists Then
+		      Try
+		        SrcDate = SrcExe.ModificationDate
+		      Catch
+		        SrcDate = Nil
+		      End Try
+		    End If
+		    ' If src and dst already share the same modified date, this is a reinstall of the same version.
+		    ' An unchanged dst date after the copy is then expected — skip the error in that case.
+		    Dim SameVersionAlready As Boolean = False
+		    If SrcDate <> Nil And PreCopyDate <> Nil Then
+		      If SrcDate.SecondsFrom1970 = PreCopyDate.SecondsFrom1970 Then SameVersionAlready = True
+		    End If
+		    If SrcExe <> Nil And SrcExe.Exists Then
+		      XCopyFile(MainPath+"llstore.exe", InstallPath)
+		      DstExe = GetFolderItem(DstExePath, FolderItem.PathTypeNative) ' Re-fetch after copy
+		      Dim PostCopyDate As DateTime
+		      If DstExe <> Nil And DstExe.Exists Then
+		        Try
+		          PostCopyDate = DstExe.ModificationDate
+		        Catch
+		          PostCopyDate = Nil
+		        End Try
+		      End If
+		      Dim CopyFailed As Boolean = False
+		      If DstExe = Nil Or Not DstExe.Exists Then
+		        CopyFailed = True
+		      ElseIf PreCopyDate <> Nil And PostCopyDate <> Nil Then
+		        If PostCopyDate.SecondsFrom1970 = PreCopyDate.SecondsFrom1970 Then CopyFailed = True
+		      ElseIf PreCopyDate <> Nil And PostCopyDate = Nil Then
+		        CopyFailed = True
+		      End If
+		      If CopyFailed And Not SameVersionAlready Then
+		        MsgBox("Error: LLStore.exe could not be updated." + Chr(10) + Chr(10) + _
+		        "LLStore.exe is still running in the background." + Chr(10) + _
+		        "Please close all instances of LLStore and run the installer again.")
+		      End If
+		    End If
 		    XCopyFile(MainPath+"llstore", InstallPath)
 		    
 		    
@@ -5806,22 +5858,34 @@ Protected Module LLMod
 		  
 		  If IconFile <> "" Then
 		    Try
-		      If ItemLLItem.FileFader <> "" Then
-		        F = GetFolderItem(IconFile, FolderItem.PathTypeNative)
-		        If F.Exists Then
-		          'Notification.Icon.Backdrop = Picture.Open(F)
-		          IconPic = Picture.Open(F)
-		        End If
+		      F = GetFolderItem(IconFile, FolderItem.PathTypeNative)
+		      If F <> Nil And F.Exists Then
+		        IconPic = Picture.Open(F)
 		      End If
+		    Catch
 		    End Try
-		  Else
-		    IconPic = Nil
 		  End If
 		  
 		  Try
-		    If IconPic = Nil Then 'Set default Icon
-		      'Notification.Icon.Backdrop = DefaultFader
+		    If IconPic = Nil Then 'Set default Icon — try the in-memory DefaultFader first
 		      IconPic = DefaultFader
+		    End If
+		    If IconPic = Nil And ThemePath <> "" Then 'ThemePath known — load Icon.png directly from the active theme folder
+		      Dim ThemeIconF As FolderItem = GetFolderItem(ThemePath + "Icon.png", FolderItem.PathTypeNative)
+		      If ThemeIconF <> Nil And ThemeIconF.Exists Then
+		        IconPic = Picture.Open(ThemeIconF)
+		      End If
+		    End If
+		    If IconPic = Nil Then 'ThemePath not set yet (e.g. -setup mode) — try the default theme folder
+		      Dim DefaultIconF As FolderItem
+		      If Exist (Slash(AppPath) + "Themes/LastLinux/Icon.png") = True Then
+		        DefaultIconF = GetFolderItem(Slash(AppPath) + "Themes/LastLinux/Icon.png", FolderItem.PathTypeNative)
+		      Else
+		        DefaultIconF = GetFolderItem(Slash(AppPath) + "llstore Resources/appicon_256.png", FolderItem.PathTypeNative)
+		      End If
+		      If DefaultIconF <> Nil And DefaultIconF.Exists Then
+		        IconPic = Picture.Open(DefaultIconF)
+		      End If
 		    End If
 		  Catch
 		  End Try
@@ -5864,10 +5928,25 @@ Protected Module LLMod
 		  
 		  Notification.Show
 		  Notification.SetFocus
-		  // 3. Final Push to UI
-		  Notification.Refresh 
-		  // Increase this slightly if it still doesn't show under load
-		  App.DoEvents(30) 
+		  
+		  // 3. Final push — Windows needs the SetForegroundWindow API because the OS
+		  // blocks focus-stealing from background/shell-launched processes by default.
+		  #If TargetWindows Then
+		    Try
+		      Declare Function AllowSetForegroundWindow Lib "User32" (dwProcessId As Integer) As Boolean
+		      Declare Function SetForegroundWindow Lib "User32" (hwnd As Ptr) As Boolean
+		      Dim b1 As Boolean = AllowSetForegroundWindow(-1)
+		      Dim b2 As Boolean = SetForegroundWindow(Notification.Handle)
+		    Catch
+		    End Try
+		    Notification.Refresh(True)
+		    App.DoEvents(150)
+		    Notification.Refresh(True)
+		    App.DoEvents(100)
+		  #Else
+		    Notification.Refresh 
+		    App.DoEvents(30)
+		  #EndIf
 		End Sub
 	#tag EndMethod
 
@@ -5911,6 +5990,42 @@ Protected Module LLMod
 		  
 		  If F = Nil Then Return "" Else Return F.NativePath
 		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub PrepareToBuild()
+		  ' Step 1 of the two-phase build.
+		  ' Structured identically to PrepareToInstall() which works on Windows:
+		  ' sets BuildMode/BuildHeader directly then calls Notify() with no indirection
+		  ' and no access to Editor controls (which causes focus interference on Windows).
+		  
+		  Dim BT As String = ItemLLItem.BuildType
+		  Dim VerPart As String = ""
+		  If ItemLLItem.Version.Trim <> "" Then VerPart = " " + ItemLLItem.Version.Trim
+		  
+		  ' Set up notification state directly — do NOT go through Notification.StartBuild()
+		  ' and do NOT access Editor.TextIncludeFolder / TextBuildToFolder here.
+		  ' The installer works because PrepareToInstall calls Notify() directly with no
+		  ' window-object access before it — we do the same here.
+		  Notification.BuildMode = True
+		  Notification.BuildHeader = ItemLLItem.TitleName + VerPart + " - " + BT
+		  
+		  ' Call Notify() directly, exactly like PrepareToInstall() does
+		  Notify("LLStore Building", Notification.BuildHeader + Chr(10) + "Starting Build...", ItemLLItem.FileIcon, -1)
+		  
+		  Notification.Refresh(True)
+		  App.DoEvents(80)
+		  Notification.Refresh(True)
+		  App.DoEvents(80)
+		  
+		  ' Belt-and-braces system tray fallback on Linux
+		  If Not TargetWindows Then
+		    RunCommand("notify-send --hint=int:transient:1 " + Chr(34) + "LLStore - Building: " + ItemLLItem.TitleName + Chr(34))
+		  End If
+		  
+		  Notification.Refresh(True)
+		  App.DoEvents(50)
+		End Sub
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
@@ -7223,6 +7338,14 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		BuildingCombinedBat As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		CachedUserName As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		CancelDownloading As Boolean = False
 	#tag EndProperty
 
@@ -7308,6 +7431,14 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		ColTitle As Color = &CFFFFFF
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		CombinedWineBat As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		CombinedWineRegIdx As Integer = 0
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -7512,12 +7643,6 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		HomePath As String
-	#tag EndProperty
-
-	#tag Property, Flags = &h0
-		'Cached Linux username extracted from HomePath — avoids repeated string operations in every Exp call.
-		'Updated by SetHomePath or wherever HomePath is assigned.
-		CachedUserName As String
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -7842,18 +7967,6 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		ShellFast As Shell
-	#tag EndProperty
-
-	#tag Property, Flags = &h0
-		CombinedWineBat As String
-	#tag EndProperty
-
-	#tag Property, Flags = &h0
-		BuildingCombinedBat As Boolean = False
-	#tag EndProperty
-
-	#tag Property, Flags = &h0
-		CombinedWineRegIdx As Integer = 0
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -9557,6 +9670,38 @@ Protected Module LLMod
 			InitialValue=""
 			Type="String"
 			EditorType="MultiLineEditor"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CachedUserName"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CombinedWineBat"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="BuildingCombinedBat"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CombinedWineRegIdx"
+			Visible=false
+			Group="Behavior"
+			InitialValue="0"
+			Type="Integer"
+			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
 End Module

@@ -105,6 +105,14 @@ Begin DesktopWindow Loading
       Scope           =   0
       TabPanelIndex   =   0
    End
+   Begin Timer BuildTimer
+      Index           =   -2147483648
+      LockedInPosition=   False
+      Period          =   120
+      RunMode         =   0
+      Scope           =   0
+      TabPanelIndex   =   0
+   End
 End
 #tag EndDesktopWindow
 
@@ -4216,12 +4224,14 @@ End
 		            Editor.GetSizeOfItem
 		          End If
 		          If Compress = True Then Editor.CheckCompress.Value = True 'Set to Compress if it's in the Arguments
-		          Editor.ButtonBuild.Press() 'Press the Build Button with No Compress, if it's not already compressed
 		          
-		          'Moved Below to Build Button push as I always want to quit the editor after a build
-		          'PreQuitApp ' Save Debug etc
-		          'QuitApp 'Done installing, exit app, no need to continue
-		          
+		          ' Two-phase build — same pattern as PrepareToInstall/InstallTimer.
+		          ' PrepareToBuild() shows the Notification and pumps the event loop
+		          ' so Linux has time to composite the window before heavy work starts.
+		          ' BuildTimer.Action() does the actual build after the message loop gets a turn.
+		          PrepareToBuild()
+		          BuildTimer.RunMode = Timer.RunModes.Single
+		          Return ' Yield to message loop — BuildTimer.Action handles the rest
 		        End If
 		      Else 'Failed to load item, Show Editor
 		        Editor.Left = (Screen(0).AvailableWidth/2) - (Editor.Width /2) 'Centered
@@ -4406,6 +4416,32 @@ End
 		  
 		  PreQuitApp
 		  QuitApp
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events BuildTimer
+	#tag Event
+		Sub Action()
+		  ' Phase 2 of the two-phase build.
+		  ' PrepareToBuild() already showed the Notification and returned.
+		  ' The message loop had a full 120ms to draw before we got here.
+		  
+		  BuildTimer.RunMode = Timer.RunModes.Off ' Fire once only
+		  
+		  If Debugging Then Debug("--- BuildTimer fired — calling BuildLLFile() ---")
+		  
+		  #Pragma BreakOnExceptions Off
+		  Editor.BuildLLFile()
+		  #Pragma BreakOnExceptions On
+		  
+		  ' Post-build: quit (CLI/AutoBuild) or close editor (GUI)
+		  If EditorOnly Then
+		    PreQuitApp
+		    QuitApp
+		  Else
+		    Editor.Hide
+		    Editor.Close
+		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents

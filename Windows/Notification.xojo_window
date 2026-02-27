@@ -97,10 +97,70 @@ End
 #tag WindowCode
 	#tag Event
 		Function MouseDown(x As Integer, y As Integer) As Boolean
-		  Notification.Hide
+		  If Not Notification.BuildMode Then
+		    Notification.Hide
+		  End If
 		End Function
 	#tag EndEvent
 
+
+	#tag Method, Flags = &h0
+		Sub UpdateBuildStatus(StepMsg As String)
+		  ' Updates the status text during a build, keeping the header line and refreshing the UI immediately.
+		  ' Call this instead of touching Status.Text directly during BuildLLFile.
+		  If BuildHeader <> "" Then
+		    Notification.Status.Text = BuildHeader + Chr(10) + StepMsg
+		  Else
+		    Notification.Status.Text = StepMsg
+		  End If
+		  Notification.Refresh(True)
+		  App.DoEvents(15)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub StartBuild(Title As String, Version As String, BuildType As String, IconFile As String)
+		  ' Call once at the start of a build to lock the notification open and display identity.
+		  Dim VerPart As String = ""
+		  If Version.Trim <> "" Then VerPart = " " + Version.Trim
+		  BuildHeader = Title + VerPart + " - " + BuildType
+		  BuildMode = True
+		  
+		  ' Resolve icon: prefer BuildType.png in icon file path, fall back to default
+		  Dim UseIcon As String = IconFile
+		  
+		  Notify("LLStore Building", BuildHeader + Chr(10) + "Starting Build...", UseIcon, -1)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub FinishBuild(Success As Boolean, IconFile As String)
+		  ' Call at the end of a build to release the lock and auto-dismiss.
+		  If Success Then
+		    UpdateBuildStatus("Built Successfully!")
+		  Else
+		    UpdateBuildStatus("Build Failed!")
+		  End If
+		  BuildMode = False
+		  ' Auto-dismiss after 4s (success) or 6s (failure)
+		  If Success Then
+		    Notification.NotifyTimeOut.Period = 4000
+		  Else
+		    Notification.NotifyTimeOut.Period = 6000
+		  End If
+		  Notification.NotifyTimeOut.RunMode = Timer.RunModes.Single
+		  Notification.NotifyTimeOut.Reset
+		End Sub
+	#tag EndMethod
+
+
+	#tag Property, Flags = &h0
+		BuildHeader As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		BuildMode As Boolean
+	#tag EndProperty
 
 	#tag Property, Flags = &h0
 		NotificationTime As Integer
@@ -112,25 +172,27 @@ End
 #tag Events Status
 	#tag Event
 		Function MouseDown(x As Integer, y As Integer) As Boolean
-		  Notification.Hide
+		  If Not Notification.BuildMode Then
+		    Notification.Hide
+		  End If
 		End Function
 	#tag EndEvent
 #tag EndEvents
 #tag Events Icon
 	#tag Event
 		Function MouseDown(x As Integer, y As Integer) As Boolean
-		  Notification.Hide
+		  If Not Notification.BuildMode Then
+		    Notification.Hide
+		  End If
 		End Function
 	#tag EndEvent
 #tag EndEvents
 #tag Events NotifyTimeOut
 	#tag Event
 		Sub Action()
-		  'Notification.Visible = False
-		  Notification.Hide
-		  
-		  'MsgBox ("Hide")
-		  
+		  If Not Notification.BuildMode Then
+		    Notification.Hide
+		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -384,6 +446,22 @@ End
 		Group="Behavior"
 		InitialValue=""
 		Type="Integer"
+		EditorType=""
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="BuildMode"
+		Visible=false
+		Group="Behavior"
+		InitialValue="False"
+		Type="Boolean"
+		EditorType=""
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="BuildHeader"
+		Visible=false
+		Group="Behavior"
+		InitialValue=""
+		Type="String"
 		EditorType=""
 	#tag EndViewProperty
 #tag EndViewBehavior
