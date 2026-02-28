@@ -344,6 +344,42 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub CleanOrphanTemps()
+		  ' Removes UUID temp folders in TmpPathBase that belong to crashed/killed
+		  ' previous instances. Only called when the mutex confirms we are the only
+		  ' running instance, so there is no risk of deleting an active session's files.
+		  If Debugging Then Debug("--- CleanOrphanTemps ---")
+		  If TmpPathBase = "" Or RunUUID = "" Then Return
+		  
+		  Dim BasePath As String = TmpPathBase
+		  If TargetWindows Then BasePath = BasePath.ReplaceAll("/", "\\")
+		  
+		  Dim BaseF As FolderItem = GetFolderItem(BasePath, FolderItem.PathTypeNative)
+		  If BaseF Is Nil Or Not BaseF.Exists Then Return
+		  
+		  Dim I As Integer
+		  For I = 0 To BaseF.Count - 1
+		    #Pragma BreakOnExceptions Off
+		    Try
+		      Dim Child As FolderItem = BaseF.ChildAt(I)
+		      If Child Is Nil Then Continue
+		      If Not Child.IsFolder Then Continue
+		      Dim FolderName As String = Child.Name
+		      ' Our UUID folders are two concatenated 9-digit random numbers (18+ chars, digits only)
+		      ' Skip our own folder and anything that doesn't look like a UUID folder
+		      If FolderName = RunUUID Then Continue
+		      If Len(FolderName) < 10 Then Continue  ' Too short to be a UUID folder
+		      ' Delete it - it's an orphan from a previous instance
+		      If Debugging Then Debug("Removing orphan temp folder: " + Child.NativePath)
+		      Deltree(Child.NativePath)
+		    Catch
+		    End Try
+		    #Pragma BreakOnExceptions On
+		  Next
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub CleanTemp()
 		  If Debugging Then Debug("--- Starting Clean Temp ---")
 		  
@@ -2162,6 +2198,17 @@ Protected Module LLMod
 		  End Try
 		  Return Link
 		  #Pragma BreakOnExceptions On
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function HasLinuxDesktopLink() As Boolean
+		  'Returns True if any link in ItemLnk() has LinuxLink = True (i.e. a .desktop link inside a SS file)
+		  Dim J As Integer
+		  For J = 1 To LnkCount
+		    If ItemLnk(J).LinuxLink Then Return True
+		  Next
+		  Return False
 		End Function
 	#tag EndMethod
 
@@ -7367,17 +7414,6 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Function HasLinuxDesktopLink() As Boolean
-		  'Returns True if any link in ItemLnk() has LinuxLink = True (i.e. a .desktop link inside a SS file)
-		  Dim J As Integer
-		  For J = 1 To LnkCount
-		    If ItemLnk(J).LinuxLink Then Return True
-		  Next
-		  Return False
-		End Function
-	#tag EndMethod
-
-	#tag Method, Flags = &h0
 		Function WritableLocation(F As FolderItem) As Boolean
 		  #Pragma BreakOnExceptions Off
 		  Try
@@ -9823,7 +9859,7 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue=""
 			Type="String"
-			EditorType=""
+			EditorType="MultiLineEditor"
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="CombinedWineBat"
@@ -9831,7 +9867,7 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue=""
 			Type="String"
-			EditorType=""
+			EditorType="MultiLineEditor"
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="BuildingCombinedBat"

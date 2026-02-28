@@ -26,7 +26,6 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -67,7 +66,6 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -76,7 +74,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -85,7 +82,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -94,7 +90,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -103,7 +98,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer InstallTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   120
@@ -112,7 +106,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer BuildTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   120
@@ -3341,230 +3334,345 @@ End
 #tag Events DownloadTimer
 	#tag Event
 		Sub Action()
-		  If Debugging Then Debug("- Starting Download Timer -")
+		  ' ============================================================
+		  ' Non-blocking download state machine.
+		  ' Each timer fire does ONE step and returns immediately,
+		  ' keeping the UI fully responsive for Skip/Pause/Cancel.
+		  ' ============================================================
+		  Const ST_IDLE        = 0  ' Waiting for queue to have items
+		  Const ST_PREPARE     = 1  ' Set up current queue item
+		  Const ST_VALIDATING  = 2  ' Async validation shell running
+		  Const ST_DOWNLOADING = 3  ' Async wget shell running
+		  Const ST_FINALIZE    = 4  ' Rename .partial to final
+		  Const ST_ADVANCE     = 5  ' Move to next queue item
+		  Const ST_DONE        = 6  ' Post-queue cleanup
 		  
-		  Dim Test As String
-		  Dim I As Integer
-		  Dim LocalName As String
-		  Dim GetURL As String
-		  Dim Prog As String
-		  Dim ShowProg As Boolean
-		  Dim ProgPerc As String
-		  Dim Commands As String
-		  Dim theResults As String
+		  Static DLState As Integer           ' Current state
+		  Static DLShell As Shell             ' Wget download shell
+		  Static ValShell As Shell            ' Validation shell
+		  Static ValBuffer As String          ' Accumulated validation output
+		  Static MoveShell As Shell           ' Rename .partial shell
+		  Static KillShell As Shell           ' Kill wget shell
+		  Static GetURL As String             ' URL being processed (after WebLinks sub)
+		  Static IsArchive As Boolean         ' Current URL is an archive type
+		  Static UseGrep As Boolean           ' Grep is available on this system
+		  Static GrepChecked As Boolean       ' Grep availability has been checked
+		  Static GrepPath As String           ' Path to grep binary
+		  Static ValidationFallback As Boolean ' True = running HEAD fallback after magic-byte failed
 		  
-		  Dim shot As New Shell 'Used to kill wget
-		  
-		  
-		  Static vShell As Shell
-		  Static checkSh As Shell
-		  Static ShMove As Shell
-		  Static k As Shell
-		  
-		  
-		  ' Set up the main Async Shell for wget
-		  Dim DownloadShell As New Shell
-		  DownloadShell.TimeOut = -1
-		  DownloadShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
-		  
-		  ' Cleanup old state files
-		  If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
-		  If Exist(Slash(RepositoryPathLocal) + "FailedDownload") Then Deltree(Slash(RepositoryPathLocal) + "FailedDownload")
-		  
-		  QueueUpTo = 0
-		  
-		  ' Main Download Queue Loop
-		  While QueueUpTo < QueueCount
+		  Select Case DLState
 		    
-		    ' --- 1. PREPARATION ---
+		    ' --------------------------------------------------------
+		    ' IDLE: Wait for work. Timer set to Multiple by GetOnlineFile.
+		    ' --------------------------------------------------------
+		  Case ST_IDLE
+		    If Not Downloading Or QueueCount <= 0 Then Return
+		    If Debugging Then Debug("--- Download State Machine: Start ---")
+		    If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
+		    If Exist(Slash(RepositoryPathLocal) + "FailedDownload") Then Deltree(Slash(RepositoryPathLocal) + "FailedDownload")
+		    QueueUpTo = 0
+		    GrepChecked = False
+		    DLState = ST_PREPARE
+		    ' Fall through to PREPARE in the same tick
+		    
+		    ' --------------------------------------------------------
+		    ' PREPARE: Set up the current queue item.
+		    ' Handles image routing, WebLinks sub, kicks off validation.
+		    ' --------------------------------------------------------
+		  Case ST_PREPARE
+		    If QueueUpTo >= QueueCount Then
+		      DLState = ST_DONE
+		      Return
+		    End If
+		    
+		    ' Cancel/quit check - skip is responsive even before a download starts
+		    If ForceQuit Then
+		      DLState = ST_DONE 
+		      Return
+		    End If
+		    If CancelDownloading Then
+		      CancelDownloading = False
+		      DLState = ST_ADVANCE
+		      Return
+		    End If
+		    
+		    ' Clean any leftover .partial from a previous failed attempt
 		    If Exist(QueueLocal(QueueUpTo) + ".partial") Then Deltree(QueueLocal(QueueUpTo) + ".partial")
+		    
 		    GetURL = QueueURL(QueueUpTo)
 		    
-		    ' Use Inbuilt Downloader for Images (Screenshots)
+		    ' Route images (.jpg/.png) to the built-in URLConnection downloader
 		    Select Case Right(GetURL, 4).Lowercase
 		    Case ".jpg", ".png"
 		      DownloadScreenshot = GetURL
 		      DownloadScreenshotLocal = QueueLocal(QueueUpTo)
 		      DownScreen()
-		      QueueUpTo = QueueUpTo + 1
-		      Continue ' Skip to next item in loop
-		    End  Select
+		      DLState = ST_ADVANCE 
+		      Return
+		    End Select
 		    
-		    ' Substitute URL if found in WebLinks
+		    ' WebLinks URL substitution (e.g. mirror overrides)
 		    If WebLinksCount >= 1 Then
+		      Dim LocalName As String = Replace(QueueLocal(QueueUpTo), Slash(RepositoryPathLocal), "")
+		      Dim I As Integer
 		      For I = 0 To WebLinksCount - 1
-		        LocalName = Replace(QueueLocal(QueueUpTo), Slash(RepositoryPathLocal), "") ' Get just the filename
-		        If WebLinksName(I) = LocalName Then GetURL = WebLinksLink(I)
+		        If WebLinksName(I) = LocalName Then
+		          GetURL = WebLinksLink(I)
+		          Exit For
+		        End If
 		      Next
 		    End If
 		    
-		    ' --- 2. VALIDATION (Resilient Version) ---
-		    Dim IsArchive As Boolean = (GetURL.Lowercase.IndexOf(".apz") >= 0 Or GetURL.Lowercase.IndexOf(".pgz") >= 0 Or GetURL.Lowercase.IndexOf(".tar") >= 0)
-		    Dim UseGrep As Boolean = False
-		    Dim GrepCmdPath As String
+		    ' Detect archive type for magic-byte validation
+		    IsArchive = (GetURL.Lowercase.IndexOf(".apz") >= 0 Or _
+		    GetURL.Lowercase.IndexOf(".pgz") >= 0 Or _
+		    GetURL.Lowercase.IndexOf(".tar") >= 0)
 		    
-		    If TargetWindows Then
-		      GrepCmdPath = Slash(ToolPath) + "grep.exe"
-		      If Exist(GrepCmdPath) Then UseGrep = True
-		    Else
-		      If checkSh is Nil Then checkSh = New Shell
-		      checkSh.Execute("which grep")
-		      If checkSh.ExitCode = 0 Then UseGrep = True
+		    ' Check grep availability once per queue run
+		    If Not GrepChecked Then
+		      GrepChecked = True
+		      If TargetWindows Then
+		        GrepPath = Chr(34) + Slash(ToolPath) + "grep.exe" + Chr(34)
+		        UseGrep = Exist(Slash(ToolPath) + "grep.exe")
+		      Else
+		        GrepPath = "grep"
+		        Dim chk As New Shell
+		        chk.Execute("which grep 2>/dev/null")
+		        UseGrep = (chk.Result.Trim <> "")
+		      End If
 		    End If
+		    
+		    ' Kick off async validation shell
+		    ValidationFallback = False
+		    ValBuffer = ""
+		    If ValShell Is Nil Then ValShell = New Shell
+		    ValShell.TimeOut = -1
+		    ValShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		    
+		    If IsArchive And UseGrep Then
+		      ' Path A: Magic-byte check (first 512 bytes)
+		      ValShell.Execute("curl -sL -r 0-511 --connect-timeout 9 " + Chr(34) + GetURL + Chr(34) + _
+		      " | LC_ALL=C " + GrepPath + " -aqP " + Chr(34) + "\x37\x7a\xbc\xaf|\x1f\x8b|ustar" + Chr(34))
+		    Else
+		      ' Path C: Standard HEAD check for .ini, .bat, non-archives etc.
+		      ValShell.Execute("curl --head --silent --connect-timeout 9 " + Chr(34) + GetURL + Chr(34))
+		    End If
+		    
+		    DLState = ST_VALIDATING
+		    Return
+		    
+		    ' --------------------------------------------------------
+		    ' VALIDATING: Poll async validation shell each tick.
+		    ' Handles magic-byte, HEAD check, and HEAD fallback (Path B).
+		    ' --------------------------------------------------------
+		  Case ST_VALIDATING
+		    ' Cancel/quit check - kill validation shell immediately
+		    If ForceQuit Or CancelDownloading Then
+		      If ValShell <> Nil And ValShell.IsRunning Then ValShell.Close
+		      CancelDownloading = False
+		      If ForceQuit Then 
+		        DLState = ST_DONE
+		        Return
+		      End If
+		      DLState = ST_ADVANCE 
+		       Return
+		    End If
+		    
+		    ' Drain output buffer each tick to prevent pipe deadlock
+		    If ValShell <> Nil Then ValBuffer = ValBuffer + ValShell.ReadAll
+		    
+		    ' Not finished yet - come back next tick
+		    If ValShell <> Nil And ValShell.IsRunning Then Return
+		    
+		    ' Shell finished - capture any final output
+		    If ValShell <> Nil Then ValBuffer = ValBuffer + ValShell.ReadAll
 		    
 		    Dim Validated As Boolean = False
 		    
-		    ' Path A: Deep Magic Byte Check
-		    If IsArchive And UseGrep Then
-		      If vShell is Nil Then vShell = New Shell 
-		      ' We added "\x00" check for TAR files as they often contain nulls in the header
-		      Dim vCmd As String = "curl -sL -r 0-511 --connect-timeout 5 " + Chr(34) + GetURL + Chr(34) + " | LC_ALL=C " + Chr(34) + GrepCmdPath + Chr(34) + " -aqP " + Chr(34) + "\x37\x7a\xbc\xaf|\x1f\x8b|ustar" + Chr(34)
-		      vShell.Execute(vCmd)
-		      
-		      If vShell.ExitCode = 0 Then 
+		    If IsArchive And Not ValidationFallback Then
+		      ' Magic-byte result: grep exit code 0 = correct bytes found
+		      If ValShell <> Nil And ValShell.ExitCode = 0 Then
 		        Validated = True
 		      Else
-		        ' Path B: Range Request Fallback 
-		        ' If the deep check failed, the server might have rejected the 'Range' header.
-		        ' Let's try a standard Header check as a last resort.
-		        Dim retryResult As String = RunCommandDownload("curl --head --silent " + Chr(34) + GetURL + Chr(34))
-		        If retryResult.Trim <> "" And retryResult.Left(18).IndexOf("404") = -1 Then
-		          ' If the header says 200 OK, but it's an archive, it's LIKELY valid but the server hated the Range request.
-		          Validated = True
-		          If Debugging Then Debug("! Range check failed, but Header passed. Proceeding with caution.")
-		        End If
+		        ' Path B: Range request may have been rejected - try a HEAD fallback
+		        If Debugging Then Debug("! Magic-byte check failed, trying HEAD fallback: " + GetURL)
+		        ValidationFallback = True
+		        ValBuffer = ""
+		        ValShell = New Shell
+		        ValShell.TimeOut = -1
+		        ValShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		        ValShell.Execute("curl --head --silent --connect-timeout 9 " + Chr(34) + GetURL + Chr(34))
+		        Return  ' Stay in ST_VALIDATING for the fallback
 		      End If
 		    Else
-		      ' Path C: Standard Header Check (Screenshots/Non-archives)
-		      Dim headResult As String = RunCommandDownload("curl --head --silent " + Chr(34) + GetURL + Chr(34))
-		      If headResult.Trim <> "" And headResult.Left(18).IndexOf("404") = -1 Then Validated = True
+		      ' HEAD check result: non-empty, non-404 response = valid
+		      Dim HeadResult As String = ValBuffer.Trim
+		      If HeadResult <> "" And HeadResult.Left(18).IndexOf("404") = -1 And HeadResult.Left(18).IndexOf("000") = -1 Then
+		        Validated = True
+		        If ValidationFallback And Debugging Then Debug("! HEAD fallback passed: " + GetURL)
+		      End If
 		    End If
 		    
 		    If Not Validated Then
-		      If Debugging Then Debug("* Validation Failed (404 or Mismatch): " + GetURL)
+		      If Debugging Then Debug("* Validation Failed (404 or no response): " + GetURL)
 		      SaveDataToFile("Failed Validation: " + GetURL, Slash(RepositoryPathLocal) + "FailedDownload")
-		      QueueUpTo = QueueUpTo + 1
-		      Continue
+		      DLState = ST_ADVANCE
+		      Return
 		    End If
 		    
-		    ' --- 3. EXECUTE DOWNLOAD (WGET) ---
-		    If Debugging Then Debug("Validated! Starting Wget: " + GetURL)
-		    
-		    ' Reset the gate file
+		    ' Validated - kick off the actual wget download
+		    If Debugging Then Debug("Validated! Starting download: " + GetURL)
 		    If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
 		    
+		    Dim Commands As String
 		    If TargetWindows Then
-		      Commands = WinWget + " --tries=6 --timeout=9 -q -O " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + " --show-progress " + Chr(34) + GetURL + Chr(34) + " && echo done > " + Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
+		      Commands = WinWget + " --tries=6 --timeout=9 -q -O " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + _
+		      " --show-progress " + Chr(34) + GetURL + Chr(34) + _
+		      " && echo done > " + Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
 		    Else
-		      'Commands = LinuxWget + " --tries=6 --timeout=9 -q -O " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + " --show-progress " + Chr(34) + GetURL + Chr(34) + " ; echo done > " + Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
 		      Commands = LinuxWget + " --tries=6 --timeout=9 --progress=bar:force -O " + _
 		      Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + " " + _
 		      Chr(34) + GetURL + Chr(34) + " 2>&1 ; echo done > " + _
 		      Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
-		      
 		    End If
 		    
-		    DownloadShell.Execute(Commands)
+		    If DLShell Is Nil Then DLShell = New Shell
+		    DLShell.TimeOut = -1
+		    DLShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		    DLShell.Execute(Commands)
+		    DLState = ST_DOWNLOADING
+		    Return
 		    
-		    ' --- 4. PROGRESS & WAIT LOOP ---
-		    While DownloadShell.IsRunning
-		      App.DoEvents(1)
-		      
-		      ' Extract Progress from Shell Output
-		      theResults = DownloadShell.ReadAll 
-		      theResults = theResults.ReplaceAll(Chr(13), Chr(10))
-		      
+		    ' --------------------------------------------------------
+		    ' DOWNLOADING: Monitor wget progress, handle skip/cancel.
+		    ' UI is fully responsive - Skip button works at any point.
+		    ' --------------------------------------------------------
+		  Case ST_DOWNLOADING
+		    ' Skip/cancel: kill wget immediately and move on
+		    If ForceQuit Or CancelDownloading Then
+		      If DLShell <> Nil And DLShell.IsRunning Then DLShell.Close
+		      If TargetWindows Then
+		        If KillShell Is Nil Then KillShell = New Shell
+		        KillShell.Execute("TaskKill /IM wget.exe /F")
+		      End If
+		      If Exist(QueueLocal(QueueUpTo) + ".partial") Then Deltree(QueueLocal(QueueUpTo) + ".partial")
+		      If Exist(QueueLocal(QueueUpTo)) Then Deltree(QueueLocal(QueueUpTo))
+		      CancelDownloading = False
+		      DownloadPercentage = ""
+		      If ForceQuit Then
+		        DLState = ST_DONE 
+		        Return
+		      End If
+		      DLState = ST_ADVANCE
+		      Return
+		    End If
+		    
+		    ' Drain wget output and extract progress percentage
+		    If DLShell <> Nil Then
+		      Dim theResults As String = DLShell.ReadAll
 		      If theResults.Trim <> "" Then
-		        ' --- New compatible logic ---
-		        Dim lastPerc As Integer
-		        ' Count backwards from the end of the string to find the last %
-		        lastPerc = InStrRev(theResults, "%") 
-		        
+		        theResults = theResults.ReplaceAll(Chr(13), Chr(10))
+		        Dim lastPerc As Integer = InStrRev(theResults, "%")
 		        If lastPerc > 3 Then
-		          ' Mid is the classic equivalent of .Middle
-		          ' Note: InStr positions are 1-based, so we adjust accordingly
 		          Dim pStart As Integer = lastPerc
 		          While pStart > 1 And IsNumeric(Mid(theResults, pStart - 1, 1))
 		            pStart = pStart - 1
 		          Wend
-		          
-		          ProgPerc = Mid(theResults, pStart, lastPerc - pStart).Trim
+		          Dim ProgPerc As String = Mid(theResults, pStart, lastPerc - pStart).Trim
 		          If IsNumeric(ProgPerc) Then
 		            DownloadPercentage = ProgPerc + "%"
-		            If ProgPerc = "32" or ProgPerc = "64" Then DownloadPercentage = "" 'Skip showing the file name bit as a percent
-		            
-		            ' Update various UI components
-		            If MiniInstallerShowing Then MiniInstaller.Stats.Text = "Downloading " + DownloadPercentage
-		            'MiniInstaller.Refresh
-		            If CheckingForUpdates Then UpdateLoading("Update: " + DownloadPercentage)
-		            If CheckingForDatabases Then UpdateLoading("Database: " + DownloadPercentage)
-		            App.DoEvents(1) 'Needed to update %
+		            If ProgPerc = "32" Or ProgPerc = "64" Then DownloadPercentage = "" 'Skip the filename token
 		          End If
 		        End If
 		      End If
-		      App.DoEvents(1) 'Needed to update %
-		      ' Handle Cancellation / Force Quit
-		      If ForceQuit Or CancelDownloading Then
-		        DownloadShell.Close
-		        If TargetWindows Then 
-		          If k is Nil Then k = New Shell
-		          k.Execute("TaskKill /IM wget.exe /F")
-		        End If
-		        CancelDownloading = False
-		        If Exist(QueueLocal(QueueUpTo)+ ".partial") Then Deltree QueueLocal(QueueUpTo)+ ".partial"
-		        If Exist(QueueLocal(QueueUpTo)) Then Deltree QueueLocal(QueueUpTo)
-		        Exit While
-		      End If
-		      
-		      ' Exit loop if the "done" file is detected
-		      If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Exit While
-		      App.DoEvents(1)
-		    Wend
+		    End If
 		    
-		    ' --- 5. FINALIZE (Rename .partial to final) ---
+		    ' Update MiniInstaller / startup status text
+		    If MiniInstallerShowing Then MiniInstaller.Stats.Text = "Downloading " + DownloadPercentage
+		    If CheckingForUpdates Then UpdateLoading("Update: " + DownloadPercentage)
+		    If CheckingForDatabases Then UpdateLoading("Database: " + DownloadPercentage)
+		    
+		    ' Check for done file (normal completion) or shell exited (error)
+		    If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then
+		      DLState = ST_FINALIZE
+		      Return
+		    End If
+		    If DLShell <> Nil And Not DLShell.IsRunning Then
+		      Dim trailing As String = DLShell.ReadAll  ' drain remaining buffer
+		      DLState = ST_FINALIZE 
+		      Return
+		    End If
+		    Return  ' Still running - come back next tick
+		    
+		    ' --------------------------------------------------------
+		    ' FINALIZE: Rename .partial -> final filename.
+		    ' --------------------------------------------------------
+		  Case ST_FINALIZE
+		    DownloadPercentage = ""
 		    If Exist(QueueLocal(QueueUpTo) + ".partial") Then
-		      ' Clear existing file if it exists before moving
-		      If Exist(QueueLocal(QueueUpTo)) Then Deltree QueueLocal(QueueUpTo)
-		      
-		      If ShMove is Nil Then ShMove = New Shell
+		      If Exist(QueueLocal(QueueUpTo)) Then Deltree(QueueLocal(QueueUpTo))
+		      If MoveShell Is Nil Then MoveShell = New Shell
 		      If TargetWindows Then
 		        Dim winSrc As String = QueueLocal(QueueUpTo).ReplaceAll("/", "\") + ".partial"
 		        Dim winDest As String = QueueLocal(QueueUpTo).ReplaceAll("/", "\")
-		        ShMove.Execute("move /y " + Chr(34) + winSrc + Chr(34) + " " + Chr(34) + winDest + Chr(34))
+		        MoveShell.Execute("move /y " + Chr(34) + winSrc + Chr(34) + " " + Chr(34) + winDest + Chr(34))
 		      Else
-		        ShMove.Execute("mv -f " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + " " + Chr(34) + QueueLocal(QueueUpTo) + Chr(34))
+		        MoveShell.Execute("mv -f " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + _
+		        " " + Chr(34) + QueueLocal(QueueUpTo) + Chr(34))
 		      End If
-		      
-		      If Debugging Then Debug("Download Successful: " + GetURL)
+		      If Debugging Then Debug("Download successful: " + GetURL)
 		      Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
 		    Else
-		      ' Failed Download cleanup
-		      If Debugging Then Debug("* Download Error: .partial file not found *")
+		      ' .partial missing - wget exited without writing anything
+		      If Debugging Then Debug("* Download error: .partial not found: " + GetURL)
 		      SaveDataToFile("Failed Finding Local: " + QueueLocal(QueueUpTo) + ".partial", Slash(RepositoryPathLocal) + "FailedDownload")
-		      If Not TargetWindows Then RunCommand("notify-send " + Chr(34) + "Failed Download: " + LocalName + Chr(34))
+		      If Not TargetWindows Then
+		        Dim LocalName As String = Replace(QueueLocal(QueueUpTo), Slash(RepositoryPathLocal), "")
+		        RunCommand("notify-send " + Chr(34) + "Failed Download: " + LocalName + Chr(34))
+		      End If
 		    End If
+		    DLState = ST_ADVANCE
+		    Return
 		    
+		    ' --------------------------------------------------------
+		    ' ADVANCE: Step to the next queue item or finish.
+		    ' --------------------------------------------------------
+		  Case ST_ADVANCE
 		    QueueUpTo = QueueUpTo + 1
-		    App.DoEvents(20)
-		  Wend
+		    If QueueUpTo < QueueCount Then
+		      DLState = ST_PREPARE
+		    Else
+		      DLState = ST_DONE
+		    End If
+		    Return
+		    
+		    ' --------------------------------------------------------
+		    ' DONE: Reset all state, turn off the timer.
+		    ' --------------------------------------------------------
+		  Case ST_DONE
+		    QueueUpTo = 0
+		    QueueCount = 0
+		    Downloading = False
+		    DownloadPercentage = ""
+		    GrepChecked = False
+		    DLState = ST_IDLE
+		    DownloadTimer.RunMode = Timer.RunModes.Off  ' Stop polling until next GetOnlineFile call
+		    If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
+		    If ForceQuit Then
+		      CleanTemp
+		      DebugOutput.Flush
+		      DebugOutput.Close
+		      Quit
+		      Return
+		    End If
+		    If Debugging Then Debug("--- Download State Machine: Done ---")
+		    If Main.Visible = True And InstallingItem = False Then
+		      ShowDownloadImages
+		    End If
+		    Return
+		    
+		  End Select
 		  
-		  ' --- POST-QUEUE CLEANUP ---
-		  QueueUpTo = 0
-		  QueueCount = 0
-		  Downloading = False
-		  If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
-		  
-		  If ForceQuit = True Then
-		    CleanTemp
-		    DebugOutput.Flush
-		    DebugOutput.Close
-		    Quit
-		  End If
-		  
-		  ' Refresh UI images if needed
-		  If Main.Visible = True And InstallingItem = False Then
-		    ShowDownloadImages
-		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -3763,7 +3871,8 @@ End
 		    SysTerminal = SysTerminal.ReplaceAll(EndOfLine,"")
 		  End If
 		  
-		  'Clear the flag - UUID-per-instance already isolates runs from each other, so no parent wipe needed
+		  ' Clean up orphaned UUID temp folders from any crashed previous instances
+		  If CleanTempFolders Then CleanOrphanTemps()
 		  CleanTempFolders = False
 		  
 		  If TargetWindows Then

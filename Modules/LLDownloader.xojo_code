@@ -20,7 +20,7 @@ Protected Module LLDownloader
 		  QueueCount = QueueCount + 1
 		  If Downloading = False Then
 		    Downloading = True 'Do this ASAP, so the check is in place as soon as it's sent (as most wont have a wait at the end of the shell calls)  
-		    Loading.DownloadTimer.RunMode = Timer.RunModes.Single  'Only call it if it's finnished, else it'll pick up the changes at runtime
+		    Loading.DownloadTimer.RunMode = Timer.RunModes.Multiple  'Use Multiple so the state machine keeps ticking until the queue is empty
 		  End If
 		End Sub
 	#tag EndMethod
