@@ -195,55 +195,71 @@ End
 		  
 		  Dim I As Integer
 		  Dim DeTest As String
+		  Dim RowCount As Integer = Data.Items.RowCount
 		  
-		  'Check if App Path exists
-		  For I = 0 To Data.Items.RowCount - 1
-		    Data.Items.CellTextAt(I, Data.GetDBHeader("OSCompatible")) = "T" 'Default to Enabled on current OS, incase any are missing below then it will still set to false and skip the rest
+		  ' Cache all column indices ONCE before the loop — was up to 10 dictionary lookups per item
+		  Dim OSCompatCol  As Integer = Data.GetDBHeader("OSCompatible")
+		  Dim BuildTypeCol As Integer = Data.GetDBHeader("BuildType")
+		  Dim ArchCol      As Integer = Data.GetDBHeader("ArchCompatible")
+		  Dim DECol        As Integer = Data.GetDBHeader("DECompatible")
+		  Dim PMCol        As Integer = Data.GetDBHeader("PMCompatible")
+		  Dim HiddenCol    As Integer = Data.GetDBHeader("Hidden")
+		  
+		  ' Cache frequently-tested globals as locals for tighter inner loop
+		  Dim IsWin  As Boolean = TargetWindows
+		  Dim IsLin  As Boolean = TargetLinux
+		  Dim SysArch As String = SysArchitecture
+		  Dim SysDE   As String = SysDesktopEnvironment
+		  Dim SysPM   As String = SysPackageManager
+		  
+		  For I = 0 To RowCount - 1
+		    Data.Items.CellTextAt(I, OSCompatCol) = "T" 'Default to Enabled on current OS
 		    
-		    If TargetWindows Then 'If Windows session, hide linux things that may be in wrong paths
-		      DeTest = Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) 
+		    If IsWin Then 'If Windows session, hide linux things that may be in wrong paths
+		      DeTest = Data.Items.CellTextAt(I, BuildTypeCol)
 		      If DeTest = "LLApp" Or DeTest = "LLGame" Then
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("OSCompatible")) = "F"
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("Hidden")) = "T" 'Make sure they are NOT shown ever
+		        Data.Items.CellTextAt(I, OSCompatCol) = "F"
+		        Data.Items.CellTextAt(I, HiddenCol) = "T" 'Make sure they are NOT shown ever
+		        Continue ' No further compatibility checks needed — skip to next item
 		      End If
 		    End If
 		    
 		    'Do Arch first as that will always be needed
-		    DeTest = Data.Items.CellTextAt(I, Data.GetDBHeader("ArchCompatible")) 
+		    DeTest = Data.Items.CellTextAt(I, ArchCol)
 		    If DeTest <> "" Then 'Only do Items with Values set
-		      If  DeTest.IndexOf(SysArchitecture) >=0 Or DeTest = "All" Then
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("OSCompatible")) = "T"
+		      If DeTest.IndexOf(SysArch) >= 0 Or DeTest = "All" Then
+		        Data.Items.CellTextAt(I, OSCompatCol) = "T"
 		      Else 'Not Compatible
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("OSCompatible")) = "F"
+		        Data.Items.CellTextAt(I, OSCompatCol) = "F"
+		        Continue ' Arch failed — no point checking DE/PM
 		      End If
 		    End If
 		    
-		    If Data.Items.CellTextAt(I, Data.GetDBHeader("OSCompatible")) = "T" Then 'Will only continue if Arch Passed and wont check it if empty
-		      DeTest = Data.Items.CellTextAt(I, Data.GetDBHeader("DECompatible")) 
+		    If Data.Items.CellTextAt(I, OSCompatCol) = "T" Then 'Will only continue if Arch Passed
+		      DeTest = Data.Items.CellTextAt(I, DECol)
 		      If DeTest <> "" Then 'Only do Items with Values set
-		        If DeTest = "All-Linux" And TargetLinux Then DeTest = "All" 'If it's Linux compatible and we are in Linux then just set it to All in Temp Variable
-		        If  DeTest.IndexOf(SysDesktopEnvironment) >=0 Or DeTest = "All" Then
-		          Data.Items.CellTextAt(I, Data.GetDBHeader("OSCompatible")) = "T"
+		        If DeTest = "All-Linux" And IsLin Then DeTest = "All"
+		        If DeTest.IndexOf(SysDE) >= 0 Or DeTest = "All" Then
+		          Data.Items.CellTextAt(I, OSCompatCol) = "T"
 		        Else 'Not Compatible
-		          Data.Items.CellTextAt(I, Data.GetDBHeader("OSCompatible")) = "F"
+		          Data.Items.CellTextAt(I, OSCompatCol) = "F"
+		          Continue ' DE failed — skip PM check
 		        End If
 		      End If
 		    End If
 		    
-		    If Data.Items.CellTextAt(I, Data.GetDBHeader("OSCompatible")) = "T" Then 'Will only continue if Arch Passed, DE Passed or abscent and wont check it if empty
-		      DeTest = Data.Items.CellTextAt(I, Data.GetDBHeader("PMCompatible")) 
+		    If Data.Items.CellTextAt(I, OSCompatCol) = "T" Then 'Will only continue if Arch+DE passed
+		      DeTest = Data.Items.CellTextAt(I, PMCol)
 		      If DeTest <> "" Then 'Only do Items with Values set
-		        If  DeTest.IndexOf(SysPackageManager) >=0 Or DeTest = "All" Then
-		          'If DeTest = "All-Linux" And TargetLinux Then DeTest = "All" 'If it's Linux compatible and we are in Linux then just set it to All in Temp Variable 'Not used yet (may not need)
-		          Data.Items.CellTextAt(I, Data.GetDBHeader("OSCompatible")) = "T"
+		        If DeTest.IndexOf(SysPM) >= 0 Or DeTest = "All" Then
+		          Data.Items.CellTextAt(I, OSCompatCol) = "T"
 		        Else 'Not Compatible
-		          Data.Items.CellTextAt(I, Data.GetDBHeader("OSCompatible")) = "F"
+		          Data.Items.CellTextAt(I, OSCompatCol) = "F"
 		        End If
 		      End If
 		    End If
 		    
 		  Next
-		  
 		  
 		End Sub
 	#tag EndMethod
@@ -481,14 +497,35 @@ End
 		  
 		  Dim I As Integer
 		  Dim F As FolderItem
+		  Dim RowCount As Integer = Data.Items.RowCount
 		  
-		  'Check if App Path exists
-		  If Data.Items.RowCount - 1 >= 0 Then
-		    For I = 0 To Data.Items.RowCount - 1
-		      F = GetFolderItem(ExpPath(Data.Items.CellTextAt(I, Data.GetDBHeader("PathApp"))), FolderItem.PathTypeNative)
-		      If F.Exists = True Then Data.Items.CellTextAt(I, Data.GetDBHeader("Installed")) = "T" Else Data.Items.CellTextAt(I, Data.GetDBHeader("Installed")) = "F"
-		    Next
-		  End If
+		  If RowCount <= 0 Then Return
+		  
+		  ' Cache column indices ONCE before the loop — avoids N × dictionary lookups per column
+		  Dim PathAppCol  As Integer = Data.GetDBHeader("PathApp")
+		  Dim InstalledCol As Integer = Data.GetDBHeader("Installed")
+		  If PathAppCol < 0 Or InstalledCol < 0 Then Return ' Columns missing
+		  
+		  For I = 0 To RowCount - 1
+		    Dim PathStr As String = Data.Items.CellTextAt(I, PathAppCol)
+		    
+		    ' Items with no install path cannot be installed — mark immediately and skip
+		    If PathStr = "" Then
+		      Data.Items.CellTextAt(I, InstalledCol) = "F"
+		      Continue
+		    End If
+		    
+		    ' Paths are already fully expanded at load time (GetItem / LoadDB both call ExpPath).
+		    ' Only run the expensive 20+ ReplaceAll pass when unexpanded variables are present.
+		    If PathStr.IndexOf("%") >= 0 Then PathStr = ExpPath(PathStr)
+		    
+		    F = GetFolderItem(PathStr, FolderItem.PathTypeNative)
+		    If F <> Nil And F.Exists Then
+		      Data.Items.CellTextAt(I, InstalledCol) = "T"
+		    Else
+		      Data.Items.CellTextAt(I, InstalledCol) = "F"
+		    End If
+		  Next
 		  
 		End Sub
 	#tag EndMethod
@@ -514,46 +551,36 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub DownScreen()
-		  'Dim Down As Boolean
-		  'Download the Screenshot and Stuff all at once in the background
-		  
-		  Var socket As New URLConnection
-		  
-		  'Var http As New URLConnection
-		  'Dim Heads As String
-		  
-		  Var F as FolderItem = GetFolderItem(DownloadScreenshotLocal, FolderItem.PathTypeNative)
-		  
-		  ''Make sure file exists or just skip
-		  '#Pragma BreakOnExceptions Off
-		  'Try
-		  'http.Send("HEAD", DownloadScreenshot) ' Timeout of 1 second
-		  ''MessageBox("URL exists!")
-		  'While http.HTTPStatusCode = 0
-		  'App.DoEvents(1)
-		  'Wend
-		  'Down = True
-		  'Catch e As NetworkException
-		  ''MessageBox("URL does not exist: " + e.Message)
-		  'Down = False
-		  'End Try
-		  '#Pragma BreakOnExceptions On
-		  
-		  
+		Sub StartScreenshotDownload(URL As String, LocalPath As String)
+		  ' Downloads a .jpg screenshot using an async curl shell.
+		  ' DownloadScreenAndIcon timer polls IsRunning and calls ShowDownloadImages on completion.
 		  Try
-		    'If Down = True Then
-		    socket.Send("GET", DownloadScreenshot, F, 30)
-		    
-		    PubSock = socket
-		    TimerCounts = 0 'Reset counter, needs 10 counts to display the screenshot
+		    If ShellScreenshot <> Nil And ShellScreenshot.IsRunning Then ShellScreenshot.Close
+		    ShellScreenshot = New Shell
+		    ShellScreenshot.TimeOut = -1
+		    ShellScreenshot.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		    Dim CurlBin As String = LinuxCurl
+		    If TargetWindows Then CurlBin = WinCurl
+		    ShellScreenshot.Execute(CurlBin + " -L -s --connect-timeout 15 -o " + Chr(34) + LocalPath + Chr(34) + " " + Chr(34) + URL + Chr(34))
 		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Multiple
-		    'While socket.HTTPStatusCode = 0
-		    'Main.ItemsLabel.Text = socket.HTTPStatusCode.ToString
-		    'App.DoEvents(100)
-		    'Wend
-		    'ShowDownloadImages ' Show whats available
-		    'End If
+		  Catch
+		  End Try
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub StartIconDownload(URL As String, LocalPath As String)
+		  ' Downloads a .png icon/fader using an async curl shell.
+		  ' DownloadScreenAndIcon timer polls IsRunning and calls ShowDownloadImages on completion.
+		  Try
+		    If ShellIcon <> Nil And ShellIcon.IsRunning Then ShellIcon.Close
+		    ShellIcon = New Shell
+		    ShellIcon.TimeOut = -1
+		    ShellIcon.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		    Dim CurlBin As String = LinuxCurl
+		    If TargetWindows Then CurlBin = WinCurl
+		    ShellIcon.Execute(CurlBin + " -L -s --connect-timeout 15 -o " + Chr(34) + LocalPath + Chr(34) + " " + Chr(34) + URL + Chr(34))
+		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Multiple
 		  Catch
 		  End Try
 		End Sub
@@ -1939,18 +1966,26 @@ End
 		    HeadSp= Sp(0).Split("|")
 		    
 		    If HeadSp.Count >= 1 Then
+		      ' Pre-build a column-index map from HeadSp positions to Data.Items column indices.
+		      ' This replaces the O(columns) linear-scan K loop that previously ran for every
+		      ' field of every row — now it is done ONCE and looked up as O(1) array access.
+		      Dim ColMap() As Integer
+		      ReDim ColMap(HeadSp.Count - 1)
+		      Dim MapJ As Integer
+		      For MapJ = 0 To HeadSp.Count - 1
+		        ColMap(MapJ) = Data.GetDBHeader(HeadSp(MapJ))
+		      Next
+		      
+		      ' Cache Categories/Catalog columns for the per-row fallback check below
+		      Dim CatColDB     As Integer = Data.GetDBHeader("Categories")
+		      Dim CatalogColDB As Integer = Data.GetDBHeader("Catalog")
+		      
 		      For I = 1 To Sp.Count - 1 'Items in DB
 		        ItemSP = Sp(I).Split(",|,")
 		        If ItemSp.Count >= 1 Then
 		          For J = 0 To HeadSp.Count - 1
 		            
-		            DataHeadID = -1
-		            For K = 0 To Data.Items.ColumnCount - 1
-		              If Data.Items.HeaderAt(K) = HeadSp(J) Then
-		                DataHeadID = K
-		                Exit 'Found it
-		              End If
-		            Next
+		            DataHeadID = ColMap(J) ' O(1) array lookup — replaces O(columns) linear scan
 		            
 		            Select Case HeadSp(J)
 		            Case "RefID"
@@ -2021,20 +2056,25 @@ End
 		              End If
 		            End Select
 		            
-		            'Fallback if no Category is set
-		            #Pragma BreakOnExceptions Off
-		            Try
-		              If Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Categories")) = "" Then
-		                If Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Catalog")) <> "" Then
-		                  Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Categories")) = Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("Catalog"))
+		          Next J ' End column loop
+		          
+		          ' Categories fallback — moved OUTSIDE the column loop so it runs once per row
+		          ' instead of once per column×row (was calling GetDBHeader 3-4× per column before)
+		          #Pragma BreakOnExceptions Off
+		          Try
+		            If CatColDB >= 0 And CatalogColDB >= 0 Then
+		              If Data.Items.CellTextAt(ItemCount, CatColDB) = "" Then
+		                If Data.Items.CellTextAt(ItemCount, CatalogColDB) <> "" Then
+		                  Data.Items.CellTextAt(ItemCount, CatColDB) = Data.Items.CellTextAt(ItemCount, CatalogColDB)
 		                End If
 		              End If
-		            Catch
-		            End Try
-		            #Pragma BreakOnExceptions On
-		          Next
+		            End If
+		          Catch
+		          End Try
+		          #Pragma BreakOnExceptions On
+		          
 		        End If
-		      Next
+		      Next I
 		    End If
 		  End If
 		End Sub
@@ -2913,6 +2953,20 @@ End
 		          Main.ItemFaderPic.Backdrop.Graphics.DrawPicture(CurrentFader,0,0,Main.ItemFaderPic.Width, Main.ItemFaderPic.Height,0,0,CurrentFader.Width, CurrentFader.Height)
 		          Main.ItemFaderPic.Refresh
 		        End If
+		        
+		        ' --- Update the listbox row icon with the newly downloaded image ---
+		        ' Add the downloaded fader into the shared icon cache and point this
+		        ' item's IconRef at the new slot.  Then repaint just the visible rows
+		        ' via Items.Refresh — this preserves ScrollPosition and SelectedRowIndex
+		        ' automatically, so the list position is never lost.
+		        If CurrentItemID >= 0 Then
+		          Dim NewIconIdx As Integer = Data.Icons.RowCount
+		          Data.Icons.AddRow
+		          Data.Icons.RowImageAt(NewIconIdx) = CurrentFader
+		          Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("IconRef")) = Str(NewIconIdx)
+		          Main.Items.Refresh ' Repaint rows — does NOT reset scroll or selection
+		        End If
+		        
 		      End If
 		    End If
 		  Catch
@@ -2930,19 +2984,11 @@ End
 
 
 	#tag Property, Flags = &h0
-		DownloadScreenshot As String
+		ShellScreenshot As Shell
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
-		DownloadScreenshotLocal As String
-	#tag EndProperty
-
-	#tag Property, Flags = &h0
-		DownScreen As Shell
-	#tag EndProperty
-
-	#tag Property, Flags = &h0
-		PubSock As URLConnection
+		ShellIcon As Shell
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -2951,10 +2997,6 @@ End
 
 	#tag Property, Flags = &h0
 		SortMenuStyle As Boolean
-	#tag EndProperty
-
-	#tag Property, Flags = &h0
-		TimerCounts As Integer
 	#tag EndProperty
 
 
@@ -3050,9 +3092,15 @@ End
 		    '------------------------------------------------------------------------- Optimise the Loading of items --------------------------------------------------------------
 		    'Load Item Data, Need to Do DB stuff here also
 		    UpdateLoading("Adding Items...")
-		    If Data.ScanItems.RowCount >=1 Then
-		      For I = 0 To Data.ScanItems.RowCount - 1
-		        Loading.Status.Text = "Adding Items: "+ Str(I)+"/"+Str(Data.ScanItems.RowCount - 1)
+		    Dim ScanItemCount As Integer = Data.ScanItems.RowCount
+		    If ScanItemCount >= 1 Then
+		      Dim ScanItemLast As Integer = ScanItemCount - 1
+		      For I = 0 To ScanItemLast
+		        ' Throttle the status text update — refreshing the label every item is expensive
+		        ' for large catalogs. Update every 10 items; always show the last item.
+		        If (I Mod 10) = 0 Or I = ScanItemLast Then
+		          Loading.Status.Text = "Adding Items: "+ Str(I)+"/"+Str(ScanItemLast)
+		        End If
 		        '************************************************************************************
 		        'Item ,2 is the ScanPath
 		        CurrentScanPath = Data.ScanItems.CellTextAt(I,2) 'This is used to Identify Multiple Links so can save Launcher DB's with them
@@ -3401,13 +3449,16 @@ End
 		    
 		    GetURL = QueueURL(QueueUpTo)
 		    
-		    ' Route images (.jpg/.png) to the built-in URLConnection downloader
+		    ' Route images to parallel async curl downloaders.
+		    ' .jpg and .png each get their own Shell so they download simultaneously.
 		    Select Case Right(GetURL, 4).Lowercase
-		    Case ".jpg", ".png"
-		      DownloadScreenshot = GetURL
-		      DownloadScreenshotLocal = QueueLocal(QueueUpTo)
-		      DownScreen()
-		      DLState = ST_ADVANCE 
+		    Case ".jpg"
+		      StartScreenshotDownload(GetURL, QueueLocal(QueueUpTo))
+		      DLState = ST_ADVANCE
+		      Return
+		    Case ".png"
+		      StartIconDownload(GetURL, QueueLocal(QueueUpTo))
+		      DLState = ST_ADVANCE
 		      Return
 		    End Select
 		    
@@ -4491,22 +4542,32 @@ End
 #tag Events DownloadScreenAndIcon
 	#tag Event
 		Sub Action()
-		  If TimerCounts > 26 Then ' Just over 2 1/2 seconds since last item clicked?
-		    TimerCounts = 0
-		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Off
-		    ShowDownloadImages ' Show whats available
-		  Else
-		    TimerCounts = TimerCounts + 1
+		  ' Poll both curl shells independently.
+		  ' Each calls ShowDownloadImages the moment its shell finishes - no fixed wait.
+		  ' Timer shuts itself off once both shells are done (or were never started).
+		  Var AnyRunning As Boolean = False
+		  
+		  If ShellScreenshot <> Nil Then
+		    If ShellScreenshot.IsRunning Then
+		      AnyRunning = True
+		    Else
+		      ShellScreenshot = Nil
+		      If Main.Visible And Not InstallingItem Then ShowDownloadImages
+		    End If
 		  End If
 		  
+		  If ShellIcon <> Nil Then
+		    If ShellIcon.IsRunning Then
+		      AnyRunning = True
+		    Else
+		      ShellIcon = Nil
+		      If Main.Visible And Not InstallingItem Then ShowDownloadImages
+		    End If
+		  End If
 		  
-		  'If PubSock.HTTPStatusCode = 0 Then
-		  'DownloadScreenAndIcon.RunMode = Timer.RunModes.Single
-		  'Else 'Has a result
-		  'If PubSock.HTTPStatusCode = 200 Then
-		  'ShowDownloadImages ' Show whats available
-		  'End If
-		  'End If
+		  If Not AnyRunning Then
+		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Off
+		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -4845,30 +4906,6 @@ End
 		Group="Behavior"
 		InitialValue=""
 		Type="Boolean"
-		EditorType=""
-	#tag EndViewProperty
-	#tag ViewProperty
-		Name="DownloadScreenshot"
-		Visible=false
-		Group="Behavior"
-		InitialValue=""
-		Type="String"
-		EditorType="MultiLineEditor"
-	#tag EndViewProperty
-	#tag ViewProperty
-		Name="DownloadScreenshotLocal"
-		Visible=false
-		Group="Behavior"
-		InitialValue=""
-		Type="String"
-		EditorType="MultiLineEditor"
-	#tag EndViewProperty
-	#tag ViewProperty
-		Name="TimerCounts"
-		Visible=false
-		Group="Behavior"
-		InitialValue=""
-		Type="Integer"
 		EditorType=""
 	#tag EndViewProperty
 #tag EndViewBehavior

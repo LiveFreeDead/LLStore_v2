@@ -458,6 +458,9 @@ End
 		    Data.Icons.RowImageAt(0) = DefaultFader
 		    Data.Icons.DefaultRowHeight = 256
 		  End If
+		  
+		  ' Build the column name -> index Dictionary so GetDBHeader is O(1) from here on
+		  BuildDBIndex
 		End Sub
 	#tag EndMethod
 
@@ -494,17 +497,31 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Function GetDBHeader(HeadText As String) As Integer
-		  If Data.Items.RowCount = 0 Then Return -1
-		  
+		Sub BuildDBIndex()
+		  ' Builds a Dictionary of column name -> column index from the current
+		  ' Data.Items headers. Called once at the end of ClearData so all
+		  ' subsequent GetDBHeader calls are O(1) hash lookups instead of O(n) scans.
+		  DBCol = New Dictionary
 		  Dim I As Integer
-		  For I = 0 To Data.Items.ColumnCount
-		    Select Case  Data.Items.HeaderAt(I)
-		    Case HeadText
-		      Return I 'Found it
-		    End Select
+		  For I = 0 To Items.ColumnCount
+		    DBCol.Value(Items.HeaderAt(I)) = I
 		  Next
-		  Return -1 'Not Found
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function GetDBHeader(HeadText As String) As Integer
+		  If Items.RowCount = 0 And (DBCol Is Nil) Then Return -1
+		  If DBCol <> Nil Then
+		    If DBCol.HasKey(HeadText) Then Return DBCol.Value(HeadText)
+		    Return -1
+		  End If
+		  ' Fallback linear scan if Dictionary not yet built
+		  Dim I As Integer
+		  For I = 0 To Items.ColumnCount
+		    If Items.HeaderAt(I) = HeadText Then Return I
+		  Next
+		  Return -1
 		End Function
 	#tag EndMethod
 
@@ -515,6 +532,10 @@ End
 
 	#tag Property, Flags = &h0
 		LocalDBHeader As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		DBCol As Dictionary
 	#tag EndProperty
 
 
