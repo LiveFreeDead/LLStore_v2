@@ -1845,71 +1845,134 @@ End
 		  If Debugging Then Debug("- Starting Hide Old Versions -")
 		  App.DoEvents(1) 'This makes the Load Screen Update the Status Text, Needs to be in each Function and Sub call
 		  
-		  DIm I, J As Integer
+		  Dim I, J As Integer
 		  Dim ItemToAdd(16000) As String
 		  Dim BuildType(16000) As String
 		  Dim ItemHidden(16000) As Boolean
 		  Dim V(16000) As String
-		  Dim VI(16000) As Integer
-		  Dim ColsHidden, ColsBuildType, ColsTitleName, ColsVersion As Integer
+		  Dim IsLocalFile(16000) As Boolean 'True if the item's source file exists locally (scanned-in items), False for download-only DB entries
+		  Dim ColsHidden, ColsBuildType, ColsTitleName, ColsVersion, ColsFileINI As Integer
 		  
-		  ColsHidden = Data.GetDBHeader("Hidden")
+		  ColsHidden    = Data.GetDBHeader("Hidden")
 		  ColsBuildType = Data.GetDBHeader("BuildType")
 		  ColsTitleName = Data.GetDBHeader("TitleName")
-		  ColsVersion = Data.GetDBHeader("Version")
+		  ColsVersion   = Data.GetDBHeader("Version")
+		  ColsFileINI   = Data.GetDBHeader("FileINI")
 		  
-		  'Pre Add all the data to quickly compare, hiding the Easy ones
+		  'Pre-load all data and check whether each item's source file is present locally.
+		  'This lets us prefer a scanned-in local item over a remote/download-only DB entry
+		  'when both have the same title, build type, and version.
 		  For I = 0 To Data.Items.RowCount - 1
 		    If Data.Items.CellTextAt(I, ColsHidden) = "T" Then ItemHidden(I) = True
 		    BuildType(I) = Data.Items.CellTextAt(I, ColsBuildType)
-		    ''We'll hide Games as we don't version check these, Will try for now, doesn't slow down too much
-		    'If BuildType(I) = "ppGame" Or BuildType(I) = "LLGame" Then 
-		    'ItemHidden(I) = True
-		    '''Data.Items.CellTextAt(I, ColsHidden) = "T"
-		    'End If
 		    ItemToAdd(I) = Data.Items.CellTextAt(I, ColsTitleName)
 		    V(I) = Data.Items.CellTextAt(I, ColsVersion)
 		    
-		    'Clean Versions so they can be compared, they all need it and the short or no version ones will be quick
-		    If V(I) <>"" Then ' Don't treat Empty ones, a little speed increase
-		      If Left(V(I),1).Lowercase = "v" Then V(I) = Right (V(I), V(I).Length-1)
-		      V(I) = V(I).Replace (".","") 'Remove all Decimals and only keep the one created below
-		      V(I) = V(I).Replace ("R",".") 'Convert R to Decimal to make it comparable
-		      V(I) = V(I).Replace (" ","") 'Remove all Spaces
-		      V(I) = V(I).Replace ("-","") 'Remove all Minus
-		      V(I) = V(I).Replace ("_","") 'Remove all Underscore
-		      V(I) = V(I).Replace ("beta","") 'Remove all Spaces
-		      VI(I) = V(I).ToDouble
+		    'Check if source file exists locally (distinguishes scanned items from download-only DB entries)
+		    If ColsFileINI >= 0 Then
+		      Dim FI As String = Data.Items.CellTextAt(I, ColsFileINI)
+		      If FI <> "" And Left(FI, 4).Lowercase <> "http" Then
+		        IsLocalFile(I) = Exist(FI)
+		      End If
+		    End If
+		    
+		    'Clean version string for component-wise comparison.
+		    'We keep dots as separators (e.g. "1.10.2" stays as-is so each part
+		    'can be compared numerically, fixing "1.10" > "1.9" which the old
+		    'strip-all-dots approach got wrong).
+		    If V(I) <> "" Then
+		      If Left(V(I), 1).Lowercase = "v" Then V(I) = Right(V(I), V(I).Length - 1)
+		      V(I) = V(I).ReplaceAll("R", ".") 'Convert R-notation (e.g. 1R2) to dot separator
+		      V(I) = V(I).ReplaceAll(" ", "")
+		      V(I) = V(I).ReplaceAll("-", "")
+		      V(I) = V(I).ReplaceAll("_", "")
+		      V(I) = V(I).ReplaceAll("beta", "")
+		      While V(I).InStr("..") > 0 'Collapse any double dots left by the replacements above
+		        V(I) = V(I).ReplaceAll("..", ".")
+		      Wend
+		      If Left(V(I), 1) = "." Then V(I) = Right(V(I), V(I).Length - 1)
+		      If Right(V(I), 1) = "." Then V(I) = Left(V(I), V(I).Length - 1)
 		    End If
 		  Next
+		  
 		  For I = 0 To Data.Items.RowCount - 1
-		    If ItemHidden(I) = True Then Continue 'Don't add any that are set to Hidden (Old versions and Duplicates get Hidden)
+		    If ItemHidden(I) = True Then Continue 'Already hidden, skip
 		    
-		    For J = 0 To Data.Items.RowCount - 1 'Check if Duplicated item (no version checks)
-		      If ItemHidden(J) = True Then Continue 'Don't add any that are set to Hidden (Old versions and Duplicates get Hidden)
-		      If I = J Then Continue 'Don't compare to Self and it shouldn't hide everything
-		      If ItemToAdd(I) = ItemToAdd(J) And BuildType(I) = BuildType(J) Then 'If same Name and Build Type then process
-		        'Do Version Test Here
-		        If V(I) = "" And V(J) = "" Or V(I) = V(J) Then 'If No Version to comapre, Just hide one, or if version same text (Quickest check)
-		          ItemHidden(J) = True
-		          Data.Items.CellTextAt(J, ColsHidden) = "T"
-		          Continue
-		        End If
-		        'No Need to test if either Version contains anything but still need to test if one is Empty
-		        If V(I) = "" Then Continue 'Skip checking non versioned items
-		        If V(J) = "" Then Continue 'Skip checking non versioned items
+		    For J = 0 To Data.Items.RowCount - 1
+		      If ItemHidden(J) = True Then Continue
+		      If I = J Then Continue 'Don't compare to self
+		      
+		      If ItemToAdd(I) = ItemToAdd(J) And BuildType(I) = BuildType(J) Then 'Same title and build type: resolve duplicate
 		        
-		        'Main version work here
-		        If VI(I) > VI(J) Then 'Check which version Number is highest
+		        Dim VCmp As Integer = CompareVersionStrings(V(I), V(J))
+		        
+		        If VCmp = 0 Then 'Same version (or both empty): prefer the locally-present file
+		          If IsLocalFile(J) And Not IsLocalFile(I) Then
+		            'J is a local scanned file; I is a remote/download-only DB entry. Hide I, keep J.
+		            ItemHidden(I) = True
+		            Data.Items.CellTextAt(I, ColsHidden) = "T"
+		            Exit 'I is now hidden — exit inner J loop; outer loop advances to next I
+		          Else
+		            'I is local (or both are same locality): hide J, keep I
+		            ItemHidden(J) = True
+		            Data.Items.CellTextAt(J, ColsHidden) = "T"
+		          End If
+		          
+		        ElseIf VCmp > 0 Then 'I is a newer version: hide J
 		          ItemHidden(J) = True
 		          Data.Items.CellTextAt(J, ColsHidden) = "T"
-		          Continue
+		          
+		        'VCmp < 0 means J is newer: don't hide J here.
+		        'J's own outer-loop iteration will hide I when it becomes I.
 		        End If
 		        
 		      End If
-		    Next
-		  Next
+		    Next J
+		  Next I
 		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function CompareVersionStrings(V1 As String, V2 As String) As Integer
+		  ' Compare two pre-cleaned version strings component by component.
+		  ' Both strings should already have noise (spaces, dashes, beta, etc.) removed,
+		  ' and dots retained as the separator between numeric parts.
+		  '
+		  ' Returns: 1 if V1 > V2, -1 if V1 < V2, 0 if equal.
+		  '
+		  ' Examples:
+		  '   "1.10.0" vs "1.9.0"  → 1  (correct; old dot-strip approach gave wrong result)
+		  '   "2.0"    vs "1.99.9" → 1
+		  '   "1.2"    vs "1.2.0"  → 0  (missing trailing parts treated as zero)
+		  '   "1.2.3"  vs "1.2.4"  → -1
+		  '
+		  ' Only the first two components are strictly required; if one version has more
+		  ' parts than the other, the shorter one's missing parts are treated as 0.
+		  
+		  If V1 = "" And V2 = "" Then Return 0
+		  If V1 = "" Then Return -1 'No version is treated as lower
+		  If V2 = "" Then Return 1
+		  
+		  Dim P1() As String = V1.Split(".")
+		  Dim P2() As String = V2.Split(".")
+		  
+		  Dim Len1 As Integer = P1.Count
+		  Dim Len2 As Integer = P2.Count
+		  Dim MaxLen As Integer
+		  If Len1 > Len2 Then MaxLen = Len1 Else MaxLen = Len2
+		  
+		  Dim K As Integer
+		  For K = 0 To MaxLen - 1
+		    Dim N1 As Integer = 0
+		    Dim N2 As Integer = 0
+		    If K < Len1 Then N1 = Val(P1(K))
+		    If K < Len2 Then N2 = Val(P2(K))
+		    If N1 > N2 Then Return 1
+		    If N1 < N2 Then Return -1
+		  Next K
+		  
+		  Return 0 'All components equal
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
@@ -3583,9 +3646,9 @@ End
 		    
 		    Dim Commands As String
 		    If TargetWindows Then
-		      Commands = WinWget + " --tries=6 --timeout=9 -q -O " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + _
-		      " --show-progress " + Chr(34) + GetURL + Chr(34) + _
-		      " && echo done > " + Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
+		      Commands = WinWget + " --tries=6 --timeout=9 --progress=bar:force -O " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + _
+		      " " + Chr(34) + GetURL + Chr(34) + _
+		      " 2>&1 && echo done > " + Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
 		    Else
 		      Commands = LinuxWget + " --tries=6 --timeout=9 --progress=bar:force -O " + _
 		      Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + " " + _
@@ -3636,9 +3699,14 @@ End
 		            pStart = pStart - 1
 		          Wend
 		          Dim ProgPerc As String = Mid(theResults, pStart, lastPerc - pStart).Trim
-		          If IsNumeric(ProgPerc) Then
+		          ' Only accept the value if it looks like a genuine wget bar percentage.
+		          ' wget --progress=bar:force always emits "NN%[" — the "[" immediately
+		          ' follows the "%" and opens the bar graphic.  Any "%" from the verbose
+		          ' connection/header output (Content-Type, URLs, etc.) will NOT have "["
+		          ' right after it, so those false readings are safely ignored while real
+		          ' values like 32% or 64% now show correctly again.
+		          If IsNumeric(ProgPerc) And Mid(theResults, lastPerc + 1, 1) = "[" Then
 		            DownloadPercentage = ProgPerc + "%"
-		            If ProgPerc = "32" Or ProgPerc = "64" Then DownloadPercentage = "" 'Skip the filename token
 		          End If
 		        End If
 		      End If

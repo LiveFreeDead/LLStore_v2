@@ -5666,15 +5666,37 @@ End
 
 	#tag Method, Flags = &h0
 		Sub GetSizeOfItem()
+		  ' Unit conventions used throughout:
+		  '   LL types  (LLApp, LLGame): InstalledSize is stored in KB.
+		  '                              Main displays: KB / 1000 → "MB"
+		  '   pp/ss types (ppApp, ppGame, ssApp): InstalledSize is stored in bytes.
+		  '                              Main displays: bytes / 1,000,000 → "MB"
+		  '
+		  ' GetUnCompressedSize returns raw bytes (from "7z t" → "Size:" line).
+		  ' GetFolderSize returns KB.
+		  
+		  Dim IsLL As Boolean = (Left(ItemLLItem.BuildType, 2) = "LL")
+		  
 		  If ItemLLItem.Compressed = True Then
 		    Dim UnSize As Int64
 		    UnSize = GetUnCompressedSize(ItemLLItem.PathINI).ToInt64
-		    'MsgBox UnSize.ToString
-		    UnSize = UnSize / 1024
-		    'MsgBox UnSize.ToString
-		    TextInstalledSize.Text = UnSize.ToString 'Use Compressed file as size grabs
-		  Else ' Just get the Include folder sizes
-		    TextInstalledSize.Text = GetFolderSize(TextIncludeFolder.Text).ToString 'Use folder content as size Grab
+		    If IsLL Then
+		      ' LL types expect KB — convert bytes → KB
+		      TextInstalledSize.Text = (UnSize \ 1024).ToString
+		    Else
+		      ' pp/ss types expect bytes — store as-is
+		      TextInstalledSize.Text = UnSize.ToString
+		    End If
+		  Else
+		    ' Uncompressed: GetFolderSize returns KB, which is correct for LL types.
+		    ' pp/ss types are almost always compressed, but if not, convert KB → bytes so
+		    ' the display (/ 1,000,000) still gives a sensible MB value.
+		    Dim FolderSizeKB As Int64 = GetFolderSize(TextIncludeFolder.Text)
+		    If IsLL Then
+		      TextInstalledSize.Text = FolderSizeKB.ToString ' KB — correct for LL
+		    Else
+		      TextInstalledSize.Text = (FolderSizeKB * 1024).ToString ' KB → bytes for pp/ss
+		    End If
 		  End If
 		End Sub
 	#tag EndMethod
@@ -5977,29 +5999,12 @@ End
 		  TextBuildToFolder.Text = ItemTempPath 'Fix to use correct path depending on job
 		  CheckCompress.Value = ItemLLItem.Compressed 'If already compressed then check it again so you know
 		  
-		  If Not ItemLLItem.Compressed Then ' Can Do it
-		    Select Case BT
-		    Case "ssApp", "ppApp", "ppGame"
-		      Ext = ".7z"
-		    Case "LLApp", "LLGame"
-		      Ext = ".tar.gz"
-		    End Select
-		    
-		    ZippedOut = Slash(TextBuildToFolder.Text)+ItemLLItem.BuildType+Ext
-		    
-		    If Exist(ZippedOut) Then 
-		      ButtonImportSize.Visible = True
-		    Else
-		      ButtonImportSize.Visible = False
-		    End If
-		    
-		  Else
-		    ZippedOut = ""
+		  If ItemLLItem.Compressed Then
 		    CheckGetSizeComp.Enabled = False 'Fully disable it, not possible to do automated unless I extract the whole damn thing
 		    CheckGetSizeComp.Value = False
-		    
-		    ButtonImportSize.Visible = False
 		  End If
+		  
+		  RefreshImportSizeButton() ' Show Import whenever any usable source exists
 		  
 		  
 		  Populating = False 'Now you can edit without overwriting the Item Data.
@@ -6293,6 +6298,76 @@ End
 		  End If
 		  'ComboCategory.Text = TempText 'Put original text back after clearing all rows
 		  ComboCategory.Text = ItemLLItem.Categories
+		End Sub
+	#tag EndMethod
+
+
+	#tag Method, Flags = &h0
+		Sub RefreshImportSizeButton()
+		  ' Finds the best source for importing the installed size and shows the Import button
+		  ' whenever it can produce a meaningful result. Priority order:
+		  '   1. Compressed archive in the build-to folder   (BuildType.tar.gz / .7z)
+		  '   2. Compressed archive in the include folder    (same names)
+		  '   3. The item's own PathINI archive (Compressed=True items already stored as archive)
+		  '   4. Include folder file-count fallback          (always available when folder exists)
+		  '
+		  ' ZippedOut is set to the archive path for cases 1-3, or "" for the folder fallback.
+		  ' The button is hidden only when the include folder is also empty/missing.
+		  
+		  Dim BT  As String = ComboBuildType.Text
+		  If BT = "" Then BT = ItemLLItem.BuildType
+		  
+		  Dim Ext As String
+		  Select Case BT
+		  Case "ssApp", "ppApp", "ppGame"
+		    Ext = ".7z"
+		  Case "LLApp", "LLGame"
+		    Ext = ".tar.gz"
+		  Case Else
+		    Ext = ".7z"  ' Reasonable default for unknown types
+		  End Select
+		  
+		  Dim BuildFolder   As String = Slash(TextBuildToFolder.Text)
+		  Dim IncludeFolder As String = Slash(TextIncludeFolder.Text)
+		  
+		  ' Check each source in priority order
+		  Dim ArchiveInBuild   As String = BuildFolder   + BT + Ext
+		  Dim ArchiveInInclude As String = IncludeFolder + BT + Ext
+		  Dim PathINIArchive   As String = ItemLLItem.PathINI
+		  
+		  If TargetWindows Then
+		    ArchiveInBuild   = ArchiveInBuild.ReplaceAll("/", "\")
+		    ArchiveInInclude = ArchiveInInclude.ReplaceAll("/", "\")
+		  End If
+		  
+		  If Exist(ArchiveInBuild) Then
+		    ZippedOut = ArchiveInBuild
+		    ButtonImportSize.Visible = True
+		    ButtonImportSize.Tooltip = "Import uncompressed size from " + BT + Ext + " in build folder"
+		    
+		  ElseIf Exist(ArchiveInInclude) Then
+		    ZippedOut = ArchiveInInclude
+		    ButtonImportSize.Visible = True
+		    ButtonImportSize.Tooltip = "Import uncompressed size from " + BT + Ext + " in include folder"
+		    
+		  ElseIf ItemLLItem.Compressed And PathINIArchive <> "" And Exist(PathINIArchive) _
+		         And Left(PathINIArchive, 4).Lowercase <> "http" Then
+		    ' Item was already packaged (Compressed=True) — can still query the archive
+		    ZippedOut = PathINIArchive
+		    ButtonImportSize.Visible = True
+		    ButtonImportSize.Tooltip = "Import uncompressed size from packaged archive"
+		    
+		  ElseIf IncludeFolder <> "" And IncludeFolder <> "/" And IncludeFolder <> "\" And Exist(IncludeFolder) Then
+		    ' No archive found — fall back to counting files in the include folder
+		    ZippedOut = "" ' Signals Pressed handler to use folder counting
+		    ButtonImportSize.Visible = True
+		    ButtonImportSize.Tooltip = "Calculate installed size by summing files in include folder"
+		    
+		  Else
+		    ZippedOut = ""
+		    ButtonImportSize.Visible = False
+		    ButtonImportSize.Tooltip = ""
+		  End If
 		End Sub
 	#tag EndMethod
 
@@ -7634,29 +7709,7 @@ End
 		  End Select
 		  
 		  
-		  If Not ItemLLItem.Compressed Then ' Can Do it
-		    Select Case ComboBuildType.Text
-		    Case "ssApp", "ppApp", "ppGame"
-		      Ext = ".7z"
-		    Case "LLApp", "LLGame"
-		      Ext = ".tar.gz"
-		    End Select
-		    
-		    ZippedOut = Slash(TextBuildToFolder.Text)+ComboBuildType.Text+Ext
-		    
-		    If Exist(ZippedOut) Then 
-		      ButtonImportSize.Visible = True
-		    Else
-		      ButtonImportSize.Visible = False
-		    End If
-		    
-		  Else
-		    ZippedOut = ""
-		    CheckGetSizeComp.Enabled = False 'Fully disable it, not possible to do automated unless I extract the whole damn thing
-		    CheckGetSizeComp.Value = False
-		    
-		    ButtonImportSize.Visible = False
-		  End If
+		  RefreshImportSizeButton() ' Show Import whenever any usable source exists
 		  
 		End Sub
 	#tag EndEvent
@@ -7800,13 +7853,53 @@ End
 #tag Events ButtonImportSize
 	#tag Event
 		Sub Pressed()
-		  'Get the install size from either the archive if compressed or calculate based on existing files provided (not good for ssApps or NoInstall items as these grab from the net and need to manually be written)
+		  ' Import installed size from the best available source.
+		  ' ZippedOut = archive path → query with 7z, unit-convert per BuildType.
+		  ' ZippedOut = ""          → sum files in the include folder.
+		  '
+		  ' Unit conventions:
+		  '   LL types  (LLApp, LLGame) → store KB  (Main displays KB / 1000 as MB)
+		  '   pp/ss types               → store bytes (Main displays bytes / 1,000,000 as MB)
 		  
-		  TextInstalledSize.Text = GetUnCompressedSize(ZippedOut)
+		  Dim BT As String = ComboBuildType.Text
+		  If BT = "" Then BT = ItemLLItem.BuildType
+		  Dim IsLL As Boolean = (Left(BT, 2) = "LL")
 		  
-		  If TextInstalledSize.Text.ToInteger > 0 Then CheckGetSizeComp.Value = False 'If valid size, then no need to reget it.
-		  
-		  Return
+		  If ZippedOut <> "" And Exist(ZippedOut) Then
+		    ' --- Archive path: ask 7z for the uncompressed total ---
+		    Dim RawBytes As Int64 = GetUnCompressedSize(ZippedOut).ToInt64
+		    If RawBytes > 0 Then
+		      If IsLL Then
+		        TextInstalledSize.Text = (RawBytes \ 1024).ToString ' bytes → KB
+		      Else
+		        TextInstalledSize.Text = RawBytes.ToString ' bytes as-is
+		      End If
+		      CheckGetSizeComp.Value = False ' Size is now known, no need to re-fetch at build
+		    Else
+		      ' 7z gave nothing useful — fall through to folder count if possible
+		      Dim FolderSizeKB As Int64 = GetFolderSize(TextIncludeFolder.Text)
+		      If FolderSizeKB > 0 Then
+		        If IsLL Then
+		          TextInstalledSize.Text = FolderSizeKB.ToString
+		        Else
+		          TextInstalledSize.Text = (FolderSizeKB * 1024).ToString
+		        End If
+		        CheckGetSizeComp.Value = False
+		      End If
+		    End If
+		    
+		  Else
+		    ' --- No archive: count files in the include folder ---
+		    Dim FolderKB As Int64 = GetFolderSize(TextIncludeFolder.Text)
+		    If FolderKB > 0 Then
+		      If IsLL Then
+		        TextInstalledSize.Text = FolderKB.ToString ' KB
+		      Else
+		        TextInstalledSize.Text = (FolderKB * 1024).ToString ' KB → bytes
+		      End If
+		      CheckGetSizeComp.Value = False
+		    End If
+		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents

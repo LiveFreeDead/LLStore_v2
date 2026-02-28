@@ -1079,6 +1079,27 @@ End
 		  IsOnlineCheck = "No"
 		  If Left(Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("PathIni")), 2) = "ht" Then IsOnlineCheck = "Yes"
 		  
+		  'Determine whether the item file is local on disk, already cached, or needs downloading
+		  Dim FileSourceText As String
+		  Dim FileINIVal  As String = Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("FileINI"))
+		  Dim PathINIVal  As String = Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("PathINI"))
+		  
+		  If FileINIVal <> "" And Left(FileINIVal, 4).Lowercase <> "http" And Exist(FileINIVal) Then
+		    'Installable file is present on disk right now
+		    FileSourceText = "Local File"
+		  ElseIf Left(PathINIVal, 4).Lowercase = "http" Or Left(FileINIVal, 4).Lowercase = "http" Then
+		    'Source is online — check whether it has already been cached in zLastOSRepository
+		    Dim CachedName As String = Right(FileINIVal, FileINIVal.Length - InStrRev(FileINIVal, "/"))
+		    Dim CachedFile As String = Slash(RepositoryPathLocal) + CachedName
+		    If CachedName <> "" And Exist(CachedFile) Then
+		      FileSourceText = "Cached File"
+		    Else
+		      FileSourceText = "Online File"
+		    End If
+		  Else
+		    FileSourceText = "Online File"
+		  End If
+		  
 		  'Meta Data
 		  MetaData.RemoveAllRows
 		  MetaData.AddRow ("URL:            " + Chr(9) + Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("URL")))
@@ -1087,6 +1108,7 @@ End
 		  MetaData.AddRow ("Installed:   " + Chr(9) + Installed)
 		  MetaData.AddRow ("Size:            " + Chr(9) + InstSizeText)
 		  MetaData.AddRow ("Online:      " + Chr(9) + IsOnlineCheck)
+		  MetaData.AddRow ("File:             " + Chr(9) + FileSourceText)
 		  
 		  
 		End Sub
