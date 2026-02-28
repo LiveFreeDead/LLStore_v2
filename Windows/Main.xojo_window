@@ -1064,13 +1064,9 @@ End
 		  If Right(Categories, 1) = "," Then Categories = Left(Categories, Len(Categories)-1) 'Removes Last Comma
 		  
 		  
-		  'InstallSize
+		  'InstallSize - stored as bytes for all build types
 		  InstSize = Val(Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("InstalledSize")))
-		  If Left(Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("BuildType")), 2) = "LL" Then
-		    InstSize = InstSize / 1000
-		  Else
-		    InstSize = InstSize / 1000000 '(Convert To MB)
-		  End If
+		  InstSize = InstSize / 1000000 'Convert bytes to MB for all build types
 		  
 		  InstSizeText = InstSize.ToString("#.##") + " MB"
 		  

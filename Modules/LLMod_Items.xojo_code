@@ -56,7 +56,7 @@ Protected Module LLMod_Items
 		  HideInLauncher As Boolean
 		  IconRef As Integer
 		  Installed As Boolean
-		  InstallSize As Integer
+		  InstallSize As Int64
 		  KeepAll As Boolean
 		  KeepInFolder As Boolean
 		  Language As String * 1024

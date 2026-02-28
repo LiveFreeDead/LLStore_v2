@@ -4307,7 +4307,7 @@ Begin DesktopWindow Editor
          Text            =   "Installed Size:"
          TextAlignment   =   3
          TextColor       =   &c000000
-         Tooltip         =   "Click to attempt to get size or Type in the Kilobyte value of the installed item, you will manually have to check the installed item to see how big it is and type it here (divide the byte value by 1024 to get the KB size)"
+         Tooltip         =   "Click to attempt to get size. InstalledSize is stored in bytes for all item types."
          Top             =   207
          Transparent     =   False
          Underline       =   False
@@ -4704,7 +4704,7 @@ Begin DesktopWindow Editor
          Text            =   "TextInstalledSize"
          TextAlignment   =   0
          TextColor       =   &c000000
-         Tooltip         =   "Type in the Kilobyte value of the installed item, you will manually have to check the installed item to see how big it is and type it here (divide the byte value by 1024 to get the KB size)"
+         Tooltip         =   "The installed size in bytes. All build types (LLApp, LLGame, ppApp, ppGame, ssApp) use bytes. Displayed as MB in the store (bytes / 1,000,000)."
          Top             =   206
          Transparent     =   False
          Underline       =   False
@@ -5666,37 +5666,17 @@ End
 
 	#tag Method, Flags = &h0
 		Sub GetSizeOfItem()
-		  ' Unit conventions used throughout:
-		  '   LL types  (LLApp, LLGame): InstalledSize is stored in KB.
-		  '                              Main displays: KB / 1000 → "MB"
-		  '   pp/ss types (ppApp, ppGame, ssApp): InstalledSize is stored in bytes.
-		  '                              Main displays: bytes / 1,000,000 → "MB"
-		  '
-		  ' GetUnCompressedSize returns raw bytes (from "7z t" → "Size:" line).
-		  ' GetFolderSize returns KB.
-		  
-		  Dim IsLL As Boolean = (Left(ItemLLItem.BuildType, 2) = "LL")
+		  ' InstalledSize is stored as raw bytes for ALL build types (LLApp, LLGame, ppApp, ppGame, ssApp).
+		  ' Main displays: bytes / 1,000,000 → MB.
+		  ' GetUnCompressedSize returns raw bytes (from "7z t" → "Size:" line) — store as-is.
+		  ' GetFolderSize now returns raw bytes — store as-is.
 		  
 		  If ItemLLItem.Compressed = True Then
 		    Dim UnSize As Int64
 		    UnSize = GetUnCompressedSize(ItemLLItem.PathINI).ToInt64
-		    If IsLL Then
-		      ' LL types expect KB — convert bytes → KB
-		      TextInstalledSize.Text = (UnSize \ 1024).ToString
-		    Else
-		      ' pp/ss types expect bytes — store as-is
-		      TextInstalledSize.Text = UnSize.ToString
-		    End If
+		    TextInstalledSize.Text = UnSize.ToString 'Store raw bytes
 		  Else
-		    ' Uncompressed: GetFolderSize returns KB, which is correct for LL types.
-		    ' pp/ss types are almost always compressed, but if not, convert KB → bytes so
-		    ' the display (/ 1,000,000) still gives a sensible MB value.
-		    Dim FolderSizeKB As Int64 = GetFolderSize(TextIncludeFolder.Text)
-		    If IsLL Then
-		      TextInstalledSize.Text = FolderSizeKB.ToString ' KB — correct for LL
-		    Else
-		      TextInstalledSize.Text = (FolderSizeKB * 1024).ToString ' KB → bytes for pp/ss
-		    End If
+		    TextInstalledSize.Text = GetFolderSize(TextIncludeFolder.Text).ToString 'Store raw bytes
 		  End If
 		End Sub
 	#tag EndMethod
@@ -7854,49 +7834,29 @@ End
 	#tag Event
 		Sub Pressed()
 		  ' Import installed size from the best available source.
-		  ' ZippedOut = archive path → query with 7z, unit-convert per BuildType.
-		  ' ZippedOut = ""          → sum files in the include folder.
-		  '
-		  ' Unit conventions:
-		  '   LL types  (LLApp, LLGame) → store KB  (Main displays KB / 1000 as MB)
-		  '   pp/ss types               → store bytes (Main displays bytes / 1,000,000 as MB)
-		  
-		  Dim BT As String = ComboBuildType.Text
-		  If BT = "" Then BT = ItemLLItem.BuildType
-		  Dim IsLL As Boolean = (Left(BT, 2) = "LL")
+		  ' InstalledSize is stored as raw bytes for ALL build types.
+		  ' Main displays: bytes / 1,000,000 → MB.
 		  
 		  If ZippedOut <> "" And Exist(ZippedOut) Then
 		    ' --- Archive path: ask 7z for the uncompressed total ---
 		    Dim RawBytes As Int64 = GetUnCompressedSize(ZippedOut).ToInt64
 		    If RawBytes > 0 Then
-		      If IsLL Then
-		        TextInstalledSize.Text = (RawBytes \ 1024).ToString ' bytes → KB
-		      Else
-		        TextInstalledSize.Text = RawBytes.ToString ' bytes as-is
-		      End If
+		      TextInstalledSize.Text = RawBytes.ToString ' Store raw bytes
 		      CheckGetSizeComp.Value = False ' Size is now known, no need to re-fetch at build
 		    Else
 		      ' 7z gave nothing useful — fall through to folder count if possible
-		      Dim FolderSizeKB As Int64 = GetFolderSize(TextIncludeFolder.Text)
-		      If FolderSizeKB > 0 Then
-		        If IsLL Then
-		          TextInstalledSize.Text = FolderSizeKB.ToString
-		        Else
-		          TextInstalledSize.Text = (FolderSizeKB * 1024).ToString
-		        End If
+		      Dim FolderBytes As Int64 = GetFolderSize(TextIncludeFolder.Text)
+		      If FolderBytes > 0 Then
+		        TextInstalledSize.Text = FolderBytes.ToString ' Store raw bytes
 		        CheckGetSizeComp.Value = False
 		      End If
 		    End If
 		    
 		  Else
 		    ' --- No archive: count files in the include folder ---
-		    Dim FolderKB As Int64 = GetFolderSize(TextIncludeFolder.Text)
-		    If FolderKB > 0 Then
-		      If IsLL Then
-		        TextInstalledSize.Text = FolderKB.ToString ' KB
-		      Else
-		        TextInstalledSize.Text = (FolderKB * 1024).ToString ' KB → bytes
-		      End If
+		    Dim FolderBytes As Int64 = GetFolderSize(TextIncludeFolder.Text)
+		    If FolderBytes > 0 Then
+		      TextInstalledSize.Text = FolderBytes.ToString ' Store raw bytes
 		      CheckGetSizeComp.Value = False
 		    End If
 		  End If

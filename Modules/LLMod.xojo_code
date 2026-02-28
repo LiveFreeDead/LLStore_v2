@@ -2063,13 +2063,13 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Function GetFolderSize(FolderIn As String) As Integer
+		Function GetFolderSize(FolderIn As String) As Int64
 		  Var folder As FolderItem = GetFolderItem(FolderIn,FolderItem.PathTypeNative)
 		  
 		  If folder <> Nil Then
-		    Var sizeKB As UInt64 = GetFolderSizeKB(folder)
-		    'MessageBox("Total size: " + sizeKB.ToString + " KB")
-		    Return sizeKB
+		    Var sizeBytes As UInt64 = GetFolderSizeBytes(folder)
+		    'MessageBox("Total size: " + sizeBytes.ToString + " Bytes")
+		    Return sizeBytes
 		  End If
 		  
 		  Return 0
