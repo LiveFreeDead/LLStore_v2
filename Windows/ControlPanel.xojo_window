@@ -1091,6 +1091,12 @@ End
 		    
 		    #Pragma BreakOnExceptions Off
 		    
+		    ' Hide GUI and show progress notification — only when triggered from GUI, not command line
+		    If Loading.Regenerate = False Then Main.Hide
+		    ControlPanel.Hide
+		    Notify ("Regenerating Items", "Scanning for items...", ThemePath+"Icon.png", -1)
+		    Dim WinDoneItems As Integer = 0
+		    
 		    Test = "C:\Program Files"
 		    
 		    If Debugging Then Debug ("FOUND: "+Test)
@@ -1120,6 +1126,11 @@ End
 		              
 		              Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
 		              If Suc Then ' Only do if in right path
+		                WinDoneItems = WinDoneItems + 1
+		                Notification.Status.Text = "("+WinDoneItems.ToString+") Regenerating: "+Chr(10)+Sp(J).Trim
+		                Notification.NotifyTimeOut.Reset
+		                Notification.Refresh
+		                App.DoEvents(1)
 		                RunScripts 'Run Script File from the path (Expanded variables)
 		                RunRegistry'Run The Reg File from the path (Expanded variables)
 		                
@@ -1162,6 +1173,11 @@ End
 		              
 		              Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
 		              If Suc Then ' Only do if in right path
+		                WinDoneItems = WinDoneItems + 1
+		                Notification.Status.Text = "("+WinDoneItems.ToString+") Regenerating: "+Chr(10)+Sp(J).Trim
+		                Notification.NotifyTimeOut.Reset
+		                Notification.Refresh
+		                App.DoEvents(1)
 		                RunScripts 'Run Script File from the path (Expanded variables)
 		                RunRegistry'Run The Reg File from the path (Expanded variables)
 		                
@@ -1223,6 +1239,11 @@ End
 		                    
 		                    Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
 		                    If Suc Then ' Only do if in right path
+		                      WinDoneItems = WinDoneItems + 1
+		                      Notification.Status.Text = "("+WinDoneItems.ToString+") Regenerating: "+Chr(10)+Sp(J).Trim
+		                      Notification.NotifyTimeOut.Reset
+		                      Notification.Refresh
+		                      App.DoEvents(1)
 		                      RunScripts 'Run Script File from the path (Expanded variables)
 		                      RunRegistry'Run The Reg File from the path (Expanded variables)
 		                      
@@ -1269,6 +1290,11 @@ End
 		                    
 		                    Suc = ChDirSet(InstallFromPath) 'Change to App/Games INI Path to run  from
 		                    If Suc Then ' Only do if in right path
+		                      WinDoneItems = WinDoneItems + 1
+		                      Notification.Status.Text = "("+WinDoneItems.ToString+") Regenerating: "+Chr(10)+Sp(J).Trim
+		                      Notification.NotifyTimeOut.Reset
+		                      Notification.Refresh
+		                      App.DoEvents(1)
 		                      RunScripts 'Run Script File from the path (Expanded variables)
 		                      RunRegistry'Run The Reg File from the path (Expanded variables)
 		                      
@@ -1293,6 +1319,11 @@ End
 		      reg.Value("ErrorMode") = 0
 		    Catch
 		    End Try
+		    
+		    ' Restore GUI — only when triggered from GUI, not command line
+		    Notification.Hide
+		    If Loading.Regenerate = False Then Main.Show
+		    ControlPanel.Show
 		    
 		  Else 'Linux
 		    

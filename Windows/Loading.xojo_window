@@ -4711,13 +4711,19 @@ End
 		  Editor.BuildLLFile()
 		  #Pragma BreakOnExceptions On
 		  
-		  ' Post-build: quit (CLI/AutoBuild) or close editor (GUI)
-		  If EditorOnly Then
+		  ' Post-build: quit (CLI/AutoBuild), re-show Editor (context-menu build), or restore Main (normal build)
+		  If AutoBuild Then
+		    ' CLI / command-line build — quit when done
 		    PreQuitApp
 		    QuitApp
+		  ElseIf EditorOnly Then
+		    ' Opened via context menu — keep app running, put the Editor back
+		    Editor.Show
 		  Else
+		    ' Normal GUI flow — Editor and Main were hidden for the build; restore Main
 		    Editor.Hide
 		    Editor.Close
+		    If StoreMode <> 99 Then Main.Show
 		  End If
 		End Sub
 	#tag EndEvent
