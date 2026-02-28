@@ -2577,6 +2577,12 @@ End
 		  Dim IsCompressed As Boolean
 		  
 		  'SaveDB's if Writable (Move this to a thread to do in the background?)
+		  'Cache column indices once — used repeatedly inside the I/J loops below
+		  Dim SDBColCompressed As Integer = Data.GetDBHeader("Compressed")
+		  Dim SDBColPathINI    As Integer = Data.GetDBHeader("PathINI")
+		  Dim SDBColUnique     As Integer = Data.GetDBHeader("UniqueName")
+		  Dim SDBColLnkMulti  As Integer = Data.GetDBHeader("LnkMultiple")
+		  Dim SDBColTitleName As Integer = Data.GetDBHeader("TitleName")
 		  For I = 0 To Data.ScanPaths.RowCount - 1
 		    DBOutPath = Data.ScanPaths.CellTextAt(I, 0) + ".lldb/"
 		    
@@ -2602,17 +2608,17 @@ End
 		        If Data.ScanItems.CellTagAt(J,0) >=0 Then 'Only Add Valid Items to the DB
 		          'If Debugging Then Debug(Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),Data.GetDBHeader("TitleName"))+" ~ Valid")
 		          'Get if compressed and the correct INI Path for the item
-		          IsCompressed = IsTrue(Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),Data.GetDBHeader("Compressed")))
+		          IsCompressed = IsTrue(Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0), SDBColCompressed))
 		          If IsCompressed Then
-		            PatINI = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),Data.GetDBHeader("PathINI"))
+		            PatINI = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0), SDBColPathINI)
 		            PatINI = Left(PatIni,InStrRev(PatIni,"/")-1)
 		          Else
-		            PatINI = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),Data.GetDBHeader("PathINI"))
+		            PatINI = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0), SDBColPathINI)
 		            PatINI = Left(PatIni,InStrRev(PatIni,"/") -1)
 		            PatINI = Left(PatIni,InStrRev(PatIni,"/")-1)
 		          End If
 		          
-		          UniqueName = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),Data.GetDBHeader("UniqueName"))
+		          UniqueName = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0), SDBColUnique)
 		          
 		          For K = 0 To Data.Items.ColumnCount -2 'Changed this from -1 to -2 to ignore the Sorting Column
 		            'Add each item (May Be slow) but a DB if enabled is faster once built.
@@ -2677,25 +2683,25 @@ End
 		    'If Launcher mode just add all the MultiLinks to the DB's, I may need to add a ID to know which one to add it too if I find multiple locations causes adding to both DB's
 		    If StoreMode = 1 Then
 		      For J = 0 To Data.Items.RowCount - 1
-		        If IsTrue(Data.Items.CellTextAt (J,Data.GetDBHeader("LnkMultiple"))) Then
+		        If IsTrue(Data.Items.CellTextAt (J, SDBColLnkMulti)) Then
 		          'MsgBox "LnkMultiple Tag: "+ Data.Items.CellTagAt(J,Data.GetDBHeader("LnkMultiple"))+Chr(10)+" ScanPath: "+Data.ScanPaths.CellTextAt(I, 0)
 		          'The Line below makes it only save the items related to the path stored in the DB
-		          If Data.Items.CellTagAt(J,Data.GetDBHeader("LnkMultiple")) = Data.ScanPaths.CellTextAt(I, 0) Then 'Scan Path compared, if same then add to current DB, so no duplication from other folders
+		          If Data.Items.CellTagAt(J, SDBColLnkMulti) = Data.ScanPaths.CellTextAt(I, 0) Then 'Scan Path compared, if same then add to current DB, so no duplication from other folders
 		            'If Debugging Then Debug("Multi Link - " + Data.Items.CellTextAt (J,Data.GetDBHeader("TitleName")))
 		            
 		            'If Debugging Then Debug(Data.Items.CellTextAt (J,Data.GetDBHeader("TitleName"))+" ~ Valid")
 		            'Get if compressed and the correct INI Path for the item
-		            IsCompressed = IsTrue(Data.Items.CellTextAt (J,Data.GetDBHeader("Compressed")))
+		            IsCompressed = IsTrue(Data.Items.CellTextAt (J, SDBColCompressed))
 		            If IsCompressed Then
-		              PatINI = Data.Items.CellTextAt (J,Data.GetDBHeader("PathINI"))
+		              PatINI = Data.Items.CellTextAt (J, SDBColPathINI)
 		              PatINI = Left(PatIni,InStrRev(PatIni,"/")-1)
 		            Else
-		              PatINI = Data.Items.CellTextAt (J,Data.GetDBHeader("PathINI"))
+		              PatINI = Data.Items.CellTextAt (J, SDBColPathINI)
 		              PatINI = Left(PatIni,InStrRev(PatIni,"/") -1)
 		              PatINI = Left(PatIni,InStrRev(PatIni,"/")-1)
 		            End If
 		            
-		            UniqueName = Data.Items.CellTextAt (J,Data.GetDBHeader("UniqueName"))
+		            UniqueName = Data.Items.CellTextAt (J, SDBColUnique)
 		            
 		            For K = 0 To Data.Items.ColumnCount -2 'Changed this from -1 to -2 to ignore the Sorting Column
 		              'Add each item (May Be slow) but a DB if enabled is faster once built.

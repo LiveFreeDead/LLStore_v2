@@ -840,12 +840,13 @@ End
 		  Dim I As Integer  
 		  If CurrentCat = "Favorites" Then Return' Don't need to add it twice
 		  If CurrentItemID = -1 Then Return 'No Item Text, skip
+		  Dim CurTitle As String = Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("TitleName")) 'Cache once
 		  For I = 0 To FavCount - 1
 		    If Favorites(I).Trim <> "" Then
-		      If Favorites(I).Lowercase = Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("TitleName")).Lowercase Then Return 'Don't add Existing
+		      If Favorites(I).Lowercase = CurTitle.Lowercase Then Return 'Don't add Existing
 		    End If
 		  Next  
-		  Favorites(FavCount) = Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("TitleName"))
+		  Favorites(FavCount) = CurTitle
 		  FavCount = FavCount + 1
 		  Loading.SaveFavorites
 		End Sub
@@ -1530,25 +1531,42 @@ End
 		  Dim ItemToAdd As String
 		  Dim Hidden As Boolean = False
 		  Dim ItemCats, CCat As String
-		  Dim ColBuildType As Integer = Data.GetDBHeader("BuildType")
+		  
+		  ' Cache all column indices once before the loop
+		  Dim ColBuildType     As Integer = Data.GetDBHeader("BuildType")
+		  Dim ColHidden        As Integer = Data.GetDBHeader("Hidden")
+		  Dim ColHiddenAlways  As Integer = Data.GetDBHeader("HiddenAlways")
+		  Dim ColSelected      As Integer = Data.GetDBHeader("Selected")
+		  Dim ColTitleName     As Integer = Data.GetDBHeader("TitleName")
+		  Dim ColCategories    As Integer = Data.GetDBHeader("Categories")
+		  Dim ColVersion       As Integer = Data.GetDBHeader("Version")
+		  Dim ColInstalled     As Integer = Data.GetDBHeader("Installed")
+		  Dim ColPathIni       As Integer = Data.GetDBHeader("PathIni")
+		  Dim ColFlags         As Integer = Data.GetDBHeader("Flags")
+		  Dim ColDECompatible  As Integer = Data.GetDBHeader("DECompatible")
+		  Dim ColLicense       As Integer = Data.GetDBHeader("License")
+		  Dim ColOSCompatible  As Integer = Data.GetDBHeader("OSCompatible")
+		  Dim ColLnkMultiple   As Integer = Data.GetDBHeader("LnkMultiple")
+		  Dim ColInstalledSize As Integer = Data.GetDBHeader("InstalledSize")
+		  Dim ColReleaseDate   As Integer = Data.GetDBHeader("ReleaseDate")
 		  
 		  FirstItem = -1
 		  
 		  'Add Items From Data Table
 		  For I = 0 To Data.Items.RowCount - 1
 		    Hidden = False 'Show all items to start with
-		    If IsTrue(Data.Items.CellTextAt(I, Data.GetDBHeader("Hidden"))) Then
-		      Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F" 'Unselect now hidden items
+		    If IsTrue(Data.Items.CellTextAt(I, ColHidden)) Then
+		      Data.Items.CellTextAt(I, ColSelected) = "F" 'Unselect now hidden items
 		      Continue 'Skip Hidden items
 		    End If
-		    If IsTrue(Data.Items.CellTextAt(I, Data.GetDBHeader("HiddenAlways"))) Then
-		      Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F" 'Unselect now hidden items
+		    If IsTrue(Data.Items.CellTextAt(I, ColHiddenAlways)) Then
+		      Data.Items.CellTextAt(I, ColSelected) = "F" 'Unselect now hidden items
 		      Continue 'Skip Hidden items
 		    End If
 		    
-		    ItemToAdd = Data.Items.CellTextAt(I, Data.GetDBHeader("TitleName"))
+		    ItemToAdd = Data.Items.CellTextAt(I, ColTitleName)
 		    
-		    ItemCats = Data.Items.CellTextAt(I, Data.GetDBHeader("Categories")) 
+		    ItemCats = Data.Items.CellTextAt(I, ColCategories) 
 		    
 		    
 		    'If Searching then show only valid items
@@ -1572,7 +1590,7 @@ End
 		      Case"ppGame", "LLGame"
 		        Hidden = False
 		      Case Else
-		        If Data.Items.CellTextAt(I, Data.GetDBHeader("Categories")).IndexOf ("Game") >= 0 Then  Hidden = False ' Any App with a Game Category listed, should be shown in Games also
+		        If ItemCats.IndexOf("Game") >= 0 Then  Hidden = False ' Any App with a Game Category listed, should be shown in Games also
 		      End Select
 		      
 		    End If
@@ -1595,7 +1613,7 @@ End
 		    End If
 		    
 		    If StoreMode = 0 Then
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("Version")) <> "" Then ItemToAdd = ItemToAdd + " " + Data.Items.CellTextAt(I, Data.GetDBHeader("Version"))
+		      If Data.Items.CellTextAt(I, ColVersion) <> "" Then ItemToAdd = ItemToAdd + " " + Data.Items.CellTextAt(I, ColVersion)
 		    End If
 		    
 		    If TargetWindows Then 'Hide all Linux stuff in Windows
@@ -1604,81 +1622,81 @@ End
 		    
 		    'Hide Conditions
 		    If StoreMode = 0 Then ' Only do it for Installer
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("Installed")) = "T" And HideInstalled = True Then
+		      If Data.Items.CellTextAt(I, ColInstalled) = "T" And HideInstalled = True Then
 		        Hidden = True ' Hide Installed
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F" 'Unselect now hidden items
+		        Data.Items.CellTextAt(I, ColSelected) = "F" 'Unselect now hidden items
 		      End If
 		      
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("Installed")) = "F" And HideNotInstalled = True Then 
+		      If Data.Items.CellTextAt(I, ColInstalled) = "F" And HideNotInstalled = True Then 
 		        Hidden = True ' Hide Not Installed
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		        Data.Items.CellTextAt(I, ColSelected) = "F"
 		      End If
 		      
-		      If Left(Data.Items.CellTextAt(I, Data.GetDBHeader("PathIni")), 2) = "ht" And HideOnline = True Then
+		      If Left(Data.Items.CellTextAt(I, ColPathIni), 2) = "ht" And HideOnline = True Then
 		        Hidden = True 'Hide Online
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		        Data.Items.CellTextAt(I, ColSelected) = "F"
 		      End If
 		      
-		      If Left(Data.Items.CellTextAt(I, Data.GetDBHeader("PathIni")), 2) <> "ht" And HideLocal = True Then
+		      If Left(Data.Items.CellTextAt(I, ColPathIni), 2) <> "ht" And HideLocal = True Then
 		        Hidden = True 'Hide Local items
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		        Data.Items.CellTextAt(I, ColSelected) = "F"
 		      End If
 		      
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("Flags")).IndexOf("internetrequired") >=0 And HideInternetInstaller = True Then
+		      If Data.Items.CellTextAt(I, ColFlags).IndexOf("internetrequired") >=0 And HideInternetInstaller = True Then
 		        Hidden = True 'Hide Internet Installer items
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		        Data.Items.CellTextAt(I, ColSelected) = "F"
 		      End If
 		      
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "LLApp" And HideLLApps = True Then
+		      If Data.Items.CellTextAt(I, ColBuildType) = "LLApp" And HideLLApps = True Then
 		        Hidden = True ' Hide types
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		        Data.Items.CellTextAt(I, ColSelected) = "F"
 		      End If
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "LLGame" And HideLLGames = True Then
+		      If Data.Items.CellTextAt(I, ColBuildType) = "LLGame" And HideLLGames = True Then
 		        Hidden = True ' Hide
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		        Data.Items.CellTextAt(I, ColSelected) = "F"
 		      End If
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "ssApp" And HidessApps = True Then
+		      If Data.Items.CellTextAt(I, ColBuildType) = "ssApp" And HidessApps = True Then
 		        Hidden = True ' Hide
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		        Data.Items.CellTextAt(I, ColSelected) = "F"
 		      End If
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "ppApp" And HideppApps = True Then
+		      If Data.Items.CellTextAt(I, ColBuildType) = "ppApp" And HideppApps = True Then
 		        Hidden = True ' Hide
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		        Data.Items.CellTextAt(I, ColSelected) = "F"
 		      End If
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")) = "ppGame" And HideppGames = True Then
+		      If Data.Items.CellTextAt(I, ColBuildType) = "ppGame" And HideppGames = True Then
 		        Hidden = True ' Hide
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		        Data.Items.CellTextAt(I, ColSelected) = "F"
 		      End If
 		      
-		      If Data.Items.CellTextAt(I, Data.GetDBHeader("DECompatible")) = "" And HideUnsetFlags = True Then
+		      If Data.Items.CellTextAt(I, ColDECompatible) = "" And HideUnsetFlags = True Then
 		        Hidden = True ' Hide if Not set which Desktop Env's work with it
-		        Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		        Data.Items.CellTextAt(I, ColSelected) = "F"
 		      End If
 		      
 		    End If
 		    
-		    If Data.Items.CellTextAt(I, Data.GetDBHeader("License")) = "1" And HidePaid = True Then
+		    If Data.Items.CellTextAt(I, ColLicense) = "1" And HidePaid = True Then
 		      Hidden = True 'Hide Paid
-		      Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		      Data.Items.CellTextAt(I, ColSelected) = "F"
 		    End If
-		    If Data.Items.CellTextAt(I, Data.GetDBHeader("License")) = "2" And HideFree = True Then
+		    If Data.Items.CellTextAt(I, ColLicense) = "2" And HideFree = True Then
 		      Hidden = True 'Hide Free
-		      Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		      Data.Items.CellTextAt(I, ColSelected) = "F"
 		    End If
-		    If Data.Items.CellTextAt(I, Data.GetDBHeader("License")) = "3" And HideOpen = True Then
+		    If Data.Items.CellTextAt(I, ColLicense) = "3" And HideOpen = True Then
 		      Hidden = True 'Hide Open
-		      Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "F"
+		      Data.Items.CellTextAt(I, ColSelected) = "F"
 		    End If
 		    
 		    'Check Compatibility on Loading now, so no need to check each time it generates the Items List
-		    If Data.Items.CellTextAt(I, Data.GetDBHeader("OSCompatible")) = "F" Then Hidden = True 'Hide if not Compatible DE or PM used
+		    If Data.Items.CellTextAt(I, ColOSCompatible) = "F" Then Hidden = True 'Hide if not Compatible DE or PM used
 		    
 		    If CurrentCat = "Favorites" Then
 		      If StoreMode = 1 Then 'Launcher - Do Favorites
 		        If FavCount >= 1 Then
 		          Hidden = True
 		          For J = 0 To FavCount - 1
-		            If Data.Items.CellTextAt(I, Data.GetDBHeader("TitleName")) = Favorites(J) Then
+		            If Data.Items.CellTextAt(I, ColTitleName) = Favorites(J) Then
 		              Hidden = False
 		              Continue
 		            End If
@@ -1694,7 +1712,7 @@ End
 		      End If
 		      
 		      'Check If Parent item in Launcher mode and hide if so
-		      If Data.Items.CellTextAt (I,Data.GetDBHeader("LnkMultiple")) = "Hide" Then
+		      If Data.Items.CellTextAt(I, ColLnkMultiple) = "Hide" Then
 		        Hidden = True 'Hide Parent
 		      End If
 		      
@@ -1702,9 +1720,9 @@ End
 		    
 		    
 		    If Hidden = False Then 'If not set as Hidden add to the List (Show it)
-		      InstallSize = Data.Items.CellTextAt(I, Data.GetDBHeader("InstalledSize"))
+		      InstallSize = Data.Items.CellTextAt(I, ColInstalledSize)
 		      InstallSize= Right("000000000000000" + InstallSize, 15)
-		      Main.Items.AddRow ItemToAdd, Data.Items.CellTextAt(I, Data.GetDBHeader("ReleaseDate")), InstallSize
+		      Main.Items.AddRow ItemToAdd, Data.Items.CellTextAt(I, ColReleaseDate), InstallSize
 		      If FirstItem = -1 Then FirstItem = Main.Items.LastAddedRowIndex
 		      Main.Items.CellTagAt(Main.Items.LastAddedRowIndex, 0) = I 'This makes The Added Item have the Correct RefID for the main DB
 		    End If
@@ -1778,8 +1796,23 @@ End
 		    RL = RL.ReplaceAll(Chr(13),Chr(10)) 'Make able to Load Windows ones, does it twice as to not make duplicates
 		    Sp() = RL.Split(Chr(10))
 		    If Sp.Count >=1 Then
-		      For J = 0 To Data.Items.RowCount - 1 'Unselect all items first
-		        Data.Items.CellTextAt(J, Data.GetDBHeader("Selected")) = "F"
+		      'Cache column indices
+		      Dim ColSelL    As Integer = Data.GetDBHeader("Selected")
+		      Dim ColUniqueL As Integer = Data.GetDBHeader("UniqueName")
+		      Dim ColHiddenL As Integer = Data.GetDBHeader("Hidden")
+		      
+		      'Unselect all items first
+		      For J = 0 To Data.Items.RowCount - 1
+		        Data.Items.CellTextAt(J, ColSelL) = "F"
+		      Next
+		      
+		      'Build a Dictionary of UniqueName -> row index for O(1) preset lookups
+		      'This replaces the O(N²) nested loop with O(N) + O(preset lines)
+		      Dim UniqueMap As New Dictionary
+		      For J = 0 To Data.Items.RowCount - 1
+		        If Data.Items.CellTextAt(J, ColHiddenL) <> "T" Then
+		          UniqueMap.Value(Data.Items.CellTextAt(J, ColUniqueL)) = J
+		        End If
 		      Next
 		      
 		      For I = 0 To Sp.Count -1
@@ -1787,14 +1820,10 @@ End
 		        If Left(Sp(I),2) = "2|" Then Sp(I) = Right (Sp(I),Len(Sp(I))-2)+"ppapp"
 		        If Left(Sp(I),2) = "3|" Then Sp(I) = Right (Sp(I),Len(Sp(I))-2)+"ppgame"
 		        If Sp(I).Trim = "" Then Continue 'Skip empty items
-		        'MsgBox Sp(I)
-		        For J = 0 To Data.Items.RowCount - 1
-		          If Sp(I).Trim = Data.Items.CellTextAt(J, Data.GetDBHeader("UniqueName")) And Data.Items.CellTextAt(J, Data.GetDBHeader("Hidden")) <> "T" Then
-		            Data.Items.CellTextAt(J, Data.GetDBHeader("Selected")) = "T"
-		            'Continue 'No Need to keep looking if it's already found it
-		            Exit 'No Need to keep looking if it's already found it - Exit jumps out of the loop
-		          End If
-		        Next
+		        'O(1) lookup instead of scanning all rows
+		        If UniqueMap.HasKey(Sp(I).Trim) Then
+		          Data.Items.CellTextAt(UniqueMap.Value(Sp(I).Trim), ColSelL) = "T"
+		        End If
 		      Next
 		      Items.Refresh 'Update Selection on Screen
 		      UpdateStats
@@ -1884,8 +1913,9 @@ End
 		Sub RemoveFavorite()
 		  Dim I As Integer  
 		  If CurrentItemID = -1 Then Return 'No Item Text, skip
+		  Dim CurTitle As String = Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("TitleName")).Lowercase 'Cache once
 		  For I = 0 To FavCount - 1
-		    If Favorites(I).Lowercase = Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("TitleName")).Lowercase  Then 
+		    If Favorites(I).Lowercase = CurTitle Then 
 		      Favorites(I) = ""
 		      If CurrentCat = "Favorites" Then GenerateItems
 		      Loading.SaveFavorites
@@ -2324,9 +2354,11 @@ End
 		  iniType.MacType = "INI"
 		  iniType.Extensions = "ini"
 		  
+		  Dim ColSelP   As Integer = Data.GetDBHeader("Selected")  'Cached once
+		  Dim ColUnique As Integer = Data.GetDBHeader("UniqueName") 'Cached once
 		  For I = 0 To Data.Items.RowCount - 1
-		    If Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "T" Then
-		      OutPut = OutPut + Data.Items.CellTextAt(I, Data.GetDBHeader("UniqueName")) + Chr(10)
+		    If Data.Items.CellTextAt(I, ColSelP) = "T" Then
+		      OutPut = OutPut + Data.Items.CellTextAt(I, ColUnique) + Chr(10)
 		      SelCount = SelCount + 1
 		    End If
 		  Next
@@ -2405,65 +2437,69 @@ End
 	#tag Method, Flags = &h0
 		Sub SelectItems(Inn As String)
 		  Dim I As Integer
+		  ' Cache column indices once before the loop
+		  Dim ColSel As Integer = Data.GetDBHeader("Selected")
+		  Dim ColBT  As Integer = Data.GetDBHeader("BuildType")
+		  Dim ColFlg As Integer = Data.GetDBHeader("Flags")
 		  For I = 0 To Items.RowCount - 1
 		    Select Case Inn
 		    Case"Select All"
-		      Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "T"
+		      Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "T"
 		    Case"Select None"
-		      Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "F"
+		      Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "F"
 		    Case "Select Invert"
-		      If Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "T" Then
-		        Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "F"
+		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "T" Then
+		        Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "F"
 		      Else
-		        Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "T"
+		        Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "T"
 		      End If
 		    Case "Select LLApps"
-		      If Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("BuildType")) = "LLApp" Then
-		        Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "T"
+		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), ColBT) = "LLApp" Then
+		        Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "T"
 		      End If
 		    Case "Un-Select LLApps"
-		      If Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("BuildType")) = "LLApp" Then
-		        Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "F"
+		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), ColBT) = "LLApp" Then
+		        Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "F"
 		      End If
 		    Case "Select LLGames"
-		      If Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("BuildType")) = "LLGame" Then
-		        Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "T"
+		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), ColBT) = "LLGame" Then
+		        Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "T"
 		      End If
 		    Case "Un-Select LLGames"
-		      If Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("BuildType")) = "LLGame" Then
-		        Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "F"
+		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), ColBT) = "LLGame" Then
+		        Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "F"
 		      End If
 		    Case "Select ssApps"
-		      If Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("BuildType")) = "ssApp" Then
-		        Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "T"
+		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), ColBT) = "ssApp" Then
+		        Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "T"
 		      End If
 		    Case "Un-Select ssApps"
-		      If Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("BuildType")) = "ssApp" Then
-		        Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "F"
+		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), ColBT) = "ssApp" Then
+		        Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "F"
 		      End If
 		    Case "Select ppApps"
-		      If Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("BuildType")) = "ppApp" Then
-		        Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "T"
+		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), ColBT) = "ppApp" Then
+		        Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "T"
 		      End If
 		    Case "Un-Select ppApps"
-		      If Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("BuildType")) = "ppApp" Then
-		        Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "F"
+		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), ColBT) = "ppApp" Then
+		        Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "F"
 		      End If
 		    Case "Select ppGames"
-		      If Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("BuildType")) = "ppGame" Then
-		        Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "T"
+		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), ColBT) = "ppGame" Then
+		        Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "T"
 		      End If
 		    Case "Un-Select ppGames"
-		      If Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("BuildType")) = "ppGame" Then
-		        Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "F"
+		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), ColBT) = "ppGame" Then
+		        Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "F"
 		      End If
 		    Case "Select Internet Installer"
-		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), Data.GetDBHeader("Flags")).IndexOf("internetrequired") >=0  Then
-		        Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "T"
+		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), ColFlg).IndexOf("internetrequired") >=0  Then
+		        Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "T"
 		      End If
 		    Case "Un-Select Internet Installer"
-		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), Data.GetDBHeader("Flags")).IndexOf("internetrequired") >=0  Then
-		        Data.Items.CellTextAt(Items.CellTagAt(I,0),Data.GetDBHeader("Selected")) = "F"
+		      If Data.Items.CellTextAt(Items.CellTagAt(I,0), ColFlg).IndexOf("internetrequired") >=0  Then
+		        Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "F"
 		      End If
 		      
 		    End Select
@@ -2480,44 +2516,45 @@ End
 		  If MultiSelect > 0 Then
 		    Dim Tog As Boolean
 		    Dim I As Integer
+		    Dim ColSel As Integer = Data.GetDBHeader("Selected") ' Cached once
 		    'MsgBox "Selected - OldItem: "+MultiOldItem.ToString+ " MultiNewItem: " + MultiNewItem.ToString
 		    If MultiSelect = 1 Then ' Ctrl
 		      
 		      'Does weird stuff if first item is toggled
 		      ''Do First Item
-		      'Tog = IsTrue(Data.Items.CellTextAt(Items.CellTagAt(MultiOldItem,0), Data.GetDBHeader("Selected")))
+		      'Tog = IsTrue(Data.Items.CellTextAt(Items.CellTagAt(MultiOldItem,0), ColSel))
 		      'If Tog = True Then
-		      'Data.Items.CellTextAt(Items.CellTagAt(MultiOldItem,0), Data.GetDBHeader("Selected")) = "F" ' Select it
+		      'Data.Items.CellTextAt(Items.CellTagAt(MultiOldItem,0), ColSel) = "F" ' Select it
 		      'Else
-		      'Data.Items.CellTextAt(Items.CellTagAt(MultiOldItem,0), Data.GetDBHeader("Selected")) = "T" ' Select it
+		      'Data.Items.CellTextAt(Items.CellTagAt(MultiOldItem,0), ColSel) = "T" ' Select it
 		      'End If
 		      
 		      'Do 2nd Item
-		      Tog = IsTrue(Data.Items.CellTextAt(Items.CellTagAt(MultiNewItem,0), Data.GetDBHeader("Selected")))
+		      Tog = IsTrue(Data.Items.CellTextAt(Items.CellTagAt(MultiNewItem,0), ColSel))
 		      If Tog = True Then
-		        Data.Items.CellTextAt(Items.CellTagAt(MultiNewItem,0), Data.GetDBHeader("Selected")) = "F" ' Select it
+		        Data.Items.CellTextAt(Items.CellTagAt(MultiNewItem,0), ColSel) = "F" ' Select it
 		      Else
-		        Data.Items.CellTextAt(Items.CellTagAt(MultiNewItem,0), Data.GetDBHeader("Selected")) = "T" ' Select it
+		        Data.Items.CellTextAt(Items.CellTagAt(MultiNewItem,0), ColSel) = "T" ' Select it
 		      End If
 		    End If
 		    #Pragma BreakOnExceptions Off
 		    Try 'If it finds a dud item then it will crash, so skip selecting
 		      If MultiSelect = 2 Then ' Shift
-		        Tog = IsTrue(Data.Items.CellTextAt(Items.CellTagAt(MultiOldItem,0), Data.GetDBHeader("Selected"))) ' The first items mode is the one that gets toggled to
+		        Tog = IsTrue(Data.Items.CellTextAt(Items.CellTagAt(MultiOldItem,0), ColSel)) ' The first items mode is the one that gets toggled to
 		        If MultiNewItem > MultiOldItem Then
 		          For I = MultiOldItem To MultiNewItem
 		            If Tog = True Then
-		              Data.Items.CellTextAt(Items.CellTagAt(I,0), Data.GetDBHeader("Selected")) = "F" ' Select it
+		              Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "F" ' Select it
 		            Else
-		              Data.Items.CellTextAt(Items.CellTagAt(I,0), Data.GetDBHeader("Selected")) = "T" ' Select it
+		              Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "T" ' Select it
 		            End If
 		          Next I
 		        Else
 		          For I = MultiNewItem To MultiOldItem
 		            If Tog = True Then
-		              Data.Items.CellTextAt(Items.CellTagAt(I,0), Data.GetDBHeader("Selected")) = "F" ' Select it
+		              Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "F" ' Select it
 		            Else
-		              Data.Items.CellTextAt(Items.CellTagAt(I,0), Data.GetDBHeader("Selected")) = "T" ' Select it
+		              Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "T" ' Select it
 		            End If
 		          Next I
 		        End If
@@ -2571,9 +2608,10 @@ End
 	#tag Method, Flags = &h0
 		Sub UpdateStats()
 		  Dim I as Integer
+		  Dim ColSel As Integer = Data.GetDBHeader("Selected") ' Cached once
 		  SelectsCount = 0
 		  For I = 0 To Main.Items.RowCount - 1
-		    If Data.Items.CellTextAt(Items.CellTagAt(I,0), Data.GetDBHeader("Selected")) = "T" Then SelectsCount = SelectsCount + 1
+		    If Data.Items.CellTextAt(Items.CellTagAt(I,0), ColSel) = "T" Then SelectsCount = SelectsCount + 1
 		  Next I
 		  If SelectsCount <= 0 Then
 		    Stats.Text = Str(Items.RowCount) +" Items"
@@ -2741,15 +2779,20 @@ End
 		  Catch
 		  End Try
 		  
+		  'Column indices for paint: resolved once per call, still much cheaper than GetDBHeader in a tight paint loop
+		  Dim PColSel As Integer = Data.GetDBHeader("Selected")
+		  Dim PColBT  As Integer = Data.GetDBHeader("BuildType")
+		  Dim PColRef As Integer = Data.GetDBHeader("IconRef")
+		  
 		  Try
-		    If IsTrue(Data.Items.CellTextAt(CLI,Data.GetDBHeader("Selected"))) Then g.Bold = Not BoldList 'Make Selected Items Bold oppsite to default items
+		    If IsTrue(Data.Items.CellTextAt(CLI, PColSel)) Then g.Bold = Not BoldList 'Make Selected Items Bold oppsite to default items
 		  Catch
 		  End Try
 		  
 		  Try
 		    If StoreMode = 0 Then 'Only color when in Installer mode
 		      If CLI >=0 Then 
-		        Select Case Data.Items.CellTextAt(CLI,Data.GetDBHeader("BuildType"))
+		        Select Case Data.Items.CellTextAt(CLI, PColBT)
 		        Case "LLApp"
 		          g.DrawingColor = ColLLApp
 		        Case "LLGame"
@@ -2769,7 +2812,7 @@ End
 		  
 		  'Draw Icon
 		  Try
-		    RefIcon = Val(Data.Items.CellTextAt(CLI, Data.GetDBHeader("IconRef")))
+		    RefIcon = Val(Data.Items.CellTextAt(CLI, PColRef))
 		    icon = Data.Icons.RowImageAt(RefIcon)
 		    g.DrawPicture(icon, 1, 1, g.Height-2,g.Height-2, _
 		    0, 0, icon.Width, icon.Height)
@@ -2809,13 +2852,14 @@ End
 		  ''RedrawList.Reset
 		  
 		  If CLI <> -1 Then 'Can't do this if not sure where the hell it is.
-		    If IsTrue(Data.Items.CellTextAt(CLI,Data.GetDBHeader("Selected"))) And Me.SelectedRowIndex = Row Then  'If selected and Hilighted
+		    Dim BGColSel As Integer = Data.GetDBHeader("Selected") 'Cached for this paint call
+		    If IsTrue(Data.Items.CellTextAt(CLI, BGColSel)) And Me.SelectedRowIndex = Row Then  'If selected and Hilighted
 		      g.ForeColor = ColDual
 		      g.FillRect 0,0,g.Width, g.Height
 		      Return True 'Take away drawing default Highlight
 		    End If
 		    
-		    If IsTrue(Data.Items.CellTextAt(CLI,Data.GetDBHeader("Selected"))) Then 'Select items you double click on
+		    If IsTrue(Data.Items.CellTextAt(CLI, BGColSel)) Then 'Select items you double click on
 		      g.ForeColor = ColSelect
 		      g.FillRect 0,0,g.Width, g.Height
 		    End If
