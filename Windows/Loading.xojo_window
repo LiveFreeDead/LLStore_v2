@@ -26,6 +26,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,6 +67,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -74,6 +76,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -82,6 +85,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -90,6 +94,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -98,6 +103,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer InstallTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   120
@@ -106,6 +112,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer BuildTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   120
@@ -1397,10 +1404,21 @@ End
 		      
 		      If DBCount > 1 Then 'No point parallelising a single file
 		        ' Check curl version supports --parallel (needs 7.66.0+, released Sep 2019)
+		        ' Use the resolved curl path (WinCurl/LinuxCurl) set at startup - not bare "curl"
+		        ' which won't be in PATH on Windows unless it's the Win10 system one.
+		        Dim CurlBin As String = LinuxCurl
+		        If TargetWindows Then CurlBin = WinCurl
 		        Dim cvSh As New Shell
-		        cvSh.Execute("curl --version 2>&1")
-		        Dim cvOut As String = cvSh.ReadAll.Trim
-		        Dim cvParts() As String = cvOut.Split(" ")
+		        cvSh.TimeOut = -1
+		        cvSh.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		        cvSh.Execute(CurlBin + " --version 2>&1")
+		        Dim cvBuf As String = ""
+		        While cvSh.IsRunning
+		          App.DoEvents(10)
+		          cvBuf = cvBuf + cvSh.ReadAll
+		        Wend
+		        cvBuf = cvBuf + cvSh.ReadAll.Trim
+		        Dim cvParts() As String = cvBuf.Split(" ")
 		        If cvParts.Count >= 2 Then
 		          Dim vp() As String = cvParts(1).Split(".")
 		          If vp.Count >= 2 Then
@@ -1421,9 +1439,11 @@ End
 		        StartParallelDownload(DBURLs, DBLocals, DBCount, DoneFlag, ParallelShell)
 		        
 		        Dim ParallelTimeout As Double = System.Microseconds + (30 * 1000000) '30s total for all DBs together
+		        If CheckingForDatabases Then UpdateLoading("Databases: Downloading (parallel)...") 'Set once - not inside the loop to avoid flicker
+		        Dim ParBuf As String = ""
 		        While ParallelShell.IsRunning
 		          App.DoEvents(20)
-		          If CheckingForDatabases Then UpdateLoading("Databases: Downloading (parallel)...")
+		          ParBuf = ParBuf + ParallelShell.ReadAll 'Drain pipe to prevent buffer deadlock
 		          If System.Microseconds >= ParallelTimeout Then
 		            ParallelShell.Close
 		            Exit While
@@ -1434,6 +1454,7 @@ End
 		            Exit While
 		          End If
 		        Wend
+		        ParBuf = ParBuf + ParallelShell.ReadAll 'Final drain
 		        
 		        ' Rename all .partial -> final
 		        Dim renameSh As New Shell
@@ -3782,8 +3803,18 @@ End
 		  
 		  Linux7z = Chr(34)+ToolPath + "7zzs"+Chr(34)
 		  LinuxWget = Chr(34)+ToolPath + "wget"+Chr(34)
+		  LinuxCurl = "curl" 'System curl is always in PATH on Linux
 		  Win7z = Chr(34)+ToolPath + "7z.exe"+Chr(34) 'Added " to make it work in paths with spaces?
 		  WinWget = Chr(34)+ToolPath + "wget.exe"+Chr(34) 'Added " to make it work in paths with spaces?
+		  ' Windows 10+ ships curl.exe in System32 (in PATH). Prefer that so we don't need
+		  ' to bundle it. Only fall back to our ToolPath copy if the system one is missing.
+		  Dim curlCheckSh As New Shell
+		  curlCheckSh.Execute("curl --version")
+		  If curlCheckSh.ExitCode = 0 Then
+		    WinCurl = "curl" 'System curl found (Windows 10+ built-in)
+		  Else
+		    WinCurl = Chr(34)+ToolPath + "curl.exe"+Chr(34) 'Fallback to bundled copy
+		  End If
 		  
 		  'Clean Temp folders
 		  CleanTemp 'Clearing LLTemp folder entirly
@@ -4117,6 +4148,8 @@ End
 		    Debug("RepositoryPathLocal: " + RepositoryPathLocal)
 		    Debug("WinWget: " + WinWget)
 		    Debug("LinuxWget: " + LinuxWget)
+		    Debug("WinCurl: " + WinCurl)
+		    Debug("LinuxCurl: " + LinuxCurl)
 		    Debug("System Drive: " + SysDrive)
 		    Debug("ppApps Drive: " + ppAppsDrive)
 		    Debug("ppGames Drive: " + ppGamesDrive)

@@ -117,6 +117,7 @@ Protected Module LLMod_Items
 		  StartSourceMenu As String * 1024
 		  Link As Shortcut
 		Comment As String * 512
+		LinuxLink As Boolean
 	#tag EndStructure
 
 

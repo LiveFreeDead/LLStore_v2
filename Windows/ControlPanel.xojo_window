@@ -1323,11 +1323,14 @@ End
 		    Notification.Refresh
 		    
 		    Sh.Execute (FindCmd)
+		    Dim FindOut As String = ""
 		    While Sh.IsRunning
 		      App.DoEvents(20)
+		      FindOut = FindOut + Sh.ReadAll 'Drain stdout - find can return thousands of paths
 		    Wend
+		    FindOut = FindOut + Sh.ReadAll 'Capture any remaining output
 		    
-		    Sp = Sh.Result.Split(EndOfLine)
+		    Sp = FindOut.Split(EndOfLine)
 		    
 		    Dim TotalItems As Integer = 0
 		    Dim DoneItems As Integer = 0
@@ -1424,10 +1427,13 @@ End
 		      WineSh.TimeOut = -1
 		      Dim WineBatWinePath As String = "z:" + CombinedBatPath.ReplaceAll("/", Chr(92))
 		      WineSh.Execute("wine cmd.exe /c " + Chr(34) + WineBatWinePath + Chr(34))
+		      Dim WineBuf As String = ""
 		      While WineSh.IsRunning
 		        App.DoEvents(20)
+		        WineBuf = WineBuf + WineSh.ReadAll 'Drain to prevent pipe deadlock
 		      Wend
-		      If Debugging Then Debug ("Combined Wine bat result: " + WineSh.ReadAll)
+		      WineBuf = WineBuf + WineSh.ReadAll
+		      If Debugging Then Debug ("Combined Wine bat result: " + WineBuf)
 		      'Clean up temp reg files and combined bat
 		      ShellFast.Execute("bash -c 'rm -f " + Chr(34) + TmpPath + "bat_reg_*.reg" + Chr(34) + " " + Chr(34) + CombinedBatPath + Chr(34) + "'")
 		    End If

@@ -1620,27 +1620,36 @@ Protected Module LLMod
 		  If Exist(OutPath) Then 'Only do it if somewhere to go
 		    If Right(Archive,4) = ".tar" Then
 		      Sh.Execute (Zip + " -mtc -aoa x "+Chr(34)+Archive+Chr(34)+ " -o"+Chr(34) + OutPath+Chr(34)+ExcludesIncludes)
+		      Dim ExBuf1 As String = ""
 		      Do
-		        App.DoEvents(20)  ' used to be 50, trying 7 to see if more responsive. - It is
+		        App.DoEvents(20)
+		        ExBuf1 = ExBuf1 + Sh.ReadAll 'Drain stdout to prevent pipe buffer deadlock (7z prints every filename)
 		      Loop Until Sh.IsRunning = False
-		      If Debugging Then Debug(Sh.ReadAll)
+		      ExBuf1 = ExBuf1 + Sh.ReadAll 'Capture any remaining output
+		      If Debugging Then Debug(ExBuf1)
 		    Else
 		      If Right(Archive,3) = ".gz" Then
 		        Sh.Execute ("tar -xf " + Chr(34) + Archive + Chr(34) + " -C " + Chr(34) + OutPath + Chr(34) + ExcludesIncludes)
+		        Dim ExBuf2 As String = ""
 		        Do
-		          App.DoEvents(20)  ' used to be 50, trying 7 to see if more responsive. - It is
+		          App.DoEvents(20)
+		          ExBuf2 = ExBuf2 + Sh.ReadAll 'Drain stdout to prevent pipe buffer deadlock
 		        Loop Until Sh.IsRunning = False
-		        If Debugging Then Debug(Sh.ReadAll)
+		        ExBuf2 = ExBuf2 + Sh.ReadAll 'Capture any remaining output
+		        If Debugging Then Debug(ExBuf2)
 		      Else 'Just treat it as a standard non Linux zip, 7z etc works fine for this as it doesn't need to handle symlinks (7z can't extract tar.gz files)
 		        Commands = Zip + " -mtc -aoa x "+Chr(34)+Archive+Chr(34)+ " -o"+Chr(34) + OutPath+Chr(34)+ExcludesIncludes
 		        If TargetWindows Then
 		          RunCommand (Commands)
 		        Else'Linux
 		          Sh.Execute (Commands)
+		          Dim ExBuf3 As String = ""
 		          Do
-		            App.DoEvents(20)  ' used to be 50, trying 7 to see if more responsive. - It is
+		            App.DoEvents(20)
+		            ExBuf3 = ExBuf3 + Sh.ReadAll 'Drain stdout to prevent pipe buffer deadlock
 		          Loop Until Sh.IsRunning = False
-		          If Debugging Then Debug(Sh.ReadAll)
+		          ExBuf3 = ExBuf3 + Sh.ReadAll 'Capture any remaining output
+		          If Debugging Then Debug(ExBuf3)
 		        End If
 		      End If
 		    End If
@@ -2230,7 +2239,15 @@ Protected Module LLMod
 		  
 		  If ItemLLItem.NoInstall = False Then
 		    
-		    InstallToPath = Slash(ExpPath(ItemLLItem.PathApp))
+		    'On Linux, if this SS item has a Linux .desktop link, install to LLGames/LLApps instead of Wine paths
+		    'PathApp is already expanded by LoadLLFile (e.g. /home/user/.wine/drive_c/ppGames/Title)
+		    'so we remap the expanded Wine paths to native LLGames/LLApps paths directly
+		    Dim AppPathToInstall As String = ItemLLItem.PathApp
+		    If TargetLinux And (ItemLLItem.BuildType = "ppGame" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ssApp") And HasLinuxDesktopLink() Then
+		      AppPathToInstall = AppPathToInstall.ReplaceAll(NoSlash(ppGames), NoSlash(Slash(HomePath)+"LLGames"))
+		      AppPathToInstall = AppPathToInstall.ReplaceAll(NoSlash(ppApps), NoSlash(Slash(HomePath)+"LLApps"))
+		    End If
+		    InstallToPath = Slash(AppPathToInstall) 'Already expanded; no need to call ExpPath again
 		    If Debugging Then Debug("Installing To Path: " + InstallToPath)
 		    
 		    If ChDirSet(InstallFromPath) = True Then
@@ -2399,10 +2416,13 @@ Protected Module LLMod
 		          CombinedSh.Execute("wine cmd.exe /c " + Chr(34) + WineBatWinePath + Chr(34))
 		        End If
 		        
+		        Dim CombBuf As String = ""
 		        While CombinedSh.IsRunning
 		          App.DoEvents(20)
+		          CombBuf = CombBuf + CombinedSh.ReadAll 'Drain to prevent pipe deadlock if bat echoes heavily
 		        Wend
-		        If Debugging Then Debug("Combined bat result: " + CombinedSh.ReadAll)
+		        CombBuf = CombBuf + CombinedSh.ReadAll
+		        If Debugging Then Debug("Combined bat result: " + CombBuf)
 		        
 		        If TargetWindows Then
 		          Try
@@ -2508,10 +2528,13 @@ Protected Module LLMod
 		          CombinedSh.Execute("wine cmd.exe /c " + Chr(34) + WineBatWinePath + Chr(34))
 		        End If
 		        
+		        Dim CombBufNI As String = ""
 		        While CombinedSh.IsRunning
 		          App.DoEvents(20)
+		          CombBufNI = CombBufNI + CombinedSh.ReadAll 'Drain to prevent pipe deadlock
 		        Wend
-		        If Debugging Then Debug("Combined bat result (NoInstall): " + CombinedSh.ReadAll)
+		        CombBufNI = CombBufNI + CombinedSh.ReadAll
+		        If Debugging Then Debug("Combined bat result (NoInstall): " + CombBufNI)
 		        
 		        If TargetWindows Then
 		          Try
@@ -2992,7 +3015,15 @@ Protected Module LLMod
 		  If ItemLLItem.NoInstall = False Then 'Has a Destination Path
 		    
 		    
-		    InstallToPath = Slash(ExpPath(ItemLLItem.PathApp))
+		    'On Linux, if this SS item has a Linux .desktop link, install to LLGames/LLApps instead of Wine paths
+		    'PathApp is already expanded by LoadLLFile (e.g. /home/user/.wine/drive_c/ppGames/Title)
+		    'so we remap the expanded Wine paths to native LLGames/LLApps paths directly
+		    Dim AppPathToInstall As String = ItemLLItem.PathApp
+		    If TargetLinux And (ItemLLItem.BuildType = "ppGame" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ssApp") And HasLinuxDesktopLink() Then
+		      AppPathToInstall = AppPathToInstall.ReplaceAll(NoSlash(ppGames), NoSlash(Slash(HomePath)+"LLGames"))
+		      AppPathToInstall = AppPathToInstall.ReplaceAll(NoSlash(ppApps), NoSlash(Slash(HomePath)+"LLApps"))
+		    End If
+		    InstallToPath = Slash(AppPathToInstall) 'Already expanded; no need to call ExpPath again
 		    
 		    If Debugging Then Debug("Installing To Path: "+ InstallToPath)
 		    
@@ -3229,10 +3260,13 @@ Protected Module LLMod
 		          CombinedSh.Execute("wine cmd.exe /c " + Chr(34) + WineBatWinePath + Chr(34))
 		        End If
 		        
+		        Dim CombBuf As String = ""
 		        While CombinedSh.IsRunning
 		          App.DoEvents(20)
+		          CombBuf = CombBuf + CombinedSh.ReadAll 'Drain to prevent pipe deadlock if bat echoes heavily
 		        Wend
-		        If Debugging Then Debug("Combined bat result: " + CombinedSh.ReadAll)
+		        CombBuf = CombBuf + CombinedSh.ReadAll
+		        If Debugging Then Debug("Combined bat result: " + CombBuf)
 		        
 		        If TargetWindows Then
 		          Try
@@ -3374,10 +3408,13 @@ Protected Module LLMod
 		          CombinedSh.Execute("wine cmd.exe /c " + Chr(34) + WineBatWinePath + Chr(34))
 		        End If
 		        
+		        Dim CombBufNI As String = ""
 		        While CombinedSh.IsRunning
 		          App.DoEvents(20)
+		          CombBufNI = CombBufNI + CombinedSh.ReadAll 'Drain to prevent pipe deadlock
 		        Wend
-		        If Debugging Then Debug("Combined bat result (NoInstall): " + CombinedSh.ReadAll)
+		        CombBufNI = CombBufNI + CombinedSh.ReadAll
+		        If Debugging Then Debug("Combined bat result (NoInstall): " + CombBufNI)
 		        
 		        If TargetWindows Then
 		          Try
@@ -3676,7 +3713,7 @@ Protected Module LLMod
 		    'Make LLStore as default for all supported types
 		    'application/x-llfile
 		    ShellFast.Execute ("xdg-mime default llfile_filetype.desktop application/x-llfile")
-		    RunSudo ("sudo xdg-mime default llfile_filetype.desktop application/x-llfile")
+		    RunSudo ("xdg-mime default llfile_filetype.desktop application/x-llfile")
 		    
 		    
 		    'Make Shortcuts
@@ -3705,7 +3742,7 @@ Protected Module LLMod
 		    ShellFast.Execute ("chmod 775 "+Chr(34)+DesktopOutPath+DesktopFile+Chr(34)) 'Change Read/Write/Execute to defaults
 		    
 		    'System Wide
-		    RunSudo("sudo cp -f "+DesktopOutPath+DesktopFile+" /usr/share/applications/")
+		    RunSudo("cp -f "+DesktopOutPath+DesktopFile+" /usr/share/applications/")
 		    
 		    
 		    DesktopOutPath = Slash(HomePath)+"Desktop/"
@@ -3729,7 +3766,7 @@ Protected Module LLMod
 		    ShellFast.Execute ("chmod 775 "+Chr(34)+DesktopOutPath+DesktopFile+Chr(34)) 'Change Read/Write/Execute to defaults
 		    
 		    'System Wide
-		    RunSudo("sudo cp -f "+DesktopOutPath+DesktopFile+" /usr/share/applications/")
+		    RunSudo("cp -f "+DesktopOutPath+DesktopFile+" /usr/share/applications/")
 		    
 		    
 		    'Launcher
@@ -3749,7 +3786,7 @@ Protected Module LLMod
 		    ShellFast.Execute ("chmod 775 "+Chr(34)+DesktopOutPath+DesktopFile+Chr(34)) 'Change Read/Write/Execute to defaults
 		    
 		    'System Wide
-		    RunSudo("sudo cp -f "+DesktopOutPath+DesktopFile+" /usr/share/applications/")
+		    RunSudo("cp -f "+DesktopOutPath+DesktopFile+" /usr/share/applications/")
 		    
 		    DesktopOutPath = Slash(HomePath)+"Desktop/"
 		    SaveDataToFile(DesktopContent, DesktopOutPath+DesktopFile)
@@ -3766,7 +3803,7 @@ Protected Module LLMod
 		    'User path: backgrounded via ShellFast, no privileges needed.
 		    '/usr/share/applications: root-owned, sent through the still-open sudo terminal with & so it doesn't block.
 		    If TargetLinux Then ShellFast.Execute ("bash -c 'update-desktop-database ~/.local/share/applications > /dev/null 2>&1 &'")
-		    If TargetLinux Then RunSudo ("sudo update-desktop-database /usr/share/applications &")
+		    If TargetLinux Then RunSudo ("update-desktop-database /usr/share/applications &")
 		    '
 		    'Close Sudo Terminal
 		    If KeepSudo = False Then ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > "+BaseDir+"/LLSudoDone") 'Quits Terminal after All items have been installed.
@@ -4292,6 +4329,7 @@ Protected Module LLMod
 		        ItemLnk(LnkEditing).Title = Right(ItemLnk(LnkEditing).Title, Len(ItemLnk(LnkEditing).Title) - 1)
 		        
 		        ItemLnk(LnkEditing).Active = True
+		        ItemLnk(LnkEditing).LinuxLink = True 'Mark as Linux .desktop link
 		        ReadMode = 1
 		      End If
 		      
@@ -4303,6 +4341,7 @@ Protected Module LLMod
 		        'Don't use Description, I'll make it fall back to the original Items Description
 		        'ItemLnk(LnkEditing).Description = ItemLLItem.Descriptions 'Use main Items description, gets replaced if another is given
 		        ItemLnk(LnkEditing).Active = True
+		        ItemLnk(LnkEditing).LinuxLink = False 'Mark as Windows .lnk link
 		        ReadMode = 1
 		      End If
 		      
@@ -4607,7 +4646,7 @@ Protected Module LLMod
 		    
 		    If  SystemWide = True Then
 		      'System wide doesn't need per theme, it's system wide
-		      RunSudo ("sudo xdg-icon-resource install --context mimetypes --size 256 " + Chr(34) +LOGO + Chr(34) + " application-x-" + APP)
+		      RunSudo ("xdg-icon-resource install --context mimetypes --size 256 " + Chr(34) +LOGO + Chr(34) + " application-x-" + APP)
 		    End If
 		    
 		    'Shelly.Execute ("rm "+BaseDir+"/icon.png") 'I used this before I fixed the chr(34)
@@ -4637,8 +4676,8 @@ Protected Module LLMod
 		    
 		    'I could add sudo above to install system wide then update mime database below with update-mime-database /usr/share/mime/ 'But not sure I want this yet
 		    If  SystemWide = True Then
-		      RunSudo ("sudo xdg-mime install " + FileOut)
-		      RunSudo ("sudo update-mime-database /usr/share/mime/ &") 'Backgrounded: very slow, cache refresh only
+		      RunSudo ("xdg-mime install " + FileOut)
+		      RunSudo ("update-mime-database /usr/share/mime/ &") 'Backgrounded: very slow, cache refresh only
 		    End If
 		    Shelly.Execute ("rm " + FileOut)
 		    
@@ -4678,10 +4717,10 @@ Protected Module LLMod
 		    
 		    'Can move this to end of Mini Installer and run once (for speed increase), just set a Task Flag
 		    If  SystemWide = True Then
-		      RunSudo ("sudo desktop-file-install --dir=/usr/share/applications " + FileOut)
+		      RunSudo ("desktop-file-install --dir=/usr/share/applications " + FileOut)
 		      'MsgBox ("sudo desktop-file-install --dir=/usr/share/applications " + FileOut)
-		      RunSudo ("sudo update-desktop-database /usr/share/applications &") 'Backgrounded: cache refresh only
-		      RunSudo ("sudo xdg-mime default " + APP + ".desktop application/x-" + APP)
+		      RunSudo ("update-desktop-database /usr/share/applications &") 'Backgrounded: cache refresh only
+		      RunSudo ("xdg-mime default " + APP + ".desktop application/x-" + APP)
 		      'RunSudo ("sudo update-icon-caches /usr/share/icons/*") 'This is WAY too slow to do all the time, disabled!!!!
 		    End If
 		    
@@ -4954,6 +4993,18 @@ Protected Module LLMod
 		        
 		        If ItemLnk(I).LnkOSCompatible = "F" Then Continue 'Doesn't process Non Compatible links, Need to add Arch Check also Glenn
 		        
+		        'For SS types: skip Windows .lnk links when a matching Linux .desktop link exists with the same Title
+		        If Not ItemLnk(I).LinuxLink And (ItemLLItem.BuildType = "ppGame" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ssApp") Then
+		          Dim HasMatchingDesktop As Boolean = False
+		          Dim DM As Integer
+		          For DM = 1 To LnkCount
+		            If ItemLnk(DM).LinuxLink And ItemLnk(DM).Title.Trim = ItemLnk(I).Title.Trim Then
+		              HasMatchingDesktop = True
+		              Exit
+		            End If
+		          Next DM
+		          If HasMatchingDesktop Then Continue 'Skip this .lnk; the Linux .desktop link handles it
+		        End If
 		        
 		        'If ItemLnk(I).Title.IndexOf(1, "{#2}") >= 1 Then Continue 'Skip dual arch shortcuts, just keep 1st one, which is usually x64 anyway
 		        If ItemLnk(I).Flags.IndexOf(0, "Is_x64") < 0 And ItemLnk(I).Title.IndexOf(1, "{#1}") >= 1 Then Continue ' Only skip replacing items if the items isn't the x64 one
@@ -4963,6 +5014,15 @@ Protected Module LLMod
 		        ItemLnk(I).Title = ItemLnk(I).Title.ReplaceAll("{#1}", "") 'Remove Dual Arch leftovers
 		        ItemLnk(I).Title = ItemLnk(I).Title.Trim ' Need to trim away the space so can use it for the Link Name
 		        DesktopFile = ItemLnk(I).Title.ReplaceAll(" ", ".") + ".desktop" 'Remove Spaces and add .desktop back to file name
+		        
+		        'For Linux .desktop links inside SS files: remap %ppGames%/%ppApps% to %LLGames%/%LLApps%
+		        'Also remap %AppPath% directly to InstallToPath (already fully resolved for both install and regen)
+		        If ItemLnk(I).LinuxLink And (ItemLLItem.BuildType = "ppGame" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ssApp") Then
+		          Dim LinuxInstallBase As String = NoSlash(InstallToPath)
+		          ItemLnk(I).Link.TargetPath = ItemLnk(I).Link.TargetPath.ReplaceAll("%AppPath%", LinuxInstallBase).ReplaceAll("%ppGames%", "%LLGames%").ReplaceAll("%ppApps%", "%LLApps%")
+		          ItemLnk(I).Link.WorkingDirectory = ItemLnk(I).Link.WorkingDirectory.ReplaceAll("%AppPath%", LinuxInstallBase).ReplaceAll("%ppGames%", "%LLGames%").ReplaceAll("%ppApps%", "%LLApps%")
+		          ItemLnk(I).Link.IconLocation = ItemLnk(I).Link.IconLocation.ReplaceAll("%AppPath%", LinuxInstallBase).ReplaceAll("%ppGames%", "%LLGames%").ReplaceAll("%ppApps%", "%LLApps%")
+		        End If
 		        
 		        ItemLnk(I).Link.IconLocation = ExpPath(ItemLnk(I).Link.IconLocation)
 		        'If TargetLinux Then 'Only Linux .desktop files need the png, Windows MakeLinks works fine with no Icon File given :) - It's already checked for Linux, the Windows Section has it's own
@@ -5003,8 +5063,8 @@ Protected Module LLMod
 		        DesktopContent = DesktopContent + "Version=1.0" + Chr(10)
 		        DesktopContent = DesktopContent + "Name=" + ItemLnk(I).Title + Chr(10)
 		        'ExecName = ExpPath(ItemLnk(I).Link.TargetPath)
-		        If ItemLLItem.BuildType = "LLApp" Or ItemLLItem.BuildType = "LLGame" Then
-		          DesktopContent = DesktopContent + "Exec=" + ExecName + Chr(10)
+		        If ItemLLItem.BuildType = "LLApp" Or ItemLLItem.BuildType = "LLGame" Or ItemLnk(I).LinuxLink Then
+		          DesktopContent = DesktopContent + "Exec=" + ExecName + Chr(10) 'LinuxLink .desktop items are native executables, no Wine prefix
 		        Else
 		          DesktopContent = DesktopContent + "Exec=" + "wine " + ExecName + Chr(10) 'Quotes are checked for above, so only added once
 		        End If
@@ -5053,7 +5113,7 @@ Protected Module LLMod
 		        'System Wide (LLApps only)
 		        If BT = "LLApp" Then
 		          If ItemLnk(I).Link.WorkingDirectory.IndexOf(HomePath) = -1 Then 'If item isn't inside the users path then it is system wide
-		            RunSudo("sudo mv -f "+Chr(34)+DesktopOutPath+DesktopFile+Chr(34)+" /usr/share/applications/")
+		            RunSudo("mv -f "+Chr(34)+DesktopOutPath+DesktopFile+Chr(34)+" /usr/share/applications/")
 		          End If
 		        End If
 		        
@@ -5105,6 +5165,8 @@ Protected Module LLMod
 		        'If Debugging Then Debug("Target: "+ ItemLnk(I).Link.TargetPath)
 		        'If Debugging Then Debug("IconLocation: "+ ItemLnk(I).Link.IconLocation)
 		        
+		        'Skip Linux .desktop links on Windows - they cannot be used here
+		        If ItemLnk(I).LinuxLink Then Continue
 		        
 		        If ItemLnk(I).StartSourceMenu <> "" Then ItemLLItem.StartMenuSourcePath = ItemLnk(I).StartSourceMenu ' This is currently only used by Default Links sorting
 		        
@@ -6307,10 +6369,13 @@ Protected Module LLMod
 		    Else
 		      Shelly.Execute("cd " + Chr(34) + InstallFromPath + Chr(34) + " && wine " + Chr(34) + FixPath(F.NativePath) + Chr(34)) ' Use && Here because if path fails, then script will anyway
 		    End If
+		    Dim AssyBuf As String = ""
 		    While Shelly.IsRunning 
 		      App.DoEvents(20)
+		      AssyBuf = AssyBuf + Shelly.ReadAll 'Drain to prevent pipe deadlock
 		    Wend
-		    If Debugging Then Debug("Assembly Return: "+ Shelly.ReadAll)
+		    AssyBuf = AssyBuf + Shelly.ReadAll
+		    If Debugging Then Debug("Assembly Return: "+ AssyBuf)
 		    
 		    'Delete the temp script I run
 		    #Pragma BreakOnExceptions Off
@@ -6411,15 +6476,16 @@ Protected Module LLMod
 		        'Run Script
 		        Sh.Execute (F.NativePath)
 		        
-		        'Wait For Completion
+		        'Wait For Completion - drain buffer each tick to prevent pipe deadlock
 		        While Sh.IsRunning
 		          App.DoEvents(20)
+		          Res = Res + Sh.ReadAll 'Drain output buffer to prevent pipe deadlock
 		        Wend
+		        Res = Res + Sh.ReadAll 'Capture any remaining output
 		        If Debugging Then
-		          Res = Sh.Result.Trim
-		          'Res = Sh.ReadAll
-		          If Left (CmdIn,4) = "curl" Then Res = Left(Res,12) 'Shrink curl output
-		          Debug("RunCommandResults: -"+Chr(10)+Res+Chr(10))
+		          Dim ResDbg As String = Res
+		          If Left(CmdIn, 4) = "curl" Then ResDbg = Left(ResDbg, 12) 'Shrink curl output
+		          Debug("RunCommandDownload: -"+Chr(10)+ResDbg+Chr(10))
 		        End If
 		        
 		        'Delete Temp Script
@@ -6431,21 +6497,22 @@ Protected Module LLMod
 		      'Run Script
 		      Sh.Execute (CmdIn)
 		      
-		      'Wait For Completion
+		      'Wait For Completion - drain buffer each tick to prevent pipe deadlock
 		      While Sh.IsRunning
 		        App.DoEvents(20)
+		        Res = Res + Sh.ReadAll 'Drain output buffer to prevent pipe deadlock
 		      Wend
+		      Res = Res + Sh.ReadAll 'Capture any remaining output
 		      If Debugging Then
-		        Res = Sh.Result.Trim
-		        'Res = Sh.ReadAll
-		        If Left (CmdIn,4) = "curl" Then Res = Left(Res,12) 'Shrink curl output
-		        Debug("RunCommandResults: -"+Chr(10)+Res+Chr(10))
+		        Dim ResDbg As String = Res
+		        If Left (CmdIn,4) = "curl" Then ResDbg = Left(ResDbg,12) 'Shrink curl output
+		        Debug("RunCommandDownload: -"+Chr(10)+ResDbg+Chr(10))
 		      End If
 		      
 		    End If
 		    
 		    'For Both
-		    Return Sh.Result
+		    Return Res
 		    'Return Sh.ReadAll
 		  End If
 		  
@@ -6504,10 +6571,16 @@ Protected Module LLMod
 		      Sh.Execute (CmdIn)
 		      
 		      'Wait For Completion
+		      ' IMPORTANT: Drain the shell output buffer on every DoEvents tick.
+		      ' If we only call ReadAll after the loop, verbose commands (e.g. 7z listing
+		      ' every file in a large game) fill the OS pipe buffer (~64KB). Once full,
+		      ' the child process blocks waiting to write more output. IsRunning stays True
+		      ' forever, 0% CPU - a complete silent hang. Draining here keeps the pipe clear.
 		      While Sh.IsRunning
 		        App.DoEvents(20)
+		        Res = Res + Sh.ReadAll 'Drain output buffer to prevent pipe deadlock
 		      Wend
-		      Res = Sh.ReadAll
+		      Res = Res + Sh.ReadAll 'Read any remaining output after process exits
 		      If Debugging Then
 		        'Res = Sh.Result.Trim
 		        If Left (CmdIn,4) = "curl" Then Res = Left(Res,12) 'Shrink curl output
@@ -6673,10 +6746,13 @@ Protected Module LLMod
 		        ScriptFile = ExpScript (InstallToPath + "LLScript.sh")
 		        F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		        Shelly.Execute("cd " + Chr(34) + InstallToPath + Chr(34) + " ; bash " + Chr(34) + FixPath(F.NativePath) + Chr(34)) 'Use bash over sh. I think it is better
+		        Dim ShBuf As String = ""
 		        While Shelly.IsRunning
 		          App.DoEvents(20)
+		          ShBuf = ShBuf + Shelly.ReadAll 'Drain to prevent pipe deadlock
 		        Wend
-		        If Debugging Then Debug("Script Return (.sh): "+ Shelly.ReadAll)
+		        ShBuf = ShBuf + Shelly.ReadAll
+		        If Debugging Then Debug("Script Return (.sh): "+ ShBuf)
 		      End If
 		    Catch
 		      If Debugging Then Debug("* Error: "+ InstallToPath + "LLScript.sh - Isn't found or invalid path")
@@ -6704,12 +6780,15 @@ Protected Module LLMod
 		            Shelly.Execute("cd " + Chr(34) + InstallFromPath + Chr(34) + " ; wine " + Chr(34) + ScriptFile + Chr(34)) ' Use && Here because if path fails, then script will anyway
 		          End If
 		        End If
+		        Dim SsBuf As String = ""
 		        If Not BuildingCombinedBat Then
 		          While Shelly.IsRunning
 		            App.DoEvents(20)
+		            SsBuf = SsBuf + Shelly.ReadAll 'Drain to prevent pipe deadlock
 		          Wend
+		          SsBuf = SsBuf + Shelly.ReadAll
 		        End If
-		        If Debugging Then Debug("Script Return (ssApp.cmd): "+ Shelly.ReadAll)
+		        If Debugging Then Debug("Script Return (ssApp.cmd): "+ SsBuf)
 		      End If
 		    Catch
 		      If Debugging Then Debug("* Error: "+ InstallToPath + "ssApp.cmd - Isn't found or invalid path")
@@ -6737,12 +6816,15 @@ Protected Module LLMod
 		            Shelly.Execute("cd " + Chr(34) + InstallToPath + Chr(34) + " ; wine " + Chr(34) + ScriptFile + Chr(34))
 		          End If
 		        End If
+		        Dim PpBuf As String = ""
 		        If Not BuildingCombinedBat Then
 		          While Shelly.IsRunning
 		            App.DoEvents(20)
+		            PpBuf = PpBuf + Shelly.ReadAll 'Drain to prevent pipe deadlock
 		          Wend
+		          PpBuf = PpBuf + Shelly.ReadAll
 		        End If
-		        If Debugging Then Debug("Script Return ("+ItemLLItem.BuildType+".cmd): "+ Shelly.ReadAll)
+		        If Debugging Then Debug("Script Return ("+ItemLLItem.BuildType+".cmd): "+ PpBuf)
 		      End If
 		    Catch
 		      If Debugging Then Debug("* Error: "+ InstallToPath + ItemLLItem.BuildType+".cmd - Isn't found or invalid path")
@@ -6836,7 +6918,7 @@ Protected Module LLMod
 		        Wend
 		        
 		        'Update Linux .desktop Links Database (usually occurs after sudo scripts as that installs system wide .desktop files)
-		        If TargetLinux Then RunSudo ("sudo update-desktop-database /usr/share/applications")
+		        If TargetLinux Then RunSudo ("update-desktop-database /usr/share/applications")
 		        
 		      End If
 		    End If
@@ -7148,39 +7230,68 @@ Protected Module LLMod
 		    If LnkCount >= 1 Then
 		      For I = 1 To LnkCount
 		        If ItemLnk(I).Title = "" Then Continue 'Dud item, continue looping to next item
-		        DataOut = DataOut + "["+ItemLnk(I).Title+".lnk]"+Chr(10)
-		        If ItemLnk(I).Link.TargetPath <> "" Then DataOut = DataOut + "Target="+ItemLnk(I).Link.TargetPath+Chr(10)
-		        If ItemLnk(I).Link.Arguments <> "" Then DataOut = DataOut + "Args="+ItemLnk(I).Link.Arguments+Chr(10)
-		        If ItemLnk(I).Link.WorkingDirectory <> "" Then DataOut = DataOut + "Path="+ItemLnk(I).Link.WorkingDirectory+Chr(10)
-		        If ItemLnk(I).Link.IconLocation <> "" Then DataOut = DataOut + "Icon="+ItemLnk(I).Link.IconLocation+Chr(10)
-		        If ItemLnk(I).Associations <> "" Then DataOut = DataOut + "Extensions="+ItemLnk(I).Associations+Chr(10)
-		        If ItemLnk(I).Flags <> "" Then DataOut = DataOut + "Flags="+ItemLnk(I).Flags+Chr(10)
 		        
-		        'Glenn 26 - Fix EOL for Descriptions and Comments
-		        If ItemLnk(I).Link.Description <> "" Then DataOut = DataOut + "Comment="+FixEOL(ItemLnk(I).Link.Description)+Chr(10)
-		        If ItemLnk(I).Description <> "" Then DataOut = DataOut + "Description="+FixEOL(ItemLnk(I).Description)+Chr(10)
-		        
-		        CatOut = ItemLnk(I).Categories
-		        If CatOut.ReplaceAll(";","").ReplaceAll(" ","").Trim = ItemLLItem.Catalog.ReplaceAll(";","").ReplaceAll(" ","").Trim Then CatOut = "" 'Don't add if the same as the main items category
-		        If CatOut<> "" Then
-		          CatOut = CatOut.ReplaceAll(";","|").Trim 'Use Windows Separators
-		          If Right(CatOut, 1) = "|" Then CatOut = Left(CatOut, Len(CatOut)-1).Trim ' Remove Trailing | in windows items
-		          if CatOut.Trim <> ItemLLItem.Catalog.Trim Then DataOut = DataOut + "Categories="+CatOut+Chr(10) ' Only add if Different
+		        If ItemLnk(I).LinuxLink Then
+		          'Write as Linux .desktop section inside the SS file
+		          DataOut = DataOut + "["+ItemLnk(I).Title+".desktop]"+Chr(10)
+		          If ItemLnk(I).Link.TargetPath <> "" Then DataOut = DataOut + "Target="+ItemLnk(I).Link.TargetPath+Chr(10)
+		          If ItemLnk(I).Link.Arguments <> "" Then DataOut = DataOut + "Args="+ItemLnk(I).Link.Arguments+Chr(10)
+		          If ItemLnk(I).Link.WorkingDirectory <> "" Then DataOut = DataOut + "Path="+ItemLnk(I).Link.WorkingDirectory+Chr(10)
+		          If ItemLnk(I).Link.IconLocation <> "" Then DataOut = DataOut + "Icon="+ItemLnk(I).Link.IconLocation+Chr(10)
+		          If ItemLnk(I).Associations <> "" Then DataOut = DataOut + "Extensions="+ItemLnk(I).Associations+Chr(10)
+		          If ItemLnk(I).Flags <> "" Then DataOut = DataOut + "Flags="+ItemLnk(I).Flags+Chr(10)
+		          If ItemLnk(I).Link.Description <> "" Then DataOut = DataOut + "Comment="+FixEOL(ItemLnk(I).Link.Description)+Chr(10)
+		          If ItemLnk(I).Description <> "" Then DataOut = DataOut + "Description="+FixEOL(ItemLnk(I).Description)+Chr(10)
+		          DataOut = DataOut + "Terminal="+ItemLnk(I).Terminal.ToString+Chr(10)
+		          CatOut = ItemLnk(I).Categories
+		          If CatOut.ReplaceAll(";","").ReplaceAll(" ","").Trim = ItemLLItem.Catalog.ReplaceAll(";","").ReplaceAll(" ","").Trim Then CatOut = ""
+		          If CatOut <> "" Then
+		            CatOut = CatOut.ReplaceAll(";","|").Trim
+		            If Right(CatOut, 1) = "|" Then CatOut = Left(CatOut, Len(CatOut)-1).Trim
+		            If CatOut.Trim <> ItemLLItem.Catalog.Trim Then DataOut = DataOut + "Categories="+CatOut+Chr(10)
+		          End If
+		          FlagsOut = ""
+		          If ItemLnk(I).Desktop = True Then  FlagsOut = FlagsOut + "desktop "
+		          If ItemLnk(I).Panel = True Then  FlagsOut = FlagsOut + "panel "
+		          If ItemLnk(I).Favorite = True Then  FlagsOut = FlagsOut + "favorite "
+		          If ItemLnk(I).LnkSendTo = True Then  FlagsOut = FlagsOut + "sendto "
+		          FlagsOut = FlagsOut.Trim
+		          If FlagsOut <> "" Then DataOut = DataOut + "ShowOn="+FlagsOut+Chr(10)
+		          If ItemLnk(I).LnkDECompatible <> "" Then DataOut = DataOut + "LnkDECompatible="+ItemLnk(I).LnkDECompatible+Chr(10)
+		          If ItemLnk(I).LnkPMCompatible <> "" Then DataOut = DataOut + "LnkPMCompatible="+ItemLnk(I).LnkPMCompatible+Chr(10)
+		          If ItemLnk(I).LnkArchCompatible <> "" Then DataOut = DataOut + "LnkArchCompatible="+ItemLnk(I).LnkArchCompatible+Chr(10)
+		        Else
+		          'Write as Windows .lnk section (original behaviour)
+		          DataOut = DataOut + "["+ItemLnk(I).Title+".lnk]"+Chr(10)
+		          If ItemLnk(I).Link.TargetPath <> "" Then DataOut = DataOut + "Target="+ItemLnk(I).Link.TargetPath+Chr(10)
+		          If ItemLnk(I).Link.Arguments <> "" Then DataOut = DataOut + "Args="+ItemLnk(I).Link.Arguments+Chr(10)
+		          If ItemLnk(I).Link.WorkingDirectory <> "" Then DataOut = DataOut + "Path="+ItemLnk(I).Link.WorkingDirectory+Chr(10)
+		          If ItemLnk(I).Link.IconLocation <> "" Then DataOut = DataOut + "Icon="+ItemLnk(I).Link.IconLocation+Chr(10)
+		          If ItemLnk(I).Associations <> "" Then DataOut = DataOut + "Extensions="+ItemLnk(I).Associations+Chr(10)
+		          If ItemLnk(I).Flags <> "" Then DataOut = DataOut + "Flags="+ItemLnk(I).Flags+Chr(10)
+		          'Glenn 26 - Fix EOL for Descriptions and Comments
+		          If ItemLnk(I).Link.Description <> "" Then DataOut = DataOut + "Comment="+FixEOL(ItemLnk(I).Link.Description)+Chr(10)
+		          If ItemLnk(I).Description <> "" Then DataOut = DataOut + "Description="+FixEOL(ItemLnk(I).Description)+Chr(10)
+		          CatOut = ItemLnk(I).Categories
+		          If CatOut.ReplaceAll(";","").ReplaceAll(" ","").Trim = ItemLLItem.Catalog.ReplaceAll(";","").ReplaceAll(" ","").Trim Then CatOut = "" 'Don't add if the same as the main items category
+		          If CatOut<> "" Then
+		            CatOut = CatOut.ReplaceAll(";","|").Trim 'Use Windows Separators
+		            If Right(CatOut, 1) = "|" Then CatOut = Left(CatOut, Len(CatOut)-1).Trim ' Remove Trailing | in windows items
+		            if CatOut.Trim <> ItemLLItem.Catalog.Trim Then DataOut = DataOut + "Categories="+CatOut+Chr(10) ' Only add if Different
+		          End If
+		          ''''If ItemLnk(I).Categories <> "" Then DataOut = DataOut + "Categories="+ItemLnk(I).Categories+Chr(10) 'Old Method
+		          'Do ShowOn
+		          FlagsOut = ""
+		          If ItemLnk(I).Desktop = True Then  FlagsOut = FlagsOut + "desktop "
+		          If ItemLnk(I).Panel = True Then  FlagsOut = FlagsOut + "panel "
+		          If ItemLnk(I).Favorite = True Then  FlagsOut = FlagsOut + "favorite "
+		          If ItemLnk(I).LnkSendTo = True Then  FlagsOut = FlagsOut + "sendto "
+		          FlagsOut = FlagsOut.Trim
+		          If FlagsOut <> "" Then DataOut = DataOut + "ShowOn="+FlagsOut+Chr(10)
+		          If ItemLnk(I).LnkDECompatible <> "" Then DataOut = DataOut + "LnkDECompatible="+ItemLnk(I).LnkDECompatible+Chr(10)
+		          If ItemLnk(I).LnkPMCompatible <> "" Then DataOut = DataOut + "LnkPMCompatible="+ItemLnk(I).LnkPMCompatible+Chr(10)
+		          If ItemLnk(I).LnkArchCompatible <> "" Then DataOut = DataOut + "LnkArchCompatible="+ItemLnk(I).LnkArchCompatible+Chr(10)
 		        End If
-		        ''''If ItemLnk(I).Categories <> "" Then DataOut = DataOut + "Categories="+ItemLnk(I).Categories+Chr(10) 'Old Method
-		        
-		        'Do ShowOn
-		        FlagsOut = ""
-		        If ItemLnk(I).Desktop = True Then  FlagsOut = FlagsOut + "desktop "
-		        If ItemLnk(I).Panel = True Then  FlagsOut = FlagsOut + "panel "
-		        If ItemLnk(I).Favorite = True Then  FlagsOut = FlagsOut + "favorite "
-		        If ItemLnk(I).LnkSendTo = True Then  FlagsOut = FlagsOut + "sendto "
-		        FlagsOut = FlagsOut.Trim
-		        If FlagsOut <> "" Then DataOut = DataOut + "ShowOn="+FlagsOut+Chr(10)
-		        
-		        If ItemLnk(I).LnkDECompatible <> "" Then DataOut = DataOut + "LnkDECompatible="+ItemLnk(I).LnkDECompatible+Chr(10)
-		        If ItemLnk(I).LnkPMCompatible <> "" Then DataOut = DataOut + "LnkPMCompatible="+ItemLnk(I).LnkPMCompatible+Chr(10)
-		        If ItemLnk(I).LnkArchCompatible <> "" Then DataOut = DataOut + "LnkArchCompatible="+ItemLnk(I).LnkArchCompatible+Chr(10)
 		        
 		      Next
 		    End If
@@ -7252,6 +7363,17 @@ Protected Module LLMod
 	#tag Method, Flags = &h0
 		Function UniversalName(InFile As String) As String
 		  Return InFile.Lowercase.ReplaceAll(" ","")
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function HasLinuxDesktopLink() As Boolean
+		  'Returns True if any link in ItemLnk() has LinuxLink = True (i.e. a .desktop link inside a SS file)
+		  Dim J As Integer
+		  For J = 1 To LnkCount
+		    If ItemLnk(J).LinuxLink Then Return True
+		  Next
+		  Return False
 		End Function
 	#tag EndMethod
 
@@ -7714,6 +7836,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		LinuxCurl As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		LinuxWget As String
 	#tag EndProperty
 
@@ -8126,6 +8252,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		WinCurl As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		WinWget As String
 	#tag EndProperty
 
@@ -8408,6 +8538,14 @@ Protected Module LLMod
 			EditorType="MultiLineEditor"
 		#tag EndViewProperty
 		#tag ViewProperty
+			Name="LinuxCurl"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
+			EditorType="MultiLineEditor"
+		#tag EndViewProperty
+		#tag ViewProperty
 			Name="LinuxWget"
 			Visible=false
 			Group="Behavior"
@@ -8417,6 +8555,14 @@ Protected Module LLMod
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="Win7z"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
+			EditorType="MultiLineEditor"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="WinCurl"
 			Visible=false
 			Group="Behavior"
 			InitialValue=""

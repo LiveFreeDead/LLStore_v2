@@ -10,14 +10,14 @@ dir="$(dirname "$(readlink -f "$0")")"
 app="$(basename "$dir")"
 
 #Remove LLStore folder name Suffix etc
-app=$(echo $app | sed 's,\., ,g')
-app=$(echo $app | sed 's,\_, ,g')
-app=$(echo $app | sed 's,\LLGame, ,g')
-app=$(echo $app | sed 's,\LLApp, ,g')
-app=$(echo $app | xargs ) #Trim
+app=$(echo "$app" | sed 's,\., ,g')
+app=$(echo "$app" | sed 's,\_, ,g')
+app=$(echo "$app" | sed 's,\LLGame, ,g')
+app=$(echo "$app" | sed 's,\LLApp, ,g')
+app=$(echo "$app" | xargs ) #Trim
 
 #Make appdesktop the name of the file (Spaces converted back to .)
-appdesktop=$(echo $app | sed 's,\ ,.,g')
+appdesktop=$(echo "$app" | sed 's,\ ,.,g')
 
 # User environment launchers
 if [ -z "$XDG_CONFIG_HOME" ]; then
@@ -38,95 +38,40 @@ fi
 
 echo "Testing removal of: $dir"
 
-if [ "$app" = "Tools" ]; then #Because I keep this in my Tools folder, I'll test for that too
+# ---- Safety: refuse to remove well-known protected locations ----
+# The app name "Tools" is also blocked (common dev working directory).
+if [ "$app" = "Tools" ]; then
     echo "Protected Folder"
     exit 1
 fi
 
-if [ "$dir" = "$HOME" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "$XDG_DESKTOP_DIR" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "$XDG_DATA_HOME" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "$XDG_CONFIG_HOME" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "/" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "/etc" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "/home" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "/LastOS" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "/opt" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "/proc" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "/srv" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "/sys" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "/tmp" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "/usr" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "/var" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "/bin" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
-
-if [ "$dir" = "/sbin" ]; then
-    echo "Protected Folder"
-    exit 1
-fi
+PROTECTED_DIRS=(
+    "$HOME"
+    "$XDG_DESKTOP_DIR"
+    "$XDG_DATA_HOME"
+    "$XDG_CONFIG_HOME"
+    "/"
+    "/etc"
+    "/home"
+    "/LastOS"
+    "/opt"
+    "/proc"
+    "/srv"
+    "/sys"
+    "/tmp"
+    "/usr"
+    "/var"
+    "/bin"
+    "/sbin"
+)
+for _pd in "${PROTECTED_DIRS[@]}"; do
+    [ -n "$_pd" ] || continue
+    if [ "$dir" = "$_pd" ]; then
+        echo "Protected Folder: $dir"
+        exit 1
+    fi
+done
+unset _pd
 
 #If any above are true then it quits, Otherwise it will ask below to remove folder and links
 #echo $appdesktop

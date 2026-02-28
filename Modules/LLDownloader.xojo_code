@@ -37,6 +37,9 @@ Protected Module LLDownloader
 		  Dim Pairs As String = ""
 		  Dim Cmd As String
 		  
+		  ' Nothing to do – return early so DoneFlag is never left un-written.
+		  If Count <= 0 Then Return
+		  
 		  For I = 0 To Count - 1
 		    If URLs(I).Trim = "" Then Continue
 		    Pairs = Pairs + " -o " + Chr(34) + Locals(I) + ".partial" + Chr(34) + " " + Chr(34) + URLs(I) + Chr(34)
@@ -48,7 +51,10 @@ Protected Module LLDownloader
 		  ' --parallel-immediate: start all transfers simultaneously rather than in batches
 		  ' --retry 3: retry failed downloads up to 3 times
 		  ' --connect-timeout 9: don't hang on unresponsive servers
-		  Dim CurlBase As String = "curl -L --parallel --parallel-immediate --retry 3 --connect-timeout 9 -s"
+		  ' Use the resolved curl path set at startup (WinCurl/LinuxCurl) - not bare "curl"
+		  Dim CurlBin As String = LinuxCurl
+		  If TargetWindows Then CurlBin = WinCurl
+		  Dim CurlBase As String = CurlBin + " -L --parallel --parallel-immediate --retry 3 --connect-timeout 9 -s"
 		  
 		  If TargetWindows Then
 		    Cmd = CurlBase + Pairs + " && echo done > " + Chr(34) + DoneFlag + Chr(34)

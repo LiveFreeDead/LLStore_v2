@@ -989,6 +989,36 @@ Begin DesktopWindow Editor
          Visible         =   True
          Width           =   30
       End
+      Begin DesktopCheckBox CheckBoxLinuxLink
+         AllowAutoDeactivate=   True
+         Bold            =   False
+         Caption         =   "Linux Link"
+         Enabled         =   True
+         FontName        =   "Arial"
+         FontSize        =   12.0
+         FontUnit        =   0
+         Height          =   28
+         Index           =   -2147483648
+         InitialParent   =   "TabPanelEditor"
+         Italic          =   False
+         Left            =   504
+         LockBottom      =   False
+         LockedInPosition=   False
+         LockLeft        =   False
+         LockRight       =   True
+         LockTop         =   True
+         Scope           =   0
+         TabIndex        =   24
+         TabPanelIndex   =   2
+         TabStop         =   True
+         Tooltip         =   "If checked, this shortcut is a Linux .desktop link (not a Windows .lnk)"
+         Top             =   89
+         Transparent     =   False
+         Underline       =   False
+         Value           =   False
+         Visible         =   False
+         Width           =   117
+      End
       Begin DesktopComboBox ComboShortcut
          AllowAutoComplete=   False
          AllowAutoDeactivate=   True
@@ -5317,11 +5347,12 @@ End
 		                  FC = F.Count
 		                  Status.Text = "Clean Up Files..."
 		                  Notification.UpdateBuildStatus("Cleaning Up Files...")
-		                  ' Collect all paths to delete.
-		                  ' Windows: build per-file rmdir/del lines (for %f is silently ignored inside .cmd files).
-		                  ' Linux: build a single rm -rf with space-separated quoted paths.
+		                  ' Collect top-level items to delete. Windows: per-file rmdir/del commands.
+		                  ' Linux: build an array and execute rm -rf in batches of 20 to avoid ARG_MAX
+		                  '  limits. rm -rf handles each subfolder recursively so we only need the
+		                  '  top-level path - no need to enumerate files inside subfolders.
 		                  Dim WinCmds As String = ""
-		                  Dim LinuxPaths As String = ""
+		                  Dim LinuxItems() As String
 		                  For I = 1 To FC
 		                    If Left(F.Item(I).Name, 5) = Left(BT, 5) Or Left(F.Item(I).Name, 5) = "LLScr" Or Left(F.Item(I).Name, 8) = "Patch.7z" Then 'Keep
 		                    Else
@@ -5330,7 +5361,7 @@ End
 		                         Right(F.Item(I).Name, 4) <> ".ico" Then
 		                        WinCmds = WinCmds + "rmdir /q /s " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
 		                        WinCmds = WinCmds + "del /f /q " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
-		                        LinuxPaths = LinuxPaths + Chr(34) + F.Item(I).NativePath + Chr(34) + " "
+		                        LinuxItems.Add(Chr(34) + F.Item(I).NativePath + Chr(34))
 		                      End If
 		                    End If
 		                  Next
@@ -5340,12 +5371,25 @@ End
 		                    ' the .lnk itself. Use a wildcard del to catch them directly by path construction instead.
 		                    RunCommand("del /f /q " + Chr(34) + NoSlash(OutFolder) + "\*.lnk" + Chr(34))
 		                  Else
-		                    If LinuxPaths.Trim <> "" Then
-		                      Sh.Execute("rm -rf " + LinuxPaths)
+		                    ' Execute rm -rf in batches of 20 top-level paths. Since rm -rf recurses into
+		                    ' any subfolder automatically, there's no need to list files inside them.
+		                    ' Batching keeps each shell call to a manageable size.
+		                    Dim LLBatchSize As Integer = 20
+		                    Dim LLBatchJ As Integer = 0
+		                    While LLBatchJ < LinuxItems.Count
+		                      Dim LLBatchCmd As String = "rm -rf"
+		                      Dim LLBatchEnd As Integer = LLBatchJ + LLBatchSize - 1
+		                      If LLBatchEnd >= LinuxItems.Count Then LLBatchEnd = LinuxItems.Count - 1
+		                      Dim LLBatchK As Integer
+		                      For LLBatchK = LLBatchJ To LLBatchEnd
+		                        LLBatchCmd = LLBatchCmd + " " + LinuxItems(LLBatchK)
+		                      Next LLBatchK
+		                      Sh.Execute(LLBatchCmd)
 		                      While Sh.IsRunning
 		                        App.DoEvents(20)
 		                      Wend
-		                    End If
+		                    LLBatchJ = LLBatchJ + LLBatchSize
+		                    Wend
 		                  End If
 		                End If
 		              End If
@@ -5400,6 +5444,11 @@ End
 		      Case Else 'ss/pp App/Game ----------------------------------------------------------------
 		        
 		        '----------- Always do this as it's empty? -----------------------------
+		        ' Select the correct 7z binary for the current OS.
+		        ' Using Win7z (7z.exe) on Linux is wrong - it requires Wine and produces
+		        ' excessive stdout that causes a pipe buffer deadlock in RunCommandResults.
+		        SevenZip = Linux7z
+		        If TargetWindows Then SevenZip = Win7z
 		        OutFolder = Slash(TextBuildToFolder.Text)
 		        InFolder = Slash(TextIncludeFolder.Text)
 		        
@@ -5438,7 +5487,7 @@ End
 		                If BT <> "ssApp" Then 'ssApp is Windows NoInstall
 		                  Status.Text =  "Compressing Files..."
 		                  Notification.UpdateBuildStatus("Compressing Files...")
-		                  Commands = Win7z +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+Chr(34)+InFolder+"*"+Chr(34)+" -x!"+BT+".*" ' -m0=lzma2 -mx=2  Faster but less compressed
+		                  Commands = SevenZip +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+Chr(34)+InFolder+"*"+Chr(34)+" -x!"+BT+".*" ' -m0=lzma2 -mx=2  Faster but less compressed
 		                  If Debugging Then Debug (Commands)
 		                  Res = RunCommandResults(Commands)
 		                  If Debugging Then Debug (Res)
@@ -5460,7 +5509,7 @@ End
 		                Status.Text =  "Compressing Files..."
 		                Notification.UpdateBuildStatus("Compressing Files...")
 		                'Commands = Win7z +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+InFolder+"* "+"-x!"+BT+".* "+"-x!"+"*.jpg "+"-x!"+"*.png "+"-x!"+"*.mp4 "+"-x!"+"*.svg "+"-x!"+"*.ico" ' -m0=lzma2 -mx=2  Faster but less compressed
-		                Commands = Win7z +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+Chr(34)+InFolder+"*"+Chr(34)+" -x!"+BT+".* " ' -m0=lzma2 -mx=2  Faster but less compressed
+		                Commands = SevenZip +" a -m0=lzma2 -mx=2 "+Chr(34)+OutFile+Chr(34)+" "+Chr(34)+InFolder+"*"+Chr(34)+" -x!"+BT+".* " ' -m0=lzma2 -mx=2  Faster but less compressed
 		                If Debugging Then Debug (Commands)
 		                Res = RunCommandResults(Commands)
 		                If Debugging Then Debug (Res)
@@ -5489,11 +5538,12 @@ End
 		                  FC = F.Count
 		                  Status.Text = "Clean Up Files..."
 		                  Notification.UpdateBuildStatus("Cleaning Up Files...")
-		                  ' Collect all paths to delete.
-		                  ' Windows: build per-file rmdir/del lines (for %f is silently ignored inside .cmd files).
-		                  ' Linux: build a single rm -rf with space-separated quoted paths.
+		                  ' Collect top-level items to delete. Windows: per-file rmdir/del commands.
+		                  ' Linux: build an array and execute rm -rf in batches of 20 to avoid ARG_MAX
+		                  '  limits. rm -rf handles each subfolder recursively so we only need the
+		                  '  top-level path - no need to enumerate files inside subfolders.
 		                  Dim WinCmds As String = ""
-		                  Dim LinuxPaths As String = ""
+		                  Dim LinuxItems() As String
 		                  For I = 1 To FC
 		                    If Left(F.Item(I).Name, 5) = Left(BT, 5) Then 'Keep
 		                    Else
@@ -5502,7 +5552,7 @@ End
 		                         Right(F.Item(I).Name, 4) <> ".ico" Then
 		                        WinCmds = WinCmds + "rmdir /q /s " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
 		                        WinCmds = WinCmds + "del /f /q " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
-		                        LinuxPaths = LinuxPaths + Chr(34) + F.Item(I).NativePath + Chr(34) + " "
+		                        LinuxItems.Add(Chr(34) + F.Item(I).NativePath + Chr(34))
 		                      End If
 		                    End If
 		                  Next
@@ -5512,12 +5562,25 @@ End
 		                    ' the .lnk itself. Use a wildcard del to catch them directly by path construction instead.
 		                    RunCommand("del /f /q " + Chr(34) + NoSlash(OutFolder) + "\*.lnk" + Chr(34))
 		                  Else
-		                    If LinuxPaths.Trim <> "" Then
-		                      Sh.Execute("rm -rf " + LinuxPaths)
+		                    ' Execute rm -rf in batches of 20 top-level paths. Since rm -rf recurses into
+		                    ' any subfolder automatically, there's no need to list files inside them.
+		                    ' Batching keeps each shell call to a manageable size.
+		                    Dim LLBatchSize As Integer = 20
+		                    Dim LLBatchJ As Integer = 0
+		                    While LLBatchJ < LinuxItems.Count
+		                      Dim LLBatchCmd As String = "rm -rf"
+		                      Dim LLBatchEnd As Integer = LLBatchJ + LLBatchSize - 1
+		                      If LLBatchEnd >= LinuxItems.Count Then LLBatchEnd = LinuxItems.Count - 1
+		                      Dim LLBatchK As Integer
+		                      For LLBatchK = LLBatchJ To LLBatchEnd
+		                        LLBatchCmd = LLBatchCmd + " " + LinuxItems(LLBatchK)
+		                      Next LLBatchK
+		                      Sh.Execute(LLBatchCmd)
 		                      While Sh.IsRunning
 		                        App.DoEvents(20)
 		                      Wend
-		                    End If
+		                    LLBatchJ = LLBatchJ + LLBatchSize
+		                    Wend
 		                  End If
 		                End If
 		              End If
@@ -5575,7 +5638,7 @@ End
 		          Status.Text =  "Compressing to " + CompressedFileOut
 		          Notification.UpdateBuildStatus("Compressing Final Archive...")
 		          
-		          Commands = Win7z +" a -mx0 "+Chr(34)+CompressedFileOut+Chr(34)+" "+Chr(34)+InputFolder+"*"+Chr(34) '-mx0 is store
+		          Commands = SevenZip +" a -mx0 "+Chr(34)+CompressedFileOut+Chr(34)+" "+Chr(34)+InputFolder+"*"+Chr(34) '-mx0 is store
 		          If Debugging Then Debug (Commands)
 		          Res = RunCommandResults(Commands)
 		          If Debugging Then Debug (Res)
@@ -5821,7 +5884,11 @@ End
 		  If LnkCount >= 1 Then
 		    For I = 1 To LnkCount
 		      If ItemLnk(I).Title <> "" Then 'Blank Items get ignored
-		        ComboShortcut.AddRow(ItemLnk(I).Title)
+		        If ItemLnk(I).LinuxLink And (ItemLLItem.BuildType = "ppGame" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ssApp") Then
+		          ComboShortcut.AddRow(ItemLnk(I).Title + " [Linux]")
+		        Else
+		          ComboShortcut.AddRow(ItemLnk(I).Title)
+		        End If
 		        EditingCBLnk = ComboShortcut.LastAddedRowIndex
 		        ComboShortcut.RowTagAt(EditingCBLnk) = I
 		        EditingLnk = I
@@ -5829,6 +5896,9 @@ End
 		    Next
 		    ComboShortcut.SelectedRowIndex = 0 'Pick first item to populate the Link Data
 		  End If
+		  
+		  'Set initial Linux Link checkbox state based on build type
+		  UpdateLinuxLinkCheckbox
 		  
 		  
 		  'Main Window 3 - Assembly
@@ -6170,6 +6240,30 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub UpdateLinuxLinkCheckbox()
+		  'Show the Linux Link checkbox for all SS types; disable it on "Main Item", enable on real links.
+		  'Never shown for LLApp/LLGame (those always use .desktop so no choice needed).
+		  Dim BT As String = ItemLLItem.BuildType
+		  If BT = "ppGame" Or BT = "ppApp" Or BT = "ssApp" Then
+		    CheckBoxLinuxLink.Visible = True
+		    If EditingLnk > 0 Then
+		      CheckBoxLinuxLink.Enabled = True
+		      Populating = True 'Suppress ValueChanged while we set the value
+		      CheckBoxLinuxLink.Value = ItemLnk(EditingLnk).LinuxLink
+		      Populating = False
+		    Else
+		      CheckBoxLinuxLink.Enabled = False
+		      Populating = True
+		      CheckBoxLinuxLink.Value = False
+		      Populating = False
+		    End If
+		  Else
+		    CheckBoxLinuxLink.Visible = False
+		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub SelectionChangedLoadCats(Item As DesktopMenuItem)
 		  'Dim TempText As String
 		  
@@ -6419,11 +6513,16 @@ End
 		    If TextNewShortcut.Text.Trim <> "" Then ' Only if Valid
 		      LnkCount = LnkCount + 1 'Add one
 		      ItemLnk(LnkCount).Title = TextNewShortcut.Text.Trim
-		      ComboShortcut.AddRow(ItemLnk(LnkCount).Title)
+		      If ItemLnk(LnkCount).LinuxLink And (ItemLLItem.BuildType = "ppGame" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ssApp") Then
+		        ComboShortcut.AddRow(ItemLnk(LnkCount).Title + " [Linux]")
+		      Else
+		        ComboShortcut.AddRow(ItemLnk(LnkCount).Title)
+		      End If
 		      EditingCBLnk = ComboShortcut.LastAddedRowIndex
 		      ComboShortcut.SelectedRowIndex = EditingCBLnk 'Jumps to newly added item
 		      ComboShortcut.RowTagAt(EditingCBLnk) = LnkCount
 		      EditingLnk = LnkCount
+		      UpdateLinuxLinkCheckbox 'Show checkbox enabled for this new link
 		    End If
 		    
 		    'Clear Text Field and hide it again
@@ -6726,7 +6825,11 @@ End
 		  If LnkCount >= 1 Then
 		    For I = 1 To LnkCount
 		      If ItemLnk(I).Title <> "" Then 'Blank Items get ignored
-		        ComboShortcut.AddRow(ItemLnk(I).Title)
+		        If ItemLnk(I).LinuxLink And (ItemLLItem.BuildType = "ppGame" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ssApp") Then
+		          ComboShortcut.AddRow(ItemLnk(I).Title + " [Linux]")
+		        Else
+		          ComboShortcut.AddRow(ItemLnk(I).Title)
+		        End If
 		        EditingCBLnk = ComboShortcut.LastAddedRowIndex
 		        ComboShortcut.RowTagAt(EditingCBLnk) = I
 		        EditingLnk = I
@@ -6757,6 +6860,9 @@ End
 		  CheckShowFavorites.Value = ItemLnk(EditingLnk).Favorite
 		  
 		  TextFlags.Text = ItemLnk(EditingLnk).Flags
+		  
+		  'Update Linux Link checkbox state for SS types
+		  UpdateLinuxLinkCheckbox
 		  
 		  If EditingLnk <= 0 Then
 		    'MsgBox ItemLLItem.Catalog.ReplaceAll(";",Chr(13))
@@ -6794,7 +6900,10 @@ End
 		    Dim StartingLnk As Integer = EditingLnk
 		    If EditingLnk <= 0 Then Return True 'Nothing Selected, just get out of here
 		    
-		    ItemLnk(EditingLnk).Title = ComboShortcut.Text 'Settings to blank pretty much deletes it
+		    'Strip display suffix before saving title - the combo shows " [Linux]" for LinuxLink items
+		    Dim RawTitle As String = ComboShortcut.Text
+		    If Right(RawTitle, 8) = " [Linux]" Then RawTitle = Left(RawTitle, Len(RawTitle)-8)
+		    ItemLnk(EditingLnk).Title = RawTitle 'Settings to blank pretty much deletes it
 		    ComboShortcut.RemoveAllRows 'Clear the Existing Shortcuts
 		    
 		    'Add Main item to Link 0
@@ -6808,13 +6917,26 @@ End
 		    If LnkCount >= 1 Then
 		      For I = 1 To LnkCount
 		        If ItemLnk(I).Title <> "" Then 'Blank Items get ignored
-		          ComboShortcut.AddRow(ItemLnk(I).Title)
+		          If ItemLnk(I).LinuxLink And (ItemLLItem.BuildType = "ppGame" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ssApp") Then
+		            ComboShortcut.AddRow(ItemLnk(I).Title + " [Linux]")
+		          Else
+		            ComboShortcut.AddRow(ItemLnk(I).Title)
+		          End If
 		          EditingCBLnk = ComboShortcut.LastAddedRowIndex
 		          ComboShortcut.RowTagAt(EditingCBLnk) = I
-		          EditingLnk = StartingLnk
 		        End If
 		      Next
-		      ComboShortcut.SelectedRowIndex = StartingLnk 'Pick first item to populate the Link Data
+		      'Find the correct row by its RowTag (ItemLnk index) rather than assuming row index = ItemLnk index
+		      Dim TargetRow As Integer = 0
+		      Dim RR As Integer
+		      For RR = 0 To ComboShortcut.LastAddedRowIndex
+		        If ComboShortcut.RowTagAt(RR) = StartingLnk Then
+		          TargetRow = RR
+		          Exit
+		        End If
+		      Next RR
+		      EditingLnk = StartingLnk
+		      ComboShortcut.SelectedRowIndex = TargetRow
 		    End If
 		    
 		    // Reset so a third click isn't counted as another double
@@ -6998,6 +7120,29 @@ End
 	#tag Event
 		Sub ValueChanged()
 		  ItemLnk(LnkEditing).LnkSendTo = Me.Value
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events CheckBoxLinuxLink
+	#tag Event
+		Sub ValueChanged()
+		  If Populating Then Return 'Suppress during population
+		  If EditingLnk <= 0 Then Return 'Main Item has no LinuxLink flag
+		  
+		  ItemLnk(EditingLnk).LinuxLink = Me.Value
+		  
+		  'Update the combo row display text to reflect the new state
+		  If ItemLLItem.BuildType = "ppGame" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ssApp" Then
+		    Dim DisplayText As String = ItemLnk(EditingLnk).Title
+		    If Me.Value Then DisplayText = DisplayText + " [Linux]"
+		    'Replace the row in-place: remove then insert at same position to keep row order
+		    ComboShortcut.RemoveRowAt(EditingCBLnk)
+		    ComboShortcut.AddRowAt(EditingCBLnk, DisplayText)
+		    ComboShortcut.RowTagAt(EditingCBLnk) = EditingLnk
+		    Populating = True 'Guard: don't let SelectedRowIndex trigger a recursive ValueChanged
+		    ComboShortcut.SelectedRowIndex = EditingCBLnk
+		    Populating = False
+		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -7457,6 +7602,9 @@ End
 		    CheckGetSizeComp.Enabled = True
 		    'If TextInstalledSize.Text.ToInteger <= 0 Then CheckGetSizeComp.Value = True 'Only autoget by default if no size already given 'As these are often not able to be used, I'll not auto select them
 		  End Select
+		  
+		  'Update Linux Link checkbox visibility based on new build type
+		  UpdateLinuxLinkCheckbox
 		  
 		End Sub
 	#tag EndEvent

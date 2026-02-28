@@ -1028,7 +1028,8 @@ run_wine_cmd() {
     fi
     log "Running wine $label: $script"
     local exp; exp="$(expand_cmd_file "$script" "$ap")"
-    (cd "$(dirname "$script")" && wine cmd.exe /c "$(expand_path_wine "$script" "$ap")") \
+    # Use the expanded (path-substituted) temp file, not the original source path.
+    (cd "$(dirname "$script")" && wine cmd.exe /c "$(_to_wine_path "$exp")") \
         2>&1 | while IFS= read -r l; do _log_raw "        $l"; done \
         && log "$label complete." \
         || warn "$label failed (continuing)."
