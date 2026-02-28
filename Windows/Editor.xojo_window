@@ -1017,6 +1017,7 @@ Begin DesktopWindow Editor
          Underline       =   False
          Value           =   False
          Visible         =   False
+         VisualState     =   0
          Width           =   117
       End
       Begin DesktopComboBox ComboShortcut
@@ -5357,8 +5358,8 @@ End
 		                    If Left(F.Item(I).Name, 5) = Left(BT, 5) Or Left(F.Item(I).Name, 5) = "LLScr" Or Left(F.Item(I).Name, 8) = "Patch.7z" Then 'Keep
 		                    Else
 		                      If Right(F.Item(I).Name, 4) <> ".jpg" And Right(F.Item(I).Name, 4) <> ".mp4" And _
-		                         Right(F.Item(I).Name, 4) <> ".png" And Right(F.Item(I).Name, 4) <> ".svg" And _
-		                         Right(F.Item(I).Name, 4) <> ".ico" Then
+		                        Right(F.Item(I).Name, 4) <> ".png" And Right(F.Item(I).Name, 4) <> ".svg" And _
+		                        Right(F.Item(I).Name, 4) <> ".ico" Then
 		                        WinCmds = WinCmds + "rmdir /q /s " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
 		                        WinCmds = WinCmds + "del /f /q " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
 		                        LinuxItems.Add(Chr(34) + F.Item(I).NativePath + Chr(34))
@@ -5388,7 +5389,7 @@ End
 		                      While Sh.IsRunning
 		                        App.DoEvents(20)
 		                      Wend
-		                    LLBatchJ = LLBatchJ + LLBatchSize
+		                      LLBatchJ = LLBatchJ + LLBatchSize
 		                    Wend
 		                  End If
 		                End If
@@ -5548,8 +5549,8 @@ End
 		                    If Left(F.Item(I).Name, 5) = Left(BT, 5) Then 'Keep
 		                    Else
 		                      If Right(F.Item(I).Name, 4) <> ".jpg" And Right(F.Item(I).Name, 4) <> ".mp4" And _
-		                         Right(F.Item(I).Name, 4) <> ".png" And Right(F.Item(I).Name, 4) <> ".svg" And _
-		                         Right(F.Item(I).Name, 4) <> ".ico" Then
+		                        Right(F.Item(I).Name, 4) <> ".png" And Right(F.Item(I).Name, 4) <> ".svg" And _
+		                        Right(F.Item(I).Name, 4) <> ".ico" Then
 		                        WinCmds = WinCmds + "rmdir /q /s " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
 		                        WinCmds = WinCmds + "del /f /q " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
 		                        LinuxItems.Add(Chr(34) + F.Item(I).NativePath + Chr(34))
@@ -5579,7 +5580,7 @@ End
 		                      While Sh.IsRunning
 		                        App.DoEvents(20)
 		                      Wend
-		                    LLBatchJ = LLBatchJ + LLBatchSize
+		                      LLBatchJ = LLBatchJ + LLBatchSize
 		                    Wend
 		                  End If
 		                End If
@@ -5653,6 +5654,83 @@ End
 		    End If
 		    Status.Text = "Built Successfully"
 		    If Debugging Then Debug ("Built Successfully")
+		    
+		    ' After a successful build while editing an existing item, reload the freshly-written
+		    ' LLFile back into ItemLLItem and refresh the editor fields so the in-memory state
+		    ' matches what was just saved. The user handles any DB refresh themselves.
+		    If EditingItem Then
+		      Dim ReloadINI As String
+		      If ItemLLItem.Compressed Then
+		        ' Compressed items: the loose INI is already in ItemTempPath from the initial load
+		        Select Case BT
+		        Case "ppGame" 
+		          ReloadINI = Slash(ItemTempPath) + BT + ".ppg"
+		        Case "ssApp", "ppApp" 
+		          ReloadINI = Slash(ItemTempPath) + BT + ".app"
+		        Case "LLApp" 
+		          ReloadINI = Slash(ItemTempPath) + "LLApp.lla"
+		        Case "LLGame" 
+		          ReloadINI = Slash(ItemTempPath) + "LLGame.llg"
+		        End Select
+		      Else
+		        ' Uncompressed items: read from the build-to folder directly
+		        Select Case BT
+		        Case "ppGame" 
+		          ReloadINI = Slash(TextBuildToFolder.Text) + BT + ".ppg"
+		        Case "ssApp", "ppApp" 
+		          ReloadINI = Slash(TextBuildToFolder.Text) + BT + ".app"
+		        Case "LLApp" 
+		          ReloadINI = Slash(TextBuildToFolder.Text) + "LLApp.lla"
+		        Case "LLGame" 
+		          ReloadINI = Slash(TextBuildToFolder.Text) + "LLGame.llg"
+		        End Select
+		      End If
+		      If ReloadINI <> "" And Exist(ReloadINI) Then
+		        Notification.UpdateBuildStatus("Reloading metadata...")
+		        ' Capture the original FileINI BEFORE LoadLLFile overwrites ItemLLItem.FileINI
+		        Dim ColFileINI As Integer = Data.GetDBHeader("FileINI")
+		        Dim TargetFileINI As String = ItemLLItem.FileINI
+		        Success = LoadLLFile(ReloadINI) ' EditingItem is still True so paths won't be expanded
+		        If Debugging Then Debug("Reloaded after build: " + ReloadINI)
+		        
+		        ' Find the matching Data.Items row via Main.Items CellTags, matching on
+		        ' the original FileINI captured above (before LoadLLFile replaced it).
+		        Dim R As Integer = -1
+		        Dim VI As Integer
+		        For VI = 0 To Main.Items.LastRowIndex
+		          Dim DataRow As Integer = Main.Items.CellTagAt(VI, 0)
+		          If Data.Items.CellTextAt(DataRow, ColFileINI) = TargetFileINI Then
+		            R = DataRow
+		            Exit
+		          End If
+		        Next
+		        If Debugging Then Debug("Metadata row found: " + Str(R) + " (FileINI=" + TargetFileINI + ")")
+		        If R >= 0 Then
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("TitleName"))        = ItemLLItem.TitleName
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("Version"))          = ItemLLItem.Version
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("Description"))      = ItemLLItem.Descriptions
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("URL"))              = ItemLLItem.URL
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("Categories"))       = ItemLLItem.Categories
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("Catalog"))          = ItemLLItem.Catalog
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("License"))          = Str(ItemLLItem.License)
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("InstalledSize"))    = Str(ItemLLItem.InstallSize)
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("Tags"))             = ItemLLItem.Tags
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("Publisher"))        = ItemLLItem.Publisher
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("Language"))         = ItemLLItem.Language
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("Rating"))           = Str(ItemLLItem.Rating)
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("ReleaseVersion"))   = ItemLLItem.ReleaseVersion
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("ReleaseDate"))      = ItemLLItem.ReleaseDate
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("RequiredRuntimes")) = ItemLLItem.RequiredRuntimes
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("Builder"))          = ItemLLItem.Builder
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("Flags"))            = ItemLLItem.Flags
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("Additional"))       = ItemLLItem.Additional
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("Players"))          = Str(ItemLLItem.Players)
+		          Data.Items.CellTextAt(R, Data.GetDBHeader("Dependencies"))     = ItemLLItem.Dependencies
+		          Main.ChangeItem(R) ' Refresh MetaData panel with the reloaded values
+		        End If
+		      End If
+		    End If
+		    
 		    Notification.FinishBuild(True, BuildIconFile)
 		  Else
 		    Status.Text = "Failed to Build LLFile"
@@ -6004,6 +6082,75 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub RefreshImportSizeButton()
+		  ' Finds the best source for importing the installed size and shows the Import button
+		  ' whenever it can produce a meaningful result. Priority order:
+		  '   1. Compressed archive in the build-to folder   (BuildType.tar.gz / .7z)
+		  '   2. Compressed archive in the include folder    (same names)
+		  '   3. The item's own PathINI archive (Compressed=True items already stored as archive)
+		  '   4. Include folder file-count fallback          (always available when folder exists)
+		  '
+		  ' ZippedOut is set to the archive path for cases 1-3, or "" for the folder fallback.
+		  ' The button is hidden only when the include folder is also empty/missing.
+		  
+		  Dim BT  As String = ComboBuildType.Text
+		  If BT = "" Then BT = ItemLLItem.BuildType
+		  
+		  Dim Ext As String
+		  Select Case BT
+		  Case "ssApp", "ppApp", "ppGame"
+		    Ext = ".7z"
+		  Case "LLApp", "LLGame"
+		    Ext = ".tar.gz"
+		  Case Else
+		    Ext = ".7z"  ' Reasonable default for unknown types
+		  End Select
+		  
+		  Dim BuildFolder   As String = Slash(TextBuildToFolder.Text)
+		  Dim IncludeFolder As String = Slash(TextIncludeFolder.Text)
+		  
+		  ' Check each source in priority order
+		  Dim ArchiveInBuild   As String = BuildFolder   + BT + Ext
+		  Dim ArchiveInInclude As String = IncludeFolder + BT + Ext
+		  Dim PathINIArchive   As String = ItemLLItem.PathINI
+		  
+		  If TargetWindows Then
+		    ArchiveInBuild   = ArchiveInBuild.ReplaceAll("/", "\")
+		    ArchiveInInclude = ArchiveInInclude.ReplaceAll("/", "\")
+		  End If
+		  
+		  If Exist(ArchiveInBuild) Then
+		    ZippedOut = ArchiveInBuild
+		    ButtonImportSize.Visible = True
+		    ButtonImportSize.Tooltip = "Import uncompressed size from " + BT + Ext + " in build folder"
+		    
+		  ElseIf Exist(ArchiveInInclude) Then
+		    ZippedOut = ArchiveInInclude
+		    ButtonImportSize.Visible = True
+		    ButtonImportSize.Tooltip = "Import uncompressed size from " + BT + Ext + " in include folder"
+		    
+		  ElseIf ItemLLItem.Compressed And PathINIArchive <> "" And Exist(PathINIArchive) _
+		    And Left(PathINIArchive, 4).Lowercase <> "http" Then
+		    ' Item was already packaged (Compressed=True) — can still query the archive
+		    ZippedOut = PathINIArchive
+		    ButtonImportSize.Visible = True
+		    ButtonImportSize.Tooltip = "Import uncompressed size from packaged archive"
+		    
+		  ElseIf IncludeFolder <> "" And IncludeFolder <> "/" And IncludeFolder <> "\" And Exist(IncludeFolder) Then
+		    ' No archive found — fall back to counting files in the include folder
+		    ZippedOut = "" ' Signals Pressed handler to use folder counting
+		    ButtonImportSize.Visible = True
+		    ButtonImportSize.Tooltip = "Calculate installed size by summing files in include folder"
+		    
+		  Else
+		    ZippedOut = ""
+		    ButtonImportSize.Visible = False
+		    ButtonImportSize.Tooltip = ""
+		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function SaveLLFileComplete() As Boolean
 		  If Debugging Then Debug("--- Starting SaveLLFileComplete ---")
 		  
@@ -6225,30 +6372,6 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub UpdateLinuxLinkCheckbox()
-		  'Show the Linux Link checkbox for all SS types; disable it on "Main Item", enable on real links.
-		  'Never shown for LLApp/LLGame (those always use .desktop so no choice needed).
-		  Dim BT As String = ItemLLItem.BuildType
-		  If BT = "ppGame" Or BT = "ppApp" Or BT = "ssApp" Then
-		    CheckBoxLinuxLink.Visible = True
-		    If EditingLnk > 0 Then
-		      CheckBoxLinuxLink.Enabled = True
-		      Populating = True 'Suppress ValueChanged while we set the value
-		      CheckBoxLinuxLink.Value = ItemLnk(EditingLnk).LinuxLink
-		      Populating = False
-		    Else
-		      CheckBoxLinuxLink.Enabled = False
-		      Populating = True
-		      CheckBoxLinuxLink.Value = False
-		      Populating = False
-		    End If
-		  Else
-		    CheckBoxLinuxLink.Visible = False
-		  End If
-		End Sub
-	#tag EndMethod
-
-	#tag Method, Flags = &h0
 		Sub SelectionChangedLoadCats(Item As DesktopMenuItem)
 		  'Dim TempText As String
 		  
@@ -6281,72 +6404,26 @@ End
 		End Sub
 	#tag EndMethod
 
-
 	#tag Method, Flags = &h0
-		Sub RefreshImportSizeButton()
-		  ' Finds the best source for importing the installed size and shows the Import button
-		  ' whenever it can produce a meaningful result. Priority order:
-		  '   1. Compressed archive in the build-to folder   (BuildType.tar.gz / .7z)
-		  '   2. Compressed archive in the include folder    (same names)
-		  '   3. The item's own PathINI archive (Compressed=True items already stored as archive)
-		  '   4. Include folder file-count fallback          (always available when folder exists)
-		  '
-		  ' ZippedOut is set to the archive path for cases 1-3, or "" for the folder fallback.
-		  ' The button is hidden only when the include folder is also empty/missing.
-		  
-		  Dim BT  As String = ComboBuildType.Text
-		  If BT = "" Then BT = ItemLLItem.BuildType
-		  
-		  Dim Ext As String
-		  Select Case BT
-		  Case "ssApp", "ppApp", "ppGame"
-		    Ext = ".7z"
-		  Case "LLApp", "LLGame"
-		    Ext = ".tar.gz"
-		  Case Else
-		    Ext = ".7z"  ' Reasonable default for unknown types
-		  End Select
-		  
-		  Dim BuildFolder   As String = Slash(TextBuildToFolder.Text)
-		  Dim IncludeFolder As String = Slash(TextIncludeFolder.Text)
-		  
-		  ' Check each source in priority order
-		  Dim ArchiveInBuild   As String = BuildFolder   + BT + Ext
-		  Dim ArchiveInInclude As String = IncludeFolder + BT + Ext
-		  Dim PathINIArchive   As String = ItemLLItem.PathINI
-		  
-		  If TargetWindows Then
-		    ArchiveInBuild   = ArchiveInBuild.ReplaceAll("/", "\")
-		    ArchiveInInclude = ArchiveInInclude.ReplaceAll("/", "\")
-		  End If
-		  
-		  If Exist(ArchiveInBuild) Then
-		    ZippedOut = ArchiveInBuild
-		    ButtonImportSize.Visible = True
-		    ButtonImportSize.Tooltip = "Import uncompressed size from " + BT + Ext + " in build folder"
-		    
-		  ElseIf Exist(ArchiveInInclude) Then
-		    ZippedOut = ArchiveInInclude
-		    ButtonImportSize.Visible = True
-		    ButtonImportSize.Tooltip = "Import uncompressed size from " + BT + Ext + " in include folder"
-		    
-		  ElseIf ItemLLItem.Compressed And PathINIArchive <> "" And Exist(PathINIArchive) _
-		         And Left(PathINIArchive, 4).Lowercase <> "http" Then
-		    ' Item was already packaged (Compressed=True) — can still query the archive
-		    ZippedOut = PathINIArchive
-		    ButtonImportSize.Visible = True
-		    ButtonImportSize.Tooltip = "Import uncompressed size from packaged archive"
-		    
-		  ElseIf IncludeFolder <> "" And IncludeFolder <> "/" And IncludeFolder <> "\" And Exist(IncludeFolder) Then
-		    ' No archive found — fall back to counting files in the include folder
-		    ZippedOut = "" ' Signals Pressed handler to use folder counting
-		    ButtonImportSize.Visible = True
-		    ButtonImportSize.Tooltip = "Calculate installed size by summing files in include folder"
-		    
+		Sub UpdateLinuxLinkCheckbox()
+		  'Show the Linux Link checkbox for all SS types; disable it on "Main Item", enable on real links.
+		  'Never shown for LLApp/LLGame (those always use .desktop so no choice needed).
+		  Dim BT As String = ItemLLItem.BuildType
+		  If BT = "ppGame" Or BT = "ppApp" Or BT = "ssApp" Then
+		    CheckBoxLinuxLink.Visible = True
+		    If EditingLnk > 0 Then
+		      CheckBoxLinuxLink.Enabled = True
+		      Populating = True 'Suppress ValueChanged while we set the value
+		      CheckBoxLinuxLink.Value = ItemLnk(EditingLnk).LinuxLink
+		      Populating = False
+		    Else
+		      CheckBoxLinuxLink.Enabled = False
+		      Populating = True
+		      CheckBoxLinuxLink.Value = False
+		      Populating = False
+		    End If
 		  Else
-		    ZippedOut = ""
-		    ButtonImportSize.Visible = False
-		    ButtonImportSize.Tooltip = ""
+		    CheckBoxLinuxLink.Visible = False
 		  End If
 		End Sub
 	#tag EndMethod
@@ -6895,6 +6972,29 @@ End
 		End Sub
 	#tag EndEvent
 #tag EndEvents
+#tag Events CheckBoxLinuxLink
+	#tag Event
+		Sub ValueChanged()
+		  If Populating Then Return 'Suppress during population
+		  If EditingLnk <= 0 Then Return 'Main Item has no LinuxLink flag
+		  
+		  ItemLnk(EditingLnk).LinuxLink = Me.Value
+		  
+		  'Update the combo row display text to reflect the new state
+		  If ItemLLItem.BuildType = "ppGame" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ssApp" Then
+		    Dim DisplayText As String = ItemLnk(EditingLnk).Title
+		    If Me.Value Then DisplayText = DisplayText + " [Linux]"
+		    'Replace the row in-place: remove then insert at same position to keep row order
+		    ComboShortcut.RemoveRowAt(EditingCBLnk)
+		    ComboShortcut.AddRowAt(EditingCBLnk, DisplayText)
+		    ComboShortcut.RowTagAt(EditingCBLnk) = EditingLnk
+		    Populating = True 'Guard: don't let SelectedRowIndex trigger a recursive ValueChanged
+		    ComboShortcut.SelectedRowIndex = EditingCBLnk
+		    Populating = False
+		  End If
+		End Sub
+	#tag EndEvent
+#tag EndEvents
 #tag Events ComboShortcut
 	#tag Event
 		Sub SelectionChanged(item As DesktopMenuItem)
@@ -7175,29 +7275,6 @@ End
 	#tag Event
 		Sub ValueChanged()
 		  ItemLnk(LnkEditing).LnkSendTo = Me.Value
-		End Sub
-	#tag EndEvent
-#tag EndEvents
-#tag Events CheckBoxLinuxLink
-	#tag Event
-		Sub ValueChanged()
-		  If Populating Then Return 'Suppress during population
-		  If EditingLnk <= 0 Then Return 'Main Item has no LinuxLink flag
-		  
-		  ItemLnk(EditingLnk).LinuxLink = Me.Value
-		  
-		  'Update the combo row display text to reflect the new state
-		  If ItemLLItem.BuildType = "ppGame" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ssApp" Then
-		    Dim DisplayText As String = ItemLnk(EditingLnk).Title
-		    If Me.Value Then DisplayText = DisplayText + " [Linux]"
-		    'Replace the row in-place: remove then insert at same position to keep row order
-		    ComboShortcut.RemoveRowAt(EditingCBLnk)
-		    ComboShortcut.AddRowAt(EditingCBLnk, DisplayText)
-		    ComboShortcut.RowTagAt(EditingCBLnk) = EditingLnk
-		    Populating = True 'Guard: don't let SelectedRowIndex trigger a recursive ValueChanged
-		    ComboShortcut.SelectedRowIndex = EditingCBLnk
-		    Populating = False
-		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents

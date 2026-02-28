@@ -530,7 +530,13 @@ Protected Module LLMod
 		      If Debugging Then Debug("IconFile: "+IconFile)
 		      If Debugging Then Debug("Hotkey: "+HotKeys)
 		      Dim lnkObj As OLEObject
-		      Dim scriptShell As New OLEObject("{F935DC22-1CF0-11D0-ADB9-00C04FD58A0B}")
+		      ' Reuse WScript.Shell COM object — creating a new OLEObject per call is the
+		      ' main cause of slow shortcut generation on Windows. WScriptShell is a
+		      ' module-level property; callers set it to Nil once all shortcuts are done.
+		      If WScriptShell = Nil Then
+		        WScriptShell = New OLEObject("{F935DC22-1CF0-11D0-ADB9-00C04FD58A0B}")
+		      End If
+		      Dim scriptShell As OLEObject = WScriptShell
 		      
 		      If scriptShell <> Nil then
 		        lnkObj = scriptShell.CreateShortcut(LinkFolder  + TitleName + ".lnk")
@@ -5589,6 +5595,9 @@ Protected Module LLMod
 		    CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Internet Explorer/Quick Launch/")
 		  End If
 		  
+		  ' Release the reused WScript.Shell COM object now all shortcuts for this item are done
+		  WScriptShell = Nil
+		  
 		End Sub
 	#tag EndMethod
 
@@ -8297,6 +8306,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		WritableAppPath As Boolean = True
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		WScriptShell As OLEObject
 	#tag EndProperty
 
 
