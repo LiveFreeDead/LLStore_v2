@@ -26,6 +26,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,14 +67,16 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
-      Period          =   100
+      Period          =   50
       RunMode         =   0
       Scope           =   0
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -82,6 +85,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -90,6 +94,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -98,6 +103,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer InstallTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   120
@@ -106,6 +112,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer BuildTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   120
@@ -151,7 +158,7 @@ End
 		  'ShellFast.Execute("curl -fsS http://google.com > /dev/null" )
 		  Dim Test As String
 		  'If TargetWindows Then
-		  ShellFast.Execute("curl --head --silent --fail " + Chr(34) + "http://www.google.com" + Chr(34))
+		  ShellFast.Execute("curl --head --silent --fail --max-time 3 --connect-timeout 2 " + Chr(34) + "http://www.google.com" + Chr(34))
 		  'Else
 		  'ShellFast.Execute("curl --head --silent " + Chr(34) + "http://www.google.com" + Chr(34)) '+" > /dev/null")
 		  'End If
@@ -300,34 +307,31 @@ End
 		  Deltree Slash(AppPath)+"llstore Libs\Internet Encodingsx64old.dll"
 		  Deltree Slash(AppPath)+"llstore Libs\Shellx64old.dll"
 		  
-		  'Check Version
+		  'Check Version - direct async curl to stdout, skips DownloadTimer validation round-trip
+		  ' Old path: AreWeOnline (1 round trip) + HEAD validation (1) + wget download (1) = 3 calls
+		  ' New path: single curl fetch to stdout = 1 call, result available immediately on completion
+		  Dim VersionURL As String
 		  If App.MajorVersion = 1 Then
-		    GetOnlineFile ("https://github.com/LiveFreeDead/LLStore/raw/refs/heads/main/version.ini",Slash(TmpPath)+"version.ini")
+		    VersionURL = "https://github.com/LiveFreeDead/LLStore/raw/refs/heads/main/version.ini"
 		  Else
-		    GetOnlineFile ("https://github.com/LiveFreeDead/LLStore_v2/raw/refs/heads/main/version.ini",Slash(TmpPath)+"version.ini")
+		    VersionURL = "https://github.com/LiveFreeDead/LLStore_v2/raw/refs/heads/main/version.ini"
 		  End If
 		  
-		  TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
-		  CancelDownloading = False
-		  While Downloading = True
+		  Dim VerShell As New Shell
+		  VerShell.TimeOut = -1
+		  VerShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		  VerShell.Execute("curl -fsSL --max-time 5 --connect-timeout 5 " + Chr(34) + VersionURL + Chr(34))
+		  
+		  TimeOut = System.Microseconds + (6 * 1000000) ' 6 second hard timeout
+		  While VerShell.IsRunning
 		    App.DoEvents(20)
 		    If System.Microseconds >= TimeOut Then
-		      CancelDownloading = True
-		      Exit 'Timeout after 5 seconds
-		    End If
-		    
-		    If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
-		      Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
+		      VerShell.Close
 		      Exit
 		    End If
-		    
 		  Wend
 		  
-		  
-		  OnlineVersionS = LoadDataFromFile(Slash(TmpPath)+"version.ini").Trim
-		  
-		  'Delete the downloaded version file
-		  Deltree(Slash(TmpPath)+"version.ini")
+		  OnlineVersionS = VerShell.Result.Trim
 		  
 		  OnlineVersion = OnlineVersionS.ToDouble
 		  
@@ -551,39 +555,46 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub StartScreenshotDownload(URL As String, LocalPath As String)
-		  ' Downloads a .jpg screenshot using an async curl shell.
-		  ' DownloadScreenAndIcon timer polls IsRunning and calls ShowDownloadImages on completion.
-		  Try
-		    If ShellScreenshot <> Nil And ShellScreenshot.IsRunning Then ShellScreenshot.Close
-		    ShellScreenshot = New Shell
-		    ShellScreenshot.TimeOut = -1
-		    ShellScreenshot.ExecuteMode = Shell.ExecuteModes.Asynchronous
-		    Dim CurlBin As String = LinuxCurl
-		    If TargetWindows Then CurlBin = WinCurl
-		    ShellScreenshot.Execute(CurlBin + " -L -s --connect-timeout 15 -o " + Chr(34) + LocalPath + Chr(34) + " " + Chr(34) + URL + Chr(34))
-		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Multiple
-		  Catch
-		  End Try
-		End Sub
-	#tag EndMethod
-
-	#tag Method, Flags = &h0
-		Sub StartIconDownload(URL As String, LocalPath As String)
-		  ' Downloads a .png icon/fader using an async curl shell.
-		  ' DownloadScreenAndIcon timer polls IsRunning and calls ShowDownloadImages on completion.
-		  Try
-		    If ShellIcon <> Nil And ShellIcon.IsRunning Then ShellIcon.Close
-		    ShellIcon = New Shell
-		    ShellIcon.TimeOut = -1
-		    ShellIcon.ExecuteMode = Shell.ExecuteModes.Asynchronous
-		    Dim CurlBin As String = LinuxCurl
-		    If TargetWindows Then CurlBin = WinCurl
-		    ShellIcon.Execute(CurlBin + " -L -s --connect-timeout 15 -o " + Chr(34) + LocalPath + Chr(34) + " " + Chr(34) + URL + Chr(34))
-		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Multiple
-		  Catch
-		  End Try
-		End Sub
+		Function CompareVersionStrings(V1 As String, V2 As String) As Integer
+		  ' Compare two pre-cleaned version strings component by component.
+		  ' Both strings should already have noise (spaces, dashes, beta, etc.) removed,
+		  ' and dots retained as the separator between numeric parts.
+		  '
+		  ' Returns: 1 if V1 > V2, -1 if V1 < V2, 0 if equal.
+		  '
+		  ' Examples:
+		  '   "1.10.0" vs "1.9.0"  → 1  (correct; old dot-strip approach gave wrong result)
+		  '   "2.0"    vs "1.99.9" → 1
+		  '   "1.2"    vs "1.2.0"  → 0  (missing trailing parts treated as zero)
+		  '   "1.2.3"  vs "1.2.4"  → -1
+		  '
+		  ' Only the first two components are strictly required; if one version has more
+		  ' parts than the other, the shorter one's missing parts are treated as 0.
+		  
+		  If V1 = "" And V2 = "" Then Return 0
+		  If V1 = "" Then Return -1 'No version is treated as lower
+		  If V2 = "" Then Return 1
+		  
+		  Dim P1() As String = V1.Split(".")
+		  Dim P2() As String = V2.Split(".")
+		  
+		  Dim Len1 As Integer = P1.Count
+		  Dim Len2 As Integer = P2.Count
+		  Dim MaxLen As Integer
+		  If Len1 > Len2 Then MaxLen = Len1 Else MaxLen = Len2
+		  
+		  Dim K As Integer
+		  For K = 0 To MaxLen - 1
+		    Dim N1 As Integer = 0
+		    Dim N2 As Integer = 0
+		    If K < Len1 Then N1 = Val(P1(K))
+		    If K < Len2 Then N2 = Val(P2(K))
+		    If N1 > N2 Then Return 1
+		    If N1 < N2 Then Return -1
+		  Next K
+		  
+		  Return 0 'All components equal
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
@@ -725,6 +736,7 @@ End
 		  
 		  If ItemCount <=0 Then Return
 		  
+		  Dim SeenCats As New Dictionary  'O(1) seen-category lookup; avoids scanning listbox per category
 		  CatCol = Data.GetDBHeader("Categories")
 		  BuildTypeCol = Data.GetDBHeader("BuildType")
 		  If CatCol = -1 Then Return 'Can't find the Column, it's broken, so return
@@ -746,29 +758,23 @@ End
 		        Sp(K) = Left(Sp(K), Len(Sp(K))-4) 'Remove Game from Linux Categories
 		      End If
 		      If Sp(K) = "" Then Exit 'It's Empty, don't check or add
-		      HideCat = False
-		      For J = 0 To Data.Categories.RowCount  - 1 '0 Based
-		        If Sp(K) = Data.Categories.CellTextAt(J, 0) Then
-		          HideCat = True
-		          Exit 'Quit loop if hidden
-		        End If
-		        If Data.Categories.CellTextAt(J, 0) = "Game "+ Sp(K) Then 'Hide duplicated Game Cats too (added below)
-		          HideCat = True
-		          Exit 'Quit loop if hidden
-		        End If
-		      Next J
-		      If HideCat = False Then
-		        If StoreMode = 0 Then 'Add it back to the Start if in Install Mode, so they are grouped 
-		          If BuildType = "LLGame" or BuildType = "ppGame" Then
-		            If Settings.SetHideGameCats.Value = False Then
-		              Sp(K) = "Game " + Sp(K) 'This should group all game categories in the listbox
-		            Else
-		              Sp(K) = "Games" ' Groups all Games
-		              Exit 'Loop if Hidden
-		            End If
+		      'Build the final category name, then do O(1) Dictionary check instead of scanning listbox
+		      Dim CandCat As String = Sp(K)
+		      If StoreMode = 0 Then
+		        If BuildType = "LLGame" Or BuildType = "ppGame" Then
+		          If Settings.SetHideGameCats.Value = False Then
+		            CandCat = "Game " + Sp(K)
+		          Else
+		            CandCat = "Games"
 		          End If
 		        End If
-		        Data.Categories.AddRow(Sp(K))
+		      End If
+		      If Not SeenCats.HasKey(CandCat) Then
+		        SeenCats.Value(CandCat) = True
+		        'Restore original cross-check: if adding "Game X", also mark plain "X" as seen
+		        'so a later non-game item with category "X" doesn't add it separately.
+		        If Left(CandCat, 5) = "Game " Then SeenCats.Value(Mid(CandCat, 6)) = True
+		        Data.Categories.AddRow(CandCat)
 		      End If
 		    Next K
 		  Next
@@ -904,130 +910,190 @@ End
 		    'Reference Only Keep
 		    'LocalDBHeader = " BuildType Compressed HiddenAlways ShowAlways ShowSetupOnly Arch OS TitleName Version Categories Catalog Description URL Priority PathApp PathINI FileINI FileCompressed FileIcon FileScreenshot FileFader FileMovie Flags Tags Publisher Language Rating Additional Players License ReleaseVersion ReleaseDate RequiredRuntimes Builder InstalledSize LnkTitle LnkComment LnkDescription LnkCategories LnkRunPath LnkExec LnkArguments LnkFlags LnkAssociations LnkTerminal LnkMultiple LnkIcon LnkOSCompatible LnkDECompatible LnkPMCompatible ArchCompatible  NoInstall OSCompatible DECompatible PMCompatible ArchCompatible UniqueName Dependencies ""
 		    
-		    For I = 1 To Data.Items.ColumnCount
-		      Select Case  Data.Items.HeaderAt(I)
-		      Case "TitleName"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.TitleName
-		      Case "Version"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.Version
-		      Case "Description"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.Descriptions
-		      Case "PathApp"
-		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLLItem.PathApp)
-		      Case "URL"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.URL
-		      Case "Categories"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.Categories
-		      Case "Catalog"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.Catalog
-		      Case "BuildType"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.BuildType
-		      Case "Priority"
-		        Data.Items.CellTextAt(ItemCount,I) = Str(ItemLLItem.Priority)
-		      Case "PathINI"
-		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLLItem.PathINI)
-		      Case "FileIcon"
-		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLLItem.FileIcon)
-		      Case "FileFader"
-		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLLItem.FileFader)
-		      Case "FileMovie"
-		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLLItem.FileMovie)
-		      Case "FileINI"
-		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLLItem.FileINI)
-		      Case "FileScreenshot"
-		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLLItem.FileScreenshot)
-		      Case "Tags"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.Tags
-		      Case "Publisher"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.Publisher
-		      Case "Language"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.Language
-		      Case "License"
-		        Data.Items.CellTextAt(ItemCount,I) = Str(ItemLLItem.License)
-		      Case "Arch"
-		        Data.Items.CellTextAt(ItemCount,I) = Str(ItemLLItem.Arch)
-		      Case "OS"
-		        Data.Items.CellTextAt(ItemCount,I) = Str(ItemLLItem.OS)
-		      Case "Rating"
-		        Data.Items.CellTextAt(ItemCount,I) = Str(ItemLLItem.Rating)
-		      Case "ReleaseVersion"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.ReleaseVersion
-		      Case "ReleaseDate"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.ReleaseDate
-		      Case "Builder"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.Builder
-		      Case "InstallSize","InstalledSize"
-		        Data.Items.CellTextAt(ItemCount,I) = Str(ItemLLItem.InstallSize)
-		      Case "Flags"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.Flags
-		      Case "HiddenAlways"
-		        Data.Items.CellTextAt(ItemCount,I) = Str(ItemLLItem.HiddenAlways)
-		        'If ItemLLItem.HiddenAlways = True Then MessageBox (Str(ItemLLItem.HiddenAlways)) 
-		      Case "ShowAlways"
-		        Data.Items.CellTextAt(ItemCount,I) = Str(ItemLLItem.ShowAlways)
-		      Case "ShowSetupOnly"
-		        Data.Items.CellTextAt(ItemCount,I) = Str(ItemLLItem.ShowSetupOnly)
-		      Case "NoInstall"
-		        Data.Items.CellTextAt(ItemCount,I) =  Str(ItemLLItem.NoInstall)
-		      Case "UniqueName"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.TitleName.Lowercase + ItemLLItem.BuildType.Lowercase
-		        Data.Items.CellTextAt(ItemCount,I) = Data.Items.CellTextAt(ItemCount,I).ReplaceAll(" ","")
-		      Case "Selected"
-		        Data.Items.CellTextAt(ItemCount,I) = "F"
-		      Case "Compressed"
-		        Data.Items.CellTextAt(ItemCount,I) = Left(Str(ItemLLItem.Compressed),1)
-		        
-		      Case "OSCompatible"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.OSCompatible
-		      Case "DECompatible"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.DECompatible
-		      Case "PMCompatible"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.PMCompatible
-		      Case "ArchCompatible"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLLItem.ArchCompatible
-		        
-		      Case "LnkMultiple" 'Links' - Don't add the Core Item to the Multi Links as it's already getting added to the DB
-		        If LnkCount >1 And StoreMode = 1 Then 'Hide Parent items in Launcher mode
-		          'Data.Items.CellTextAt(ItemCount,I) = "T"
-		          Data.Items.CellTextAt(ItemCount,I) = "Hide" 'Set to Hide so can Hide main items in MultiLinks
-		        Else 
-		          Data.Items.CellTextAt(ItemCount,I) = "F" 'LnkMultiple
+		    'Pre-resolve all column indices once via the O(1) Dictionary, then write directly.
+		    'This replaces the old For/HeaderAt/Select Case loop (O(columns) per item).
+		    Dim ciTitleName As Integer = Data.GetDBHeader("TitleName")
+		    Dim ciVersion As Integer = Data.GetDBHeader("Version")
+		    Dim ciDescription As Integer = Data.GetDBHeader("Description")
+		    Dim ciPathApp As Integer = Data.GetDBHeader("PathApp")
+		    Dim ciURL As Integer = Data.GetDBHeader("URL")
+		    Dim ciCategories As Integer = Data.GetDBHeader("Categories")
+		    Dim ciCatalog As Integer = Data.GetDBHeader("Catalog")
+		    Dim ciBuildType As Integer = Data.GetDBHeader("BuildType")
+		    Dim ciPriority As Integer = Data.GetDBHeader("Priority")
+		    Dim ciPathINI As Integer = Data.GetDBHeader("PathINI")
+		    Dim ciFileIcon As Integer = Data.GetDBHeader("FileIcon")
+		    Dim ciFileFader As Integer = Data.GetDBHeader("FileFader")
+		    Dim ciFileMovie As Integer = Data.GetDBHeader("FileMovie")
+		    Dim ciFileINI As Integer = Data.GetDBHeader("FileINI")
+		    Dim ciFileScreenshot As Integer = Data.GetDBHeader("FileScreenshot")
+		    Dim ciTags As Integer = Data.GetDBHeader("Tags")
+		    Dim ciPublisher As Integer = Data.GetDBHeader("Publisher")
+		    Dim ciLanguage As Integer = Data.GetDBHeader("Language")
+		    Dim ciLicense As Integer = Data.GetDBHeader("License")
+		    Dim ciArch As Integer = Data.GetDBHeader("Arch")
+		    Dim ciOS As Integer = Data.GetDBHeader("OS")
+		    Dim ciRating As Integer = Data.GetDBHeader("Rating")
+		    Dim ciReleaseVersion As Integer = Data.GetDBHeader("ReleaseVersion")
+		    Dim ciReleaseDate As Integer = Data.GetDBHeader("ReleaseDate")
+		    Dim ciBuilder As Integer = Data.GetDBHeader("Builder")
+		    Dim ciInstalledSize As Integer = Data.GetDBHeader("InstalledSize")
+		    Dim ciFlags As Integer = Data.GetDBHeader("Flags")
+		    Dim ciHiddenAlways As Integer = Data.GetDBHeader("HiddenAlways")
+		    Dim ciShowAlways As Integer = Data.GetDBHeader("ShowAlways")
+		    Dim ciShowSetupOnly As Integer = Data.GetDBHeader("ShowSetupOnly")
+		    Dim ciNoInstall As Integer = Data.GetDBHeader("NoInstall")
+		    Dim ciUniqueName As Integer = Data.GetDBHeader("UniqueName")
+		    Dim ciSelected As Integer = Data.GetDBHeader("Selected")
+		    Dim ciCompressed As Integer = Data.GetDBHeader("Compressed")
+		    Dim ciOSCompatible As Integer = Data.GetDBHeader("OSCompatible")
+		    Dim ciDECompatible As Integer = Data.GetDBHeader("DECompatible")
+		    Dim ciPMCompatible As Integer = Data.GetDBHeader("PMCompatible")
+		    Dim ciArchCompatible As Integer = Data.GetDBHeader("ArchCompatible")
+		    Dim ciLnkMultiple As Integer = Data.GetDBHeader("LnkMultiple")
+		    Dim ciLnkTitle As Integer = Data.GetDBHeader("LnkTitle")
+		    Dim ciLnkComment As Integer = Data.GetDBHeader("LnkComment")
+		    Dim ciLnkDescription As Integer = Data.GetDBHeader("LnkDescription")
+		    Dim ciLnkCategories As Integer = Data.GetDBHeader("LnkCategories")
+		    Dim ciLnkRunPath As Integer = Data.GetDBHeader("LnkRunPath")
+		    Dim ciLnkExec As Integer = Data.GetDBHeader("LnkExec")
+		    Dim ciLnkArguments As Integer = Data.GetDBHeader("LnkArguments")
+		    Dim ciLnkFlags As Integer = Data.GetDBHeader("LnkFlags")
+		    Dim ciLnkAssociations As Integer = Data.GetDBHeader("LnkAssociations")
+		    Dim ciLnkTerminal As Integer = Data.GetDBHeader("LnkTerminal")
+		    Dim ciLnkIcon As Integer = Data.GetDBHeader("LnkIcon")
+		    Dim ciLnkOSCompatible As Integer = Data.GetDBHeader("LnkOSCompatible")
+		    Dim ciLnkDECompatible As Integer = Data.GetDBHeader("LnkDECompatible")
+		    Dim ciLnkPMCompatible As Integer = Data.GetDBHeader("LnkPMCompatible")
+		    Dim ciLnkArchCompatible As Integer = Data.GetDBHeader("LnkArchCompatible")
+		    
+		    'Write all fields directly — no loop, no string comparisons.
+		    'ExpPath calls guarded with IndexOf("%") check to skip 40+ ReplaceAll ops
+		    'for the vast majority of locally-scanned items that have no % tokens.
+		    If ciTitleName >= 0 Then Data.Items.CellTextAt(ItemCount, ciTitleName) = ItemLLItem.TitleName
+		    If ciVersion >= 0 Then Data.Items.CellTextAt(ItemCount, ciVersion) = ItemLLItem.Version
+		    If ciDescription >= 0 Then Data.Items.CellTextAt(ItemCount, ciDescription) = ItemLLItem.Descriptions
+		    If ciPathApp >= 0 Then
+		      If ItemLLItem.PathApp.IndexOf("%") >= 0 Or (TargetWindows And ItemLLItem.PathApp.IndexOf("\\") >= 0) Then
+		        Data.Items.CellTextAt(ItemCount, ciPathApp) = ExpPath(ItemLLItem.PathApp)
+		      Else
+		        Data.Items.CellTextAt(ItemCount, ciPathApp) = ItemLLItem.PathApp
+		      End If
+		    End If
+		    If ciURL >= 0 Then Data.Items.CellTextAt(ItemCount, ciURL) = ItemLLItem.URL
+		    If ciCategories >= 0 Then Data.Items.CellTextAt(ItemCount, ciCategories) = ItemLLItem.Categories
+		    If ciCatalog >= 0 Then Data.Items.CellTextAt(ItemCount, ciCatalog) = ItemLLItem.Catalog
+		    If ciBuildType >= 0 Then Data.Items.CellTextAt(ItemCount, ciBuildType) = ItemLLItem.BuildType
+		    If ciPriority >= 0 Then Data.Items.CellTextAt(ItemCount, ciPriority) = Str(ItemLLItem.Priority)
+		    If ciPathINI >= 0 Then
+		      If ItemLLItem.PathINI.IndexOf("%") >= 0 Or (TargetWindows And ItemLLItem.PathINI.IndexOf("\\") >= 0) Then
+		        Data.Items.CellTextAt(ItemCount, ciPathINI) = ExpPath(ItemLLItem.PathINI)
+		      Else
+		        Data.Items.CellTextAt(ItemCount, ciPathINI) = ItemLLItem.PathINI
+		      End If
+		    End If
+		    If ciFileIcon >= 0 Then
+		      If ItemLLItem.FileIcon.IndexOf("%") >= 0 Or (TargetWindows And ItemLLItem.FileIcon.IndexOf("\\") >= 0) Then
+		        Data.Items.CellTextAt(ItemCount, ciFileIcon) = ExpPath(ItemLLItem.FileIcon)
+		      Else
+		        Data.Items.CellTextAt(ItemCount, ciFileIcon) = ItemLLItem.FileIcon
+		      End If
+		    End If
+		    If ciFileFader >= 0 Then
+		      If ItemLLItem.FileFader.IndexOf("%") >= 0 Or (TargetWindows And ItemLLItem.FileFader.IndexOf("\\") >= 0) Then
+		        Data.Items.CellTextAt(ItemCount, ciFileFader) = ExpPath(ItemLLItem.FileFader)
+		      Else
+		        Data.Items.CellTextAt(ItemCount, ciFileFader) = ItemLLItem.FileFader
+		      End If
+		    End If
+		    If ciFileMovie >= 0 Then
+		      If ItemLLItem.FileMovie.IndexOf("%") >= 0 Or (TargetWindows And ItemLLItem.FileMovie.IndexOf("\\") >= 0) Then
+		        Data.Items.CellTextAt(ItemCount, ciFileMovie) = ExpPath(ItemLLItem.FileMovie)
+		      Else
+		        Data.Items.CellTextAt(ItemCount, ciFileMovie) = ItemLLItem.FileMovie
+		      End If
+		    End If
+		    If ciFileINI >= 0 Then
+		      If ItemLLItem.FileINI.IndexOf("%") >= 0 Or (TargetWindows And ItemLLItem.FileINI.IndexOf("\\") >= 0) Then
+		        Data.Items.CellTextAt(ItemCount, ciFileINI) = ExpPath(ItemLLItem.FileINI)
+		      Else
+		        Data.Items.CellTextAt(ItemCount, ciFileINI) = ItemLLItem.FileINI
+		      End If
+		    End If
+		    If ciFileScreenshot >= 0 Then
+		      If ItemLLItem.FileScreenshot.IndexOf("%") >= 0 Or (TargetWindows And ItemLLItem.FileScreenshot.IndexOf("\\") >= 0) Then
+		        Data.Items.CellTextAt(ItemCount, ciFileScreenshot) = ExpPath(ItemLLItem.FileScreenshot)
+		      Else
+		        Data.Items.CellTextAt(ItemCount, ciFileScreenshot) = ItemLLItem.FileScreenshot
+		      End If
+		    End If
+		    If ciTags >= 0 Then Data.Items.CellTextAt(ItemCount, ciTags) = ItemLLItem.Tags
+		    If ciPublisher >= 0 Then Data.Items.CellTextAt(ItemCount, ciPublisher) = ItemLLItem.Publisher
+		    If ciLanguage >= 0 Then Data.Items.CellTextAt(ItemCount, ciLanguage) = ItemLLItem.Language
+		    If ciLicense >= 0 Then Data.Items.CellTextAt(ItemCount, ciLicense) = Str(ItemLLItem.License)
+		    If ciArch >= 0 Then Data.Items.CellTextAt(ItemCount, ciArch) = Str(ItemLLItem.Arch)
+		    If ciOS >= 0 Then Data.Items.CellTextAt(ItemCount, ciOS) = Str(ItemLLItem.OS)
+		    If ciRating >= 0 Then Data.Items.CellTextAt(ItemCount, ciRating) = Str(ItemLLItem.Rating)
+		    If ciReleaseVersion >= 0 Then Data.Items.CellTextAt(ItemCount, ciReleaseVersion) = ItemLLItem.ReleaseVersion
+		    If ciReleaseDate >= 0 Then Data.Items.CellTextAt(ItemCount, ciReleaseDate) = ItemLLItem.ReleaseDate
+		    If ciBuilder >= 0 Then Data.Items.CellTextAt(ItemCount, ciBuilder) = ItemLLItem.Builder
+		    If ciInstalledSize >= 0 Then Data.Items.CellTextAt(ItemCount, ciInstalledSize) = Str(ItemLLItem.InstallSize)
+		    If ciFlags >= 0 Then Data.Items.CellTextAt(ItemCount, ciFlags) = ItemLLItem.Flags
+		    If ciHiddenAlways >= 0 Then Data.Items.CellTextAt(ItemCount, ciHiddenAlways) = Str(ItemLLItem.HiddenAlways)
+		    If ciShowAlways >= 0 Then Data.Items.CellTextAt(ItemCount, ciShowAlways) = Str(ItemLLItem.ShowAlways)
+		    If ciShowSetupOnly >= 0 Then Data.Items.CellTextAt(ItemCount, ciShowSetupOnly) = Str(ItemLLItem.ShowSetupOnly)
+		    If ciNoInstall >= 0 Then Data.Items.CellTextAt(ItemCount, ciNoInstall) = Str(ItemLLItem.NoInstall)
+		    If ciUniqueName >= 0 Then
+		      Dim UN As String = ItemLLItem.TitleName.Lowercase + ItemLLItem.BuildType.Lowercase
+		      Data.Items.CellTextAt(ItemCount, ciUniqueName) = UN.ReplaceAll(" ","")
+		    End If
+		    If ciSelected >= 0 Then Data.Items.CellTextAt(ItemCount, ciSelected) = "F"
+		    If ciCompressed >= 0 Then Data.Items.CellTextAt(ItemCount, ciCompressed) = Left(Str(ItemLLItem.Compressed),1)
+		    If ciOSCompatible >= 0 Then Data.Items.CellTextAt(ItemCount, ciOSCompatible) = ItemLLItem.OSCompatible
+		    If ciDECompatible >= 0 Then Data.Items.CellTextAt(ItemCount, ciDECompatible) = ItemLLItem.DECompatible
+		    If ciPMCompatible >= 0 Then Data.Items.CellTextAt(ItemCount, ciPMCompatible) = ItemLLItem.PMCompatible
+		    If ciArchCompatible >= 0 Then Data.Items.CellTextAt(ItemCount, ciArchCompatible) = ItemLLItem.ArchCompatible
+		    If ciLnkMultiple >= 0 Then
+		      If LnkCount > 1 And StoreMode = 1 Then
+		        Data.Items.CellTextAt(ItemCount, ciLnkMultiple) = "Hide"
+		      Else
+		        Data.Items.CellTextAt(ItemCount, ciLnkMultiple) = "F"
+		      End If
+		    End If
+		    If ciLnkTitle >= 0 Then Data.Items.CellTextAt(ItemCount, ciLnkTitle) = ItemLnk(1).Title
+		    If ciLnkComment >= 0 Then Data.Items.CellTextAt(ItemCount, ciLnkComment) = ItemLnk(1).Link.Description
+		    If ciLnkDescription >= 0 Then Data.Items.CellTextAt(ItemCount, ciLnkDescription) = ItemLnk(1).Description
+		    If ciLnkCategories >= 0 Then Data.Items.CellTextAt(ItemCount, ciLnkCategories) = ItemLnk(1).Categories
+		    If ciLnkRunPath >= 0 Then
+		      Dim LRP As String = ItemLnk(1).Link.WorkingDirectory
+		      If LRP.IndexOf("%") >= 0 Or (TargetWindows And LRP.IndexOf("\\") >= 0) Then LRP = ExpPath(LRP)
+		      If LRP = "" Then
+		        If ItemLLItem.PathApp.IndexOf("%") >= 0 Or (TargetWindows And ItemLLItem.PathApp.IndexOf("\\") >= 0) Then
+		          LRP = ExpPath(ItemLLItem.PathApp)
+		        Else
+		          LRP = ItemLLItem.PathApp
 		        End If
-		      Case "LnkTitle"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Title
-		      Case "LnkComment"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Link.Description
-		      Case "LnkDescription"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Description
-		      Case "LnkCategories"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Categories
-		      Case "LnkRunPath"
-		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(1).Link.WorkingDirectory)
-		        If Data.Items.CellTextAt(ItemCount,I) = "" Then Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLLItem.PathApp) 'Make sure it has some kind of path, so it has somewhere to be
-		      Case "LnkExec"
-		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(1).Link.TargetPath)
-		      Case "LnkArguments"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Link.Arguments
-		      Case "LnkFlags"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Flags
-		      Case "LnkAssociations"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Associations
-		      Case "LnkTerminal"
-		        Data.Items.CellTextAt(ItemCount,I) = Left(Str(ItemLnk(1).Terminal),1)
-		      Case "LnkIcon"
-		        Data.Items.CellTextAt(ItemCount,I) = ExpPath(ItemLnk(1).Link.IconLocation)
-		        
-		      Case "LnkOSCompatible"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).LnkOSCompatible
-		      Case "LnkDECompatible"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).LnkDECompatible
-		      Case "LnkPMCompatible"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).LnkPMCompatible
-		      Case "LnkArchCompatible"
-		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).LnkArchCompatible
-		        
-		      End Select
-		    Next
+		      End If
+		      Data.Items.CellTextAt(ItemCount, ciLnkRunPath) = LRP
+		    End If
+		    If ciLnkExec >= 0 Then
+		      Dim LExec As String = ItemLnk(1).Link.TargetPath
+		      If LExec.IndexOf("%") >= 0 Or (TargetWindows And LExec.IndexOf("\\") >= 0) Then LExec = ExpPath(LExec)
+		      Data.Items.CellTextAt(ItemCount, ciLnkExec) = LExec
+		    End If
+		    If ciLnkArguments >= 0 Then Data.Items.CellTextAt(ItemCount, ciLnkArguments) = ItemLnk(1).Link.Arguments
+		    If ciLnkFlags >= 0 Then Data.Items.CellTextAt(ItemCount, ciLnkFlags) = ItemLnk(1).Flags
+		    If ciLnkAssociations >= 0 Then Data.Items.CellTextAt(ItemCount, ciLnkAssociations) = ItemLnk(1).Associations
+		    If ciLnkTerminal >= 0 Then Data.Items.CellTextAt(ItemCount, ciLnkTerminal) = Left(Str(ItemLnk(1).Terminal),1)
+		    If ciLnkIcon >= 0 Then
+		      Dim LIcon As String = ItemLnk(1).Link.IconLocation
+		      If LIcon.IndexOf("%") >= 0 Or (TargetWindows And LIcon.IndexOf("\\") >= 0) Then LIcon = ExpPath(LIcon)
+		      Data.Items.CellTextAt(ItemCount, ciLnkIcon) = LIcon
+		    End If
+		    If ciLnkOSCompatible >= 0 Then Data.Items.CellTextAt(ItemCount, ciLnkOSCompatible) = ItemLnk(1).LnkOSCompatible
+		    If ciLnkDECompatible >= 0 Then Data.Items.CellTextAt(ItemCount, ciLnkDECompatible) = ItemLnk(1).LnkDECompatible
+		    If ciLnkPMCompatible >= 0 Then Data.Items.CellTextAt(ItemCount, ciLnkPMCompatible) = ItemLnk(1).LnkPMCompatible
+		    If ciLnkArchCompatible >= 0 Then Data.Items.CellTextAt(ItemCount, ciLnkArchCompatible) = ItemLnk(1).LnkArchCompatible
 		    
 		  End If
 		  
@@ -1895,84 +1961,50 @@ End
 		    End If
 		  Next
 		  
-		  For I = 0 To Data.Items.RowCount - 1
-		    If ItemHidden(I) = True Then Continue 'Already hidden, skip
+		  '--- O(n) Dictionary grouping replaces the O(n²) nested loop ---
+		  'Group item indices by (titlename+buildtype) key, then elect one winner per group.
+		  Dim GroupDict As New Dictionary  'key → pipe-delimited index list
+		  Dim N As Integer = Data.Items.RowCount
+		  
+		  For I = 0 To N - 1
+		    If ItemHidden(I) Then Continue
+		    Dim GKey As String = ItemToAdd(I) + "|" + BuildType(I)  'Exact match, same as original = comparison
+		    If GroupDict.HasKey(GKey) Then
+		      GroupDict.Value(GKey) = CStr(GroupDict.Value(GKey)) + "|" + CStr(I)
+		    Else
+		      GroupDict.Value(GKey) = CStr(I)
+		    End If
+		  Next I
+		  
+		  Dim GKeys() As Variant = GroupDict.Keys
+		  For Each GK As Variant In GKeys
+		    Dim Members() As String = CStr(GroupDict.Value(GK)).Split("|")
+		    If Members.Count <= 1 Then Continue  'Only one item in group — nothing to hide
 		    
-		    For J = 0 To Data.Items.RowCount - 1
-		      If ItemHidden(J) = True Then Continue
-		      If I = J Then Continue 'Don't compare to self
-		      
-		      If ItemToAdd(I) = ItemToAdd(J) And BuildType(I) = BuildType(J) Then 'Same title and build type: resolve duplicate
-		        
-		        Dim VCmp As Integer = CompareVersionStrings(V(I), V(J))
-		        
-		        If VCmp = 0 Then 'Same version (or both empty): prefer the locally-present file
-		          If IsLocalFile(J) And Not IsLocalFile(I) Then
-		            'J is a local scanned file; I is a remote/download-only DB entry. Hide I, keep J.
-		            ItemHidden(I) = True
-		            Data.Items.CellTextAt(I, ColsHidden) = "T"
-		            Exit 'I is now hidden — exit inner J loop; outer loop advances to next I
-		          Else
-		            'I is local (or both are same locality): hide J, keep I
-		            ItemHidden(J) = True
-		            Data.Items.CellTextAt(J, ColsHidden) = "T"
-		          End If
-		          
-		        ElseIf VCmp > 0 Then 'I is a newer version: hide J
-		          ItemHidden(J) = True
-		          Data.Items.CellTextAt(J, ColsHidden) = "T"
-		          
-		        'VCmp < 0 means J is newer: don't hide J here.
-		        'J's own outer-loop iteration will hide I when it becomes I.
+		    'Elect winner: highest version; prefer local file on version tie.
+		    Dim WinIdx As Integer = Val(Members(0))
+		    For J = 1 To Members.Count - 1
+		      Dim Cand As Integer = Val(Members(J))
+		      Dim VCmp As Integer = CompareVersionStrings(V(WinIdx), V(Cand))
+		      If VCmp < 0 Then
+		        WinIdx = Cand  'Candidate is newer
+		      ElseIf VCmp = 0 Then
+		        If IsLocalFile(Cand) And Not IsLocalFile(WinIdx) Then
+		          WinIdx = Cand  'Same version, prefer locally-scanned file
 		        End If
-		        
 		      End If
 		    Next J
-		  Next I
+		    
+		    'Hide all non-winners.
+		    For J = 0 To Members.Count - 1
+		      Dim Idx As Integer = Val(Members(J))
+		      If Idx <> WinIdx Then
+		        ItemHidden(Idx) = True
+		        Data.Items.CellTextAt(Idx, ColsHidden) = "T"
+		      End If
+		    Next J
+		  Next
 		End Sub
-	#tag EndMethod
-
-	#tag Method, Flags = &h0
-		Function CompareVersionStrings(V1 As String, V2 As String) As Integer
-		  ' Compare two pre-cleaned version strings component by component.
-		  ' Both strings should already have noise (spaces, dashes, beta, etc.) removed,
-		  ' and dots retained as the separator between numeric parts.
-		  '
-		  ' Returns: 1 if V1 > V2, -1 if V1 < V2, 0 if equal.
-		  '
-		  ' Examples:
-		  '   "1.10.0" vs "1.9.0"  → 1  (correct; old dot-strip approach gave wrong result)
-		  '   "2.0"    vs "1.99.9" → 1
-		  '   "1.2"    vs "1.2.0"  → 0  (missing trailing parts treated as zero)
-		  '   "1.2.3"  vs "1.2.4"  → -1
-		  '
-		  ' Only the first two components are strictly required; if one version has more
-		  ' parts than the other, the shorter one's missing parts are treated as 0.
-		  
-		  If V1 = "" And V2 = "" Then Return 0
-		  If V1 = "" Then Return -1 'No version is treated as lower
-		  If V2 = "" Then Return 1
-		  
-		  Dim P1() As String = V1.Split(".")
-		  Dim P2() As String = V2.Split(".")
-		  
-		  Dim Len1 As Integer = P1.Count
-		  Dim Len2 As Integer = P2.Count
-		  Dim MaxLen As Integer
-		  If Len1 > Len2 Then MaxLen = Len1 Else MaxLen = Len2
-		  
-		  Dim K As Integer
-		  For K = 0 To MaxLen - 1
-		    Dim N1 As Integer = 0
-		    Dim N2 As Integer = 0
-		    If K < Len1 Then N1 = Val(P1(K))
-		    If K < Len2 Then N2 = Val(P2(K))
-		    If N1 > N2 Then Return 1
-		    If N1 < N2 Then Return -1
-		  Next K
-		  
-		  Return 0 'All components equal
-		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
@@ -2639,13 +2671,64 @@ End
 		  Dim UniqueName As String
 		  Dim IsCompressed As Boolean
 		  
-		  'SaveDB's if Writable (Move this to a thread to do in the background?)
-		  'Cache column indices once — used repeatedly inside the I/J loops below
+		  'Cache frequently-used column indices (pre-optimised in previous pass)
 		  Dim SDBColCompressed As Integer = Data.GetDBHeader("Compressed")
 		  Dim SDBColPathINI    As Integer = Data.GetDBHeader("PathINI")
 		  Dim SDBColUnique     As Integer = Data.GetDBHeader("UniqueName")
 		  Dim SDBColLnkMulti  As Integer = Data.GetDBHeader("LnkMultiple")
 		  Dim SDBColTitleName As Integer = Data.GetDBHeader("TitleName")
+		  
+		  '=== OPTIMISATION 1: Pre-classify every column write-type once, outside all loops.
+		  '    The inner K loop previously called HeaderAt(K) + Select Case string compare
+		  '    for every column of every item.  Now it just reads an Integer.
+		  '    Write-type codes:
+		  '      0 = Write as-is           1 = FixEOL
+		  '      2 = FileINI (%DBPath%)    3 = PathINI (%URLPath%)
+		  '      4 = FileIcon/Fader/Shot   5 = CompPath (Else)
+		  Dim ColCount As Integer = Data.Items.ColumnCount - 2 '-2 to exclude Sorting column
+		  Dim ColWriteType(256) As Integer
+		  
+		  DBHeader = ""
+		  For K = 0 To ColCount
+		    Dim ColName As String = Data.Items.HeaderAt(K)
+		    DBHeader = DBHeader + ColName + "|"
+		    Select Case ColName
+		    Case "URL","BuildType","Compressed","Hidden","HiddenAlways","ShowAlways","ShowSetupOnly", _
+		      "Installed","Arch","OS","TitleName","Version","Categories","Catalog","Priority","IconRef", _
+		      "Flags","Tags","Publisher","Language","Rating","Additional","Players","License", _
+		      "ReleaseVersion","ReleaseDate","RequiredRuntimes","Builder","InstalledSize","LnkTitle", _
+		      "LnkCategories","LnkFlags","LnkAssociations","LnkTerminal","LnkMultiple","LnkParentRef", _
+		      "LnkIcon","LnkOSCompatible","LnkDECompatible","LnkPMCompatible","LnkArchCompatible", _
+		      "NoInstall","OSCompatible","DECompatible","PMCompatible","ArchCompatible","UniqueName", _
+		      "Dependencies","Sorting"
+		      ColWriteType(K) = 0
+		    Case "Description","LnkComment","LnkDescription"
+		      ColWriteType(K) = 1
+		    Case "FileINI"
+		      ColWriteType(K) = 2
+		    Case "PathINI"
+		      ColWriteType(K) = 3
+		    Case "FileIcon","FileFader","FileScreenshot"
+		      ColWriteType(K) = 4
+		    Case Else
+		      ColWriteType(K) = 5 'CompPath
+		    End Select
+		  Next K
+		  DBHeader = DBHeader + Chr(10) 'Newline to separate the header — built ONCE for all paths
+		  
+		  '=== OPTIMISATION 2: Pre-build ScanPath → J-index list once.
+		  '    The original code scanned ALL ScanItems for every scan path (O(paths × items)).
+		  '    The Dictionary reduces this to O(items) to build + O(items_per_path) per path.
+		  Dim PathIndex As New Dictionary  'ScanPath string → pipe-delimited J-index list
+		  For J = 0 To Data.ScanItems.RowCount - 1
+		    Dim SpKey As String = Data.ScanItems.CellTextAt(J, 2)
+		    If PathIndex.HasKey(SpKey) Then
+		      PathIndex.Value(SpKey) = CStr(PathIndex.Value(SpKey)) + "|" + CStr(J)
+		    Else
+		      PathIndex.Value(SpKey) = CStr(J)
+		    End If
+		  Next J
+		  
 		  For I = 0 To Data.ScanPaths.RowCount - 1
 		    DBOutPath = Data.ScanPaths.CellTextAt(I, 0) + ".lldb/"
 		    
@@ -2656,147 +2739,148 @@ End
 		    Deltree(DBOutPath) 'Kill Previous Database if writable media.
 		    MakeFolder(DBOutPath) 'Make sure it exist again
 		    
-		    If IsWritable(DBOutPath) = False Then Continue 'No point in Generating the new Database file as it can't be save to a path that isn't writable
+		    If IsWritable(DBOutPath) = False Then Continue 'No point in Generating the new Database file as it can't be saved to a path that isn't writable
 		    
-		    DBOutText = ""
-		    DBHeader = ""
-		    For K = 0 To Data.Items.ColumnCount -2 'Changed this from -1 to -2 to ignore the Sorting Column
-		      DBHeader=DBHeader + Data.Items.HeaderAt(K)+"|"
-		    Next K
-		    DBHeader = DBHeader + Chr(10)'New Line To Seperate the header
+		    '=== OPTIMISATION 3: Row strings collected into array, joined once at the end.
+		    '    Original appended to a single DBOutText string for every field of every item,
+		    '    creating O(items × cols) intermediate string copies.
+		    Dim DBLines() As String
 		    
-		    For J = 0 To Data.ScanItems.RowCount - 1
-		      If Data.ScanItems.CellTextAt(J, 2) = Data.ScanPaths.CellTextAt(I, 0) Then
-		        'If Debugging Then Debug(Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),Data.GetDBHeader("TitleName")))
-		        If Data.ScanItems.CellTagAt(J,0) >=0 Then 'Only Add Valid Items to the DB
-		          'If Debugging Then Debug(Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),Data.GetDBHeader("TitleName"))+" ~ Valid")
-		          'Get if compressed and the correct INI Path for the item
-		          IsCompressed = IsTrue(Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0), SDBColCompressed))
-		          If IsCompressed Then
-		            PatINI = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0), SDBColPathINI)
-		            PatINI = Left(PatIni,InStrRev(PatIni,"/")-1)
-		          Else
-		            PatINI = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0), SDBColPathINI)
-		            PatINI = Left(PatIni,InStrRev(PatIni,"/") -1)
-		            PatINI = Left(PatIni,InStrRev(PatIni,"/")-1)
-		          End If
-		          
-		          UniqueName = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0), SDBColUnique)
-		          
-		          For K = 0 To Data.Items.ColumnCount -2 'Changed this from -1 to -2 to ignore the Sorting Column
-		            'Add each item (May Be slow) but a DB if enabled is faster once built.
-		            Select Case Data.Items.HeaderAt(K)
-		              
-		              'The first line below only writes data, doesn't comp it's paths etc
-		            Case "URL", "BuildType", "Compressed", "Hidden", "HiddenAlways", "ShowAlways", "ShowSetupOnly", "Installed", "Arch", "OS", "TitleName", "Version", "Categories", "Catalog", "Priority", "IconRef", "Flags", "Tags", "Publisher", "Language", "Rating", "Additional", "Players", "License", "ReleaseVersion", "ReleaseDate", "RequiredRuntimes", "Builder", "InstalledSize", "LnkTitle", "LnkCategories", "LnkFlags", "LnkAssociations", "LnkTerminal", "LnkMultiple", "LnkParentRef", "LnkIcon", "LnkOSCompatible", "LnkDECompatible", "LnkPMCompatible", "LnkArchCompatible", "NoInstall", "OSCompatible", "DECompatible", "PMCompatible", "ArchCompatible", "UniqueName", "Dependencies", "Sorting" ' Don't Comp URL's and others, just write as is
-		              DataOut = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),K)
-		            Case "Description", "LnkComment", "LnkDescription"
-		              DataOut = FixEOL(Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),K))
-		            Case "FileINI" 'If doing INIFile, we need to change to %dbpath%
-		              DataOut = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),K)
-		              DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
-		              DataOut = DataOut.ReplaceAll("\", "/") 'Windows can use Linux paths, but Linux can't use Windows paths, so do the switch
-		            Case "PathINI" 'If doing INIFile, we need to change to %dbpath%
-		              DataOut = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),K)
-		              DataOut = DataOut.ReplaceAll(PatINI, "%URLPath%")
-		              DataOut = DataOut.ReplaceAll("\", "/") 'Windows can use Linux paths, but Linux can't use Windows paths, so do the switch
-		            Case "FileIcon", "FileFader", "FileScreenshot" 'Change to %DBPath%
-		              DataOut = Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),K)
-		              DataOut = DataOut.ReplaceAll("\", "/") 'Windows can use Linux paths, but Linux can't use Windows paths, so do the switch
-		              If IsCompressed Then
-		                If DataOut <>"" Then
-		                  H = GetFolderItem(DataOut, FolderItem.PathTypeNative)
-		                  G = GetFolderItem(DBOutPath+UniqueName+Right(DataOut,4), FolderItem.PathTypeNative) 'Right is the extension
-		                  If G.Exists Then 
-		                    Try 
-		                      If FixPath(H.NativePath) <> FixPath(G.NativePath) Then G.Delete 'If it's not the same file delete it
-		                    Catch
-		                    End Try
-		                  End If
-		                  
-		                  If FixPath(H.NativePath) <> FixPath(G.NativePath) Then 'Don't copy if it's itself
-		                    If G.IsWriteable Then
-		                      If H.Exists Then
-		                        #Pragma BreakOnExceptions Off
-		                        Try
-		                          If G.Exists Then G.Remove ' Delete before copying to it
-		                          H.CopyTo(G)
-		                          DataOut = "%DBPath%/.lldb/"+UniqueName+Right(DataOut,4)
-		                        Catch
-		                        End Try
-		                        #Pragma BreakOnExceptions On
-		                      End If
+		    '--- Primary scan items loop (items belonging to this scan path) ---
+		    Dim CurPathStr As String = Data.ScanPaths.CellTextAt(I, 0)
+		    If PathIndex.HasKey(CurPathStr) Then
+		      Dim JIndexList() As String = CStr(PathIndex.Value(CurPathStr)).Split("|")
+		      For Each JStr As String In JIndexList
+		        J = Val(JStr)
+		        If Data.ScanItems.CellTagAt(J,0) < 0 Then Continue 'Only add valid items
+		        
+		        '=== OPTIMISATION 4: Cache item row once per J — original called CellTagAt 6+ times per item
+		        Dim ItemRow As Integer = Data.ScanItems.CellTagAt(J, 0)
+		        
+		        IsCompressed = IsTrue(Data.Items.CellTextAt(ItemRow, SDBColCompressed))
+		        If IsCompressed Then
+		          PatINI = Data.Items.CellTextAt(ItemRow, SDBColPathINI)
+		          PatINI = Left(PatIni, InStrRev(PatIni,"/")-1)
+		        Else
+		          PatINI = Data.Items.CellTextAt(ItemRow, SDBColPathINI)
+		          PatINI = Left(PatIni, InStrRev(PatIni,"/")-1)
+		          PatINI = Left(PatIni, InStrRev(PatIni,"/")-1)
+		        End If
+		        
+		        UniqueName = Data.Items.CellTextAt(ItemRow, SDBColUnique)
+		        
+		        Dim RowParts() As String
+		        For K = 0 To ColCount
+		          Select Case ColWriteType(K)
+		          Case 0 'As-is
+		            RowParts.Append(Data.Items.CellTextAt(ItemRow, K))
+		          Case 1 'FixEOL
+		            RowParts.Append(FixEOL(Data.Items.CellTextAt(ItemRow, K)))
+		          Case 2 'FileINI → %DBPath%
+		            DataOut = Data.Items.CellTextAt(ItemRow, K)
+		            DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
+		            DataOut = DataOut.ReplaceAll("\", "/")
+		            RowParts.Append(DataOut)
+		          Case 3 'PathINI → %URLPath%
+		            DataOut = Data.Items.CellTextAt(ItemRow, K)
+		            DataOut = DataOut.ReplaceAll(PatINI, "%URLPath%")
+		            DataOut = DataOut.ReplaceAll("\", "/")
+		            RowParts.Append(DataOut)
+		          Case 4 'FileIcon/FileFader/FileScreenshot
+		            DataOut = Data.Items.CellTextAt(ItemRow, K)
+		            DataOut = DataOut.ReplaceAll("\", "/")
+		            If IsCompressed Then
+		              If DataOut <> "" Then
+		                H = GetFolderItem(DataOut, FolderItem.PathTypeNative)
+		                G = GetFolderItem(DBOutPath+UniqueName+Right(DataOut,4), FolderItem.PathTypeNative)
+		                If G.Exists Then
+		                  Try
+		                    If FixPath(H.NativePath) <> FixPath(G.NativePath) Then G.Delete
+		                  Catch
+		                  End Try
+		                End If
+		                If FixPath(H.NativePath) <> FixPath(G.NativePath) Then
+		                  If G.IsWriteable Then
+		                    If H.Exists Then
+		                      #Pragma BreakOnExceptions Off
+		                      Try
+		                        If G.Exists Then G.Remove
+		                        H.CopyTo(G)
+		                        DataOut = "%DBPath%/.lldb/"+UniqueName+Right(DataOut,4)
+		                      Catch
+		                      End Try
+		                      #Pragma BreakOnExceptions On
 		                    End If
 		                  End If
 		                End If
-		              Else 'Not compressed, just use current ini path
-		                DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
-		                DataOut = DataOut.ReplaceAll("\", "/") 'Windows can use Linux paths, but Linux can't use Windows paths, so do the switch
 		              End If
-		            Case Else
-		              DataOut = CompPath(Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),K))
-		            End Select
-		            DBOutText=DBOutText+DataOut+",|,"
-		          Next K
-		          DBOutText = DBOutText + Chr(10)'New Line per item Added
-		        End If
-		      End If
-		    Next
+		            Else
+		              DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
+		              DataOut = DataOut.ReplaceAll("\", "/")
+		            End If
+		            RowParts.Append(DataOut)
+		          Case 5 'CompPath (Else)
+		            RowParts.Append(CompPath(Data.Items.CellTextAt(ItemRow, K)))
+		          End Select
+		        Next K
+		        DBLines.Append(Join(RowParts, ",|,") + ",|,")
+		      Next
+		    End If
 		    
-		    'If Launcher mode just add all the MultiLinks to the DB's, I may need to add a ID to know which one to add it too if I find multiple locations causes adding to both DB's
+		    'If Launcher mode just add all the MultiLinks to the DB's
 		    If StoreMode = 1 Then
 		      For J = 0 To Data.Items.RowCount - 1
-		        If IsTrue(Data.Items.CellTextAt (J, SDBColLnkMulti)) Then
-		          'MsgBox "LnkMultiple Tag: "+ Data.Items.CellTagAt(J,Data.GetDBHeader("LnkMultiple"))+Chr(10)+" ScanPath: "+Data.ScanPaths.CellTextAt(I, 0)
-		          'The Line below makes it only save the items related to the path stored in the DB
-		          If Data.Items.CellTagAt(J, SDBColLnkMulti) = Data.ScanPaths.CellTextAt(I, 0) Then 'Scan Path compared, if same then add to current DB, so no duplication from other folders
-		            'If Debugging Then Debug("Multi Link - " + Data.Items.CellTextAt (J,Data.GetDBHeader("TitleName")))
+		        If IsTrue(Data.Items.CellTextAt(J, SDBColLnkMulti)) Then
+		          If Data.Items.CellTagAt(J, SDBColLnkMulti) = Data.ScanPaths.CellTextAt(I, 0) Then
 		            
-		            'If Debugging Then Debug(Data.Items.CellTextAt (J,Data.GetDBHeader("TitleName"))+" ~ Valid")
-		            'Get if compressed and the correct INI Path for the item
-		            IsCompressed = IsTrue(Data.Items.CellTextAt (J, SDBColCompressed))
+		            IsCompressed = IsTrue(Data.Items.CellTextAt(J, SDBColCompressed))
 		            If IsCompressed Then
-		              PatINI = Data.Items.CellTextAt (J, SDBColPathINI)
-		              PatINI = Left(PatIni,InStrRev(PatIni,"/")-1)
+		              PatINI = Data.Items.CellTextAt(J, SDBColPathINI)
+		              PatINI = Left(PatIni, InStrRev(PatIni,"/")-1)
 		            Else
-		              PatINI = Data.Items.CellTextAt (J, SDBColPathINI)
-		              PatINI = Left(PatIni,InStrRev(PatIni,"/") -1)
-		              PatINI = Left(PatIni,InStrRev(PatIni,"/")-1)
+		              PatINI = Data.Items.CellTextAt(J, SDBColPathINI)
+		              PatINI = Left(PatIni, InStrRev(PatIni,"/")-1)
+		              PatINI = Left(PatIni, InStrRev(PatIni,"/")-1)
 		            End If
 		            
-		            UniqueName = Data.Items.CellTextAt (J, SDBColUnique)
+		            UniqueName = Data.Items.CellTextAt(J, SDBColUnique)
 		            
-		            For K = 0 To Data.Items.ColumnCount -2 'Changed this from -1 to -2 to ignore the Sorting Column
-		              'Add each item (May Be slow) but a DB if enabled is faster once built.
-		              Select Case Data.Items.HeaderAt(K)
-		              Case "FileINI" 'If doing INIFile, we need to change to %dbpath%
-		                DataOut = Data.Items.CellTextAt (J,K)
+		            Dim RowParts2() As String
+		            For K = 0 To ColCount
+		              Select Case ColWriteType(K)
+		              Case 0, 5  'Loop 2 original has no as-is case — all non-special columns use CompPath
+		                RowParts2.Append(CompPath(Data.Items.CellTextAt(J, K)))
+		              Case 1
+		                RowParts2.Append(CompPath(FixEOL(Data.Items.CellTextAt(J, K))))
+		              Case 2 'FileINI → %DBPath%
+		                DataOut = Data.Items.CellTextAt(J, K)
 		                DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
-		                DataOut = DataOut.ReplaceAll("\", "/") 'Windows can use Linux paths, but Linux can't use Windows paths, so do the switch
-		              Case "PathINI" 'If doing INIFile, we need to change to %dbpath%
-		                DataOut = Data.Items.CellTextAt (J,K)
+		                DataOut = DataOut.ReplaceAll("\", "/")
+		                RowParts2.Append(DataOut)
+		              Case 3 'PathINI → %URLPath%
+		                DataOut = Data.Items.CellTextAt(J, K)
 		                DataOut = DataOut.ReplaceAll(PatINI, "%URLPath%")
-		                DataOut = DataOut.ReplaceAll("\", "/") 'Windows can use Linux paths, but Linux can't use Windows paths, so do the switch
-		              Case "FileIcon", "FileFader", "FileScreenshot" 'Change to %DBPath%
-		                DataOut = Data.Items.CellTextAt (J,K)
-		                DataOut = DataOut.ReplaceAll("\", "/") 'Windows can use Linux paths, but Linux can't use Windows paths, so do the switch
+		                DataOut = DataOut.ReplaceAll("\", "/")
+		                RowParts2.Append(DataOut)
+		              Case 4 'FileIcon/FileFader/FileScreenshot
+		                DataOut = Data.Items.CellTextAt(J, K)
+		                DataOut = DataOut.ReplaceAll("\", "/")
 		                If IsCompressed Then
-		                  If DataOut <>"" Then
+		                  If DataOut <> "" Then
 		                    H = GetFolderItem(DataOut, FolderItem.PathTypeNative)
-		                    G = GetFolderItem(DBOutPath+UniqueName+Right(DataOut,4), FolderItem.PathTypeNative) 'Right is the extension
-		                    If G.Exists Then 
-		                      Try 
-		                        If FixPath(H.NativePath) <> FixPath(G.NativePath) Then G.Delete 'If it's not the same file delete it
+		                    G = GetFolderItem(DBOutPath+UniqueName+Right(DataOut,4), FolderItem.PathTypeNative)
+		                    If G.Exists Then
+		                      Try
+		                        If FixPath(H.NativePath) <> FixPath(G.NativePath) Then G.Delete
 		                      Catch
 		                      End Try
 		                    End If
-		                    
-		                    If FixPath(H.NativePath) <> FixPath(G.NativePath) Then 'Don't copy if it's itself
+		                    If FixPath(H.NativePath) <> FixPath(G.NativePath) Then
 		                      If G.IsWriteable Then
 		                        If H.Exists Then
 		                          #Pragma BreakOnExceptions Off
 		                          Try
-		                            If G.Exists Then G.Remove ' Delete before copying to it
+		                            If G.Exists Then G.Remove
 		                            H.CopyTo(G)
 		                            DataOut = "%DBPath%/.lldb/"+UniqueName+Right(DataOut,4)
 		                          Catch
@@ -2806,37 +2890,30 @@ End
 		                      End If
 		                    End If
 		                  End If
-		                  
-		                  DataOut = FixEOL(Data.Items.CellTextAt (Data.ScanItems.CellTagAt(J,0),K))
-		                Else 'Not compressed, just use current ini path
+		                  DataOut = FixEOL(Data.Items.CellTextAt(Data.ScanItems.CellTagAt(J,0),K)) 'Preserved from original
+		                Else
 		                  DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
-		                  DataOut = DataOut.ReplaceAll("\", "/") 'Windows can use Linux paths, but Linux can't use Windows paths, so do the switch
+		                  DataOut = DataOut.ReplaceAll("\", "/")
 		                End If
-		              Case "Description", "LnkComment", "LnkDescription"
-		                DataOut = CompPath(FixEOL(Data.Items.CellTextAt (J,K)))
-		              Case Else
-		                DataOut = CompPath(Data.Items.CellTextAt (J,K))
+		                RowParts2.Append(DataOut)
 		              End Select
-		              DBOutText=DBOutText+DataOut+",|,"
-		              
 		            Next K
-		            
-		            DBOutText = DBOutText + Chr(10)'New Line per item Added
+		            DBLines.Append(Join(RowParts2, ",|,") + ",|,")
 		          End If
-		        End If 
+		        End If
 		      Next
 		    End If
 		    
 		    'Save File
-		    
-		    If DBOutText <> "" Then 'Only bother saving a DB if the path has items in it, no need to make blank ones
-		      SaveDataToFile (DBHeader+DBOutText, DBOutPath+"lldb.ini")
-		    Else ' No Data, don't keep created folder
-		      Deltree(DBOutPath) 'Kill Previous Database if writable media.
-		      'MakeFolder(DBOutPath) 'Make sure it exist again
+		    DBOutText = Join(DBLines, Chr(10))
+		    If DBOutText <> "" Then
+		      If Right(DBOutText, 1) <> Chr(10) Then DBOutText = DBOutText + Chr(10) 'Ensure trailing newline matches original
+		      SaveDataToFile(DBHeader+DBOutText, DBOutPath+"lldb.ini")
+		    Else
+		      Deltree(DBOutPath)
 		    End If
 		    'Change Permissions
-		    If TargetLinux Then ChMod(DBOutPath,"-R 777") ' DB files should be full accessible to everyone, else how can they update them?
+		    If TargetLinux Then ChMod(DBOutPath,"-R 777")
 		  Next
 		  
 		End Sub
@@ -3044,6 +3121,42 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub StartIconDownload(URL As String, LocalPath As String)
+		  ' Downloads a .png icon/fader using an async curl shell.
+		  ' DownloadScreenAndIcon timer polls IsRunning and calls ShowDownloadImages on completion.
+		  Try
+		    If ShellIcon <> Nil And ShellIcon.IsRunning Then ShellIcon.Close
+		    ShellIcon = New Shell
+		    ShellIcon.TimeOut = -1
+		    ShellIcon.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		    Dim CurlBin As String = LinuxCurl
+		    If TargetWindows Then CurlBin = WinCurl
+		    ShellIcon.Execute(CurlBin + " -L -s --connect-timeout 15 -o " + Chr(34) + LocalPath + Chr(34) + " " + Chr(34) + URL + Chr(34))
+		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Multiple
+		  Catch
+		  End Try
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub StartScreenshotDownload(URL As String, LocalPath As String)
+		  ' Downloads a .jpg screenshot using an async curl shell.
+		  ' DownloadScreenAndIcon timer polls IsRunning and calls ShowDownloadImages on completion.
+		  Try
+		    If ShellScreenshot <> Nil And ShellScreenshot.IsRunning Then ShellScreenshot.Close
+		    ShellScreenshot = New Shell
+		    ShellScreenshot.TimeOut = -1
+		    ShellScreenshot.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		    Dim CurlBin As String = LinuxCurl
+		    If TargetWindows Then CurlBin = WinCurl
+		    ShellScreenshot.Execute(CurlBin + " -L -s --connect-timeout 15 -o " + Chr(34) + LocalPath + Chr(34) + " " + Chr(34) + URL + Chr(34))
+		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Multiple
+		  Catch
+		  End Try
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub UpdateLoading(status As String)
 		  Loading.Status.Text = status
 		  Loading.Refresh
@@ -3053,7 +3166,7 @@ End
 
 
 	#tag Property, Flags = &h0
-		ShellScreenshot As Shell
+		Regenerate As Boolean
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -3061,7 +3174,7 @@ End
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
-		Regenerate As Boolean
+		ShellScreenshot As Shell
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -3595,7 +3708,7 @@ End
 		        Return
 		      End If
 		      DLState = ST_ADVANCE 
-		       Return
+		      Return
 		    End If
 		    
 		    ' Drain output buffer each tick to prevent pipe deadlock
