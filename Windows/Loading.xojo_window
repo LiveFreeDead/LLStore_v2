@@ -422,7 +422,7 @@ End
 		    
 		  Else
 		    'MsgBox "EXE Updates - Local: "+MajorLocal.ToString+" Remote: "+MajorRemote.ToString
-		    If OnlineVersion > CurrentVersion Or ForceExeUpdate = True Then 'Is Newer, download and apply executables only, or if set to forced update
+		    If CompareVersionStrings(OnlineVersionS, CurrentVersionS) > 0 Or ForceExeUpdate = True Then 'Is Newer, download and apply executables only, or if set to forced update
 		      
 		      'Updating Executables
 		      UpdateLoading("Updating Executables v" +CurrentVersionS+ " to v"+ OnlineVersionS)
