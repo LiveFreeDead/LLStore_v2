@@ -1312,6 +1312,10 @@ End
 		  MC = MC + 1
 		  base.Item(MC).Shortcut  = "F10"
 		  
+		  'Batch update installed sizes for all selected local items (no full recompression)
+		  base.Append New MenuItem("Update Sizes In Items") '0
+		  MC = MC + 1
+		  
 		  'Full Screen
 		  base.Append New MenuItem("Toggle Fullscreen") '0
 		  MC = MC + 1
@@ -1376,9 +1380,9 @@ End
 		  Case "LLStore"
 		    'Tools.Visible = True
 		    Tools.Show
-		  Case "LL &Con"
+		  Case "LL &Con", "LL Cont" ' LL &Control Panel (& may be stripped by GTK)
 		    ControlPanel.Show
-		  Case "&Change"
+		  Case "&Change", "Change " ' &Change Mode (& may be stripped by GTK)
 		    Loading.SavePosition 'Save the current modes position
 		    If StoreMode = 0 Then
 		      StoreMode = 1
@@ -1410,15 +1414,15 @@ End
 		    SelectItems (ContextText)
 		  Case "Un-Sele"
 		    SelectItems (ContextText)
-		  Case "&Run Wi"
+		  Case "&Run Wi", "Run Wit" ' &Run With Resolution (& may be stripped by GTK)
 		    RunGame(CurrentItemID, True)
-		  Case "&Debug"
+		  Case "&Debug", "Debug" ' &Debug (& may be stripped by GTK)
 		    Data.Width = Main.Width
 		    Data.Height = Main.Height
 		    Data.Left = (screen(0).AvailableWidth - Data.Width) / 2 'Center Form
 		    Data.top = (screen(0).AvailableHeight - Data.Height) / 2
 		    Data.Show
-		  Case "&Settin"
+		  Case "&Settin", "Setting" ' &Settings (& may be stripped by GTK)
 		    If Settings.Visible = False Then Loading.LoadSettings 'Always reload settings when switching to it, just to make sure they match with whats stored, user has to press Save to update it
 		    Settings.Left = (Screen(0).AvailableWidth/2)-(Settings.Width/2)
 		    Settings.Top = (Screen(0).AvailableHeight/2)-(Settings.Height/2)
@@ -1465,13 +1469,13 @@ End
 		  Case "Unset F" ' Hide
 		    HideUnsetFlags = Not HideUnsetFlags
 		    GenerateItems()
-		  Case "Add &Ma"
+		  Case "Add &Ma", "Add Man" ' Add &Manual Location (& may be stripped by GTK)
 		    AddManualLocation()
 		  Case "Re(Scan"
 		    Loading.SaveSettings
 		    Loading.LoadSettings 'Make sure they get applied properly before reloading the GUI
 		    Loading.RefreshDBs
-		  Case "&Edit I"
+		  Case "&Edit I", "Edit In" ' &Edit In LLEditor (& may be stripped by GTK)
 		    'Load in Item fully
 		    #Pragma BreakOnExceptions Off
 		    Try
@@ -1487,6 +1491,8 @@ End
 		      EditingItem = False
 		    End Try
 		    #Pragma BreakOnExceptions On
+		  Case "Update " ' Update Sizes In Items
+		    UpdateSizesInItems()
 		  End Select
 		  
 		  If OldSortType <> SortType Then GenerateItems()
@@ -2620,6 +2626,154 @@ End
 		      RunGame(CurrentItemID)
 		    End If
 		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub UpdateSizesInItems()
+		  ' Iterates every currently selected and locally available item.
+		  ' For each one it:
+		  '   1. Loads the item silently (no Editor window shown)
+		  '   2. Calls Editor.UpdateSizeAndSave() which:
+		  '       a. Finds the best size source (archive or folder)
+		  '       b. Imports the uncompressed byte count
+		  '       c. Saves:  plain write for uncompressed items (.lla/.llg/.app/.ppg)
+		  '                  fast in-place update for compressed items (tar -uf / 7z u)
+		  '          so NO full re-compression is done for already-packed archives.
+		  ' All progress is shown only in the Notification window.
+		  
+		  Dim ColSel     As Integer = Data.GetDBHeader("Selected")
+		  Dim ColFileINI As Integer = Data.GetDBHeader("FileINI")
+		  Dim ColTitle   As Integer = Data.GetDBHeader("TitleName")
+		  Dim ColFlags   As Integer = Data.GetDBHeader("Flags")
+		  
+		  ' --- If nothing is selected, fall back to the currently highlighted item ---
+		  Dim UsedHighlightFallback As Boolean = False
+		  If SelectsCount <= 0 And CurrentItemID >= 0 Then
+		    Data.Items.CellTextAt(CurrentItemID, ColSel) = "T"
+		    SelectsCount = 1
+		    UsedHighlightFallback = True
+		  End If
+		  
+		  ' --- Count eligible items first so we can show a sensible total ---
+		  Dim TotalCount As Integer = 0
+		  Dim I As Integer
+		  For I = 0 To Items.RowCount - 1
+		    Dim DBRow As Integer = Items.CellTagAt(I, 0)
+		    If Data.Items.CellTextAt(DBRow, ColSel) <> "T" Then Continue
+		    Dim FP As String = Data.Items.CellTextAt(DBRow, ColFileINI)
+		    If FP <> "" And Left(FP, 4).Lowercase <> "http" And Exist(FP) Then
+		      ' Skip items whose size can't be meaningful: NoInstall or Internet-required
+		      Dim ItemFlags As String = Data.Items.CellTextAt(DBRow, ColFlags).Lowercase
+		      If ItemFlags.IndexOf("noinstall") >= 0 Then Continue
+		      If ItemFlags.IndexOf("internetrequired") >= 0 Then Continue
+		      TotalCount = TotalCount + 1
+		    End If
+		  Next
+		  
+		  If TotalCount = 0 Then
+		    If UsedHighlightFallback And CurrentItemID >= 0 Then
+		      Data.Items.CellTextAt(CurrentItemID, ColSel) = "F"
+		      SelectsCount = 0
+		    End If
+		    Notify("Update Sizes", "No locally available selected items found.", "", 3000)
+		    Return
+		  End If
+		  
+		  ' --- Start the Notification display (stays open for the whole batch) ---
+		  Notification.BuildHeader = "Update Sizes: 0 / " + TotalCount.ToString
+		  Notification.BuildMode = True
+		  Notify("Update Sizes In Items", "Starting... 0 / " + TotalCount.ToString, "", -1)
+		  
+		  Dim DoneCount As Integer = 0
+		  Dim SkipCount As Integer = 0
+		  
+		  ' --- Process each eligible item ---
+		  For I = 0 To Items.RowCount - 1
+		    Dim DBRow As Integer = Items.CellTagAt(I, 0)
+		    If Data.Items.CellTextAt(DBRow, ColSel) <> "T" Then Continue
+		    
+		    Dim FilePath As String = Data.Items.CellTextAt(DBRow, ColFileINI)
+		    If FilePath = "" Or Left(FilePath, 4).Lowercase = "http" Or Not Exist(FilePath) Then
+		      SkipCount = SkipCount + 1
+		      Continue
+		    End If
+		    
+		    ' Skip items where size would be meaningless: NoInstall uses system packages
+		    ' with no bundled files, and InternetRequired downloads at install time.
+		    Dim ItemFlags As String = Data.Items.CellTextAt(DBRow, ColFlags).Lowercase
+		    If ItemFlags.IndexOf("noinstall") >= 0 Then
+		      Continue ' Skipped silently — not counted against total
+		    End If
+		    If ItemFlags.IndexOf("internetrequired") >= 0 Then
+		      Continue ' Skipped silently — not counted against total
+		    End If
+		    
+		    Dim ItemTitle As String = Data.Items.CellTextAt(DBRow, ColTitle)
+		    Dim Progress  As String = " (" + Str(DoneCount + SkipCount + 1) + "/" + TotalCount.ToString + ")"
+		    
+		    Notification.BuildHeader = "Updating: " + ItemTitle
+		    Notification.UpdateBuildStatus("Loading..." + Progress)
+		    
+		    ' Load item data into the global ItemLLItem without showing the Editor window
+		    EditingItem = True
+		    Dim LoadOK As Boolean = False
+		    #Pragma BreakOnExceptions Off
+		    Try
+		      LoadOK = LoadLLFile(FilePath)
+		    Catch
+		      LoadOK = False
+		    End Try
+		    #Pragma BreakOnExceptions On
+		    
+		    If Not LoadOK Then
+		      EditingItem = False
+		      SkipCount = SkipCount + 1
+		      Notification.UpdateBuildStatus("Skipped (load failed): " + ItemTitle)
+		      App.DoEvents(20)
+		      Continue
+		    End If
+		    
+		    ' Populate Editor fields from the loaded data so paths etc. are ready
+		    Editor.PopulateData
+		    
+		    Notification.UpdateBuildStatus("Importing size..." + Progress)
+		    
+		    ' Import size from archive/folder and save in one call
+		    Dim SaveOK As Boolean = False
+		    #Pragma BreakOnExceptions Off
+		    Try
+		      SaveOK = Editor.UpdateSizeAndSave()
+		    Catch
+		      SaveOK = False
+		    End Try
+		    #Pragma BreakOnExceptions On
+		    
+		    EditingItem = False
+		    
+		    If SaveOK Then
+		      DoneCount = DoneCount + 1
+		      Notification.UpdateBuildStatus("Saved: " + ItemTitle + Progress)
+		    Else
+		      SkipCount = SkipCount + 1
+		      Notification.UpdateBuildStatus("Skipped (no size / save failed): " + ItemTitle)
+		    End If
+		    
+		    App.DoEvents(10)
+		  Next
+		  
+		  ' --- If we temporarily selected the highlighted item, deselect it now ---
+		  If UsedHighlightFallback And CurrentItemID >= 0 Then
+		    Data.Items.CellTextAt(CurrentItemID, ColSel) = "F"
+		    SelectsCount = 0
+		  End If
+		  
+		  ' --- Release Notification lock and show summary ---
+		  Notification.BuildMode = False
+		  Notification.BuildHeader = ""
+		  Dim ResultMsg As String = "Updated: " + DoneCount.ToString + " of " + TotalCount.ToString
+		  If SkipCount > 0 Then ResultMsg = ResultMsg + "  (Skipped: " + SkipCount.ToString + ")"
+		  Notify("Update Sizes Complete", ResultMsg, "", 5000)
 		End Sub
 	#tag EndMethod
 

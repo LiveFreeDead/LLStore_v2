@@ -6457,6 +6457,58 @@ End
 		ZippedOut As String
 	#tag EndProperty
 
+	#tag Method, Flags = &h0
+		Function UpdateSizeAndSave() As Boolean
+		  ' Batch helper called by Main.UpdateSizesInItems().
+		  ' 1. Resolves the best size source via RefreshImportSizeButton()
+		  ' 2. Imports the uncompressed byte count into TextInstalledSize
+		  ' 3. Calls SaveLLFileComplete() which handles BOTH cases:
+		  '      - Uncompressed items  → writes the plain .lla/.llg/.app/.ppg
+		  '      - Compressed items    → fast in-place update (tar -uf / 7z u)
+		  '    so no full re-compression is needed even for archived items.
+		  ' Returns True when a size was found and the file saved successfully.
+		  
+		  ' Resolve the best archive / folder source so ZippedOut is correct
+		  RefreshImportSizeButton()
+		  
+		  ' --- Same logic as ButtonImportSize.Pressed() ---
+		  Dim GotSize As Boolean = False
+		  
+		  If ZippedOut <> "" And Exist(ZippedOut) Then
+		    ' Archive path available: ask 7z/tar for the uncompressed total
+		    Dim RawBytes As Int64 = GetUnCompressedSize(ZippedOut).ToInt64
+		    If RawBytes > 0 Then
+		      TextInstalledSize.Text = RawBytes.ToString
+		      CheckGetSizeComp.Value = False
+		      GotSize = True
+		    Else
+		      ' 7z returned nothing useful — fall back to folder count
+		      Dim FolderBytes As Int64 = GetFolderSize(TextIncludeFolder.Text)
+		      If FolderBytes > 0 Then
+		        TextInstalledSize.Text = FolderBytes.ToString
+		        CheckGetSizeComp.Value = False
+		        GotSize = True
+		      End If
+		    End If
+		  Else
+		    ' No archive — count files in the include folder
+		    Dim FolderBytes As Int64 = GetFolderSize(TextIncludeFolder.Text)
+		    If FolderBytes > 0 Then
+		      TextInstalledSize.Text = FolderBytes.ToString
+		      CheckGetSizeComp.Value = False
+		      GotSize = True
+		    End If
+		  End If
+		  
+		  If Not GotSize Then Return False ' No size source found, skip this item
+		  
+		  ' Save/update the file.  SaveLLFileComplete already does the right thing:
+		  '   Compressed = True  → tar -uf or 7z u  (fast, no full re-pack)
+		  '   Compressed = False → plain .lla / .llg / .app / .ppg write
+		  Return SaveLLFileComplete()
+		End Function
+	#tag EndMethod
+
 
 #tag EndWindowCode
 
