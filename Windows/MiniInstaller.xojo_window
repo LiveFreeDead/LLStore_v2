@@ -783,8 +783,15 @@ End
 		          If Debugging Then Debug("* Error: Failed - Aborting Install")
 		        End If
 		      End If '--------------------
+		      ' Only increment MiniUpTo if this item was NOT skipped mid-install.
+		      ' When the user skips an actively-running item, UpdateUI.Action already
+		      ' incremented MiniUpTo when it detected the "Skip" cell text. If we also
+		      ' increment here, the next real item gets silently skipped (Tag ID shifts).
+		      Dim WasSkipped As Boolean = SkippedInstalling
 		      SkippedInstalling = False
-		      MiniUpTo = MiniUpTo + 1 'Move to the Next Item, current item was empty or completed
+		      If Not WasSkipped Then
+		        MiniUpTo = MiniUpTo + 1 'Move to the Next Item, current item was empty or completed
+		      End If
 		      InstallingItem = False
 		    End If
 		  End If
@@ -942,15 +949,14 @@ End
 		      End Try
 		      #Pragma BreakOnExceptions Off
 		      Try
-		        If Items.CellTextAt(MiniUpTo, 1) = "Skip" Then ' If on the Item change to Skipped so can't pick to UnSkip it again (I don't count backwards)
+		        ' Use a While loop so multiple consecutive pre-queued skips are all
+		        ' resolved in a single timer tick instead of waiting 100ms per skip.
+		        While Items.CellTextAt(MiniUpTo, 1) = "Skip" And MiniUpTo < MiniInstaller.Items.RowCount
 		          Items.CellTextAt(MiniUpTo, 1) = "Skipped"
-		          
-		          MiniUpTo = MiniUpTo + 1 'This Will proceed to the next Item without trying to install the previously skipped ones, without having to check in the Thread :)
-		          
-		        Else
-		          If Items.CellTextAt(MiniUpTo, 1) = "" Then
-		            Items.CellTextAt(MiniUpTo, 1) = "Installing" 'Change it to Installing if it's where we are up to (Called before it start to install so this should always fire
-		          End If
+		          MiniUpTo = MiniUpTo + 1 'Proceed to the next Item immediately
+		        Wend
+		        If Items.CellTextAt(MiniUpTo, 1) = "" Then
+		          Items.CellTextAt(MiniUpTo, 1) = "Installing" 'Mark current item as Installing
 		        End If
 		      Catch
 		      End Try
