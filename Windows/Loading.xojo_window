@@ -404,6 +404,12 @@ End
 		        ShellFast.Execute ("chmod 777 "+Chr(34)+Slash(AppPath)+"llstore"+Chr(34)) 'Change Read/Write/Execute to defaults
 		      End If
 		    End If
+		    'Delete uninstall tools so they are recreated fresh after update
+		    If TargetLinux Then
+		      Deltree "/LastOS/Tools/Uninstall.sh"
+		      Deltree "/LastOS/Tools/UninstallLauncher.sh"
+		    End If
+		    
 		    'ReRun the newer Store version
 		    If TargetWindows Then
 		      F = GetFolderItem(Slash(AppPath)+"llstore.exe", FolderItem.PathTypeNative)
@@ -471,6 +477,12 @@ End
 		          ShellFast.Execute ("mv -f "+Chr(34)+Slash(TmpPath)+"llstore.exe"+Chr(34) + " "+Chr(34)+Slash(AppPath)+"llstore.exe"+Chr(34)) 'Move 
 		        End If
 		      End If
+		      'Delete uninstall tools so they are recreated fresh after update
+		      If TargetLinux Then
+		        Deltree "/LastOS/Tools/Uninstall.sh"
+		        Deltree "/LastOS/Tools/UninstallLauncher.sh"
+		      End If
+		      
 		      'ReRun the newer Store version
 		      If TargetWindows Then
 		        F = GetFolderItem(Slash(AppPath)+"llstore.exe", FolderItem.PathTypeNative)
@@ -3157,6 +3169,342 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub SetupUninstallTools()
+		  ' Writes /LastOS/Tools/Uninstall.sh and UninstallLauncher.sh.
+		  ' Runs as the current user if the folder is already writable,
+		  ' or falls back to RunSudo if it needs elevated privileges.
+		  ' Linux only — exits immediately on any other platform.
+		  If Not TargetLinux Then Return
+		  
+		  Dim toolsDir As String = "/LastOS/Tools"
+		  Dim needsSudo As Boolean = False
+		  
+		  ' ── Already installed? Skip. ──────────────────────────────────────
+		  If Exist(toolsDir + "/Uninstall.sh") And Exist(toolsDir + "/UninstallLauncher.sh") Then
+		    If Debugging Then Debug("SetupUninstallTools: Scripts already present, skipping")
+		    Return
+		  End If
+		  
+		  ' ── Determine whether sudo is required ────────────────────────────
+		  Dim toolsDirF As FolderItem = GetFolderItem(toolsDir, FolderItem.PathTypeNative)
+		  
+		  If toolsDirF <> Nil And toolsDirF.Exists Then
+		    ' Folder exists — writable by current user?
+		    If Not toolsDirF.IsWriteable Then
+		      needsSudo = True
+		      If Debugging Then Debug("SetupUninstallTools: /LastOS/Tools exists but is not writable — will use sudo")
+		    End If
+		  Else
+		    ' Folder does not exist — attempt to create it without sudo first
+		    #Pragma BreakOnExceptions Off
+		    Try
+		      MakeFolder(toolsDir)
+		      toolsDirF = GetFolderItem(toolsDir, FolderItem.PathTypeNative)
+		      If toolsDirF = Nil Or Not toolsDirF.Exists Then
+		        needsSudo = True
+		        If Debugging Then Debug("SetupUninstallTools: Could not create /LastOS/Tools without sudo")
+		      End If
+		    Catch
+		      needsSudo = True
+		      If Debugging Then Debug("SetupUninstallTools: Exception creating /LastOS/Tools — will use sudo")
+		    End Try
+		    #Pragma BreakOnExceptions On
+		  End If
+		  
+		  ' ── Build the script content ──────────────────────────────────────
+		  Dim lines() As String
+		  
+		  ' Outer wrapper — detect write method
+		  lines.Add("#!/usr/bin/env bash")
+		  lines.Add("if ! mkdir -p /LastOS/Tools 2>/dev/null; then")
+		  lines.Add("    sudo mkdir -p /LastOS/Tools")
+		  lines.Add("    WRITE=""sudo tee""")
+		  lines.Add("    CHMOD=""sudo chmod""")
+		  lines.Add("else")
+		  lines.Add("    WRITE=""tee""")
+		  lines.Add("    CHMOD=""chmod""")
+		  lines.Add("fi")
+		  
+		  ' ── Uninstall.sh heredoc ─────────────────────────────────────────
+		  lines.Add("$WRITE /LastOS/Tools/Uninstall.sh > /dev/null << 'EOF'")
+		  lines.Add("#!/usr/bin/env bash")
+		  lines.Add("")
+		  lines.Add("###########################################")
+		  lines.Add("# LastOS Zero-Maintenance Uninstaller")
+		  lines.Add("###########################################")
+		  lines.Add("")
+		  lines.Add("#################################")
+		  lines.Add("# Parse arguments")
+		  lines.Add("#################################")
+		  lines.Add("")
+		  lines.Add("DESKTOP=""$1""")
+		  lines.Add("SILENT=false")
+		  lines.Add("")
+		  lines.Add("for ARG in ""$@""; do")
+		  lines.Add("    [ ""$ARG"" = ""--silent"" ] && SILENT=true")
+		  lines.Add("done")
+		  lines.Add("")
+		  lines.Add("#################################")
+		  lines.Add("# Helpers")
+		  lines.Add("#################################")
+		  lines.Add("")
+		  lines.Add("say() { [ ""$SILENT"" = false ] && echo ""$@""; }")
+		  lines.Add("")
+		  lines.Add("#################################")
+		  lines.Add("# Interactive setup")
+		  lines.Add("#################################")
+		  lines.Add("")
+		  lines.Add("if [ ""$SILENT"" = false ]; then")
+		  lines.Add("    clear")
+		  lines.Add("    echo")
+		  lines.Add("    echo ""======================================""")
+		  lines.Add("    echo ""        LastOS Uninstaller""")
+		  lines.Add("    echo ""======================================""")
+		  lines.Add("    echo")
+		  lines.Add("fi")
+		  lines.Add("")
+		  lines.Add("if [ ! -f ""$DESKTOP"" ]; then")
+		  lines.Add("")
+		  lines.Add("    say ""Desktop file missing""")
+		  lines.Add("    [ ""$SILENT"" = false ] && sleep 3")
+		  lines.Add("    exit 1")
+		  lines.Add("")
+		  lines.Add("fi")
+		  lines.Add("")
+		  lines.Add("")
+		  lines.Add("#################################")
+		  lines.Add("# Extract desktop values")
+		  lines.Add("#################################")
+		  lines.Add("")
+		  lines.Add("NAME=$(grep ""^Name="" ""$DESKTOP"" | head -1 | cut -d= -f2)")
+		  lines.Add("DESKEXEC=$(grep ""^Exec="" ""$DESKTOP"" | head -1 | cut -d= -f2-)")
+		  lines.Add("DESKPATH=$(grep ""^Path="" ""$DESKTOP"" | head -1 | cut -d= -f2-)")
+		  lines.Add("")
+		  lines.Add("# Detect ssApp: Exec or Path references wine/ppApps/ppGames paths")
+		  lines.Add("IS_SSAPP=false")
+		  lines.Add("if echo ""$DESKEXEC$DESKPATH"" | grep -qi ""\.wine\|ppApps\|ppGames""; then")
+		  lines.Add("    IS_SSAPP=true")
+		  lines.Add("fi")
+		  lines.Add("")
+		  lines.Add("say ""Application:""")
+		  lines.Add("say ""$NAME""")
+		  lines.Add("say")
+		  lines.Add("")
+		  lines.Add("")
+		  lines.Add("#################################")
+		  lines.Add("# Candidate locations")
+		  lines.Add("#################################")
+		  lines.Add("")
+		  lines.Add("TARGETS=()")
+		  lines.Add("")
+		  lines.Add("")
+		  lines.Add("#################################")
+		  lines.Add("# Use Path= from desktop file first")
+		  lines.Add("# This is the most reliable match since")
+		  lines.Add("# it points directly at the install folder")
+		  lines.Add("#################################")
+		  lines.Add("")
+		  lines.Add("if [ -n ""$DESKPATH"" ] && [ -d ""$DESKPATH"" ]; then")
+		  lines.Add("    TARGETS+=(""$DESKPATH"")")
+		  lines.Add("fi")
+		  lines.Add("")
+		  lines.Add("")
+		  lines.Add("#################################")
+		  lines.Add("# Name-based fallback locations")
+		  lines.Add("#################################")
+		  lines.Add("")
+		  lines.Add("if [ ${#TARGETS[@]} -eq 0 ]; then")
+		  lines.Add("")
+		  lines.Add("    LOCATIONS=(")
+		  lines.Add("        ""$HOME/LLApps/$NAME""")
+		  lines.Add("        ""$HOME/LLGames/$NAME""")
+		  lines.Add("        ""$HOME/.wine/drive_c/ppApps/$NAME""")
+		  lines.Add("        ""$HOME/.wine/drive_c/ppGames/$NAME""")
+		  lines.Add("    )")
+		  lines.Add("")
+		  lines.Add("    for L in ""${LOCATIONS[@]}""")
+		  lines.Add("    do")
+		  lines.Add("        if [ -d ""$L"" ]; then")
+		  lines.Add("            TARGETS+=(""$L"")")
+		  lines.Add("        fi")
+		  lines.Add("    done")
+		  lines.Add("")
+		  lines.Add("fi")
+		  lines.Add("")
+		  lines.Add("")
+		  lines.Add("#################################")
+		  lines.Add("# Renamed installs")
+		  lines.Add("#################################")
+		  lines.Add("")
+		  lines.Add("if [ ${#TARGETS[@]} -eq 0 ]; then")
+		  lines.Add("")
+		  lines.Add("    say ""Searching...""")
+		  lines.Add("")
+		  lines.Add("    while IFS= read -r -d '' ENTRY; do")
+		  lines.Add("        TARGETS+=(""$ENTRY"")")
+		  lines.Add("    done < <(find ""$HOME/LLApps""                -maxdepth 1 -type d -iname ""*$NAME*"" -print0 2>/dev/null)")
+		  lines.Add("")
+		  lines.Add("    while IFS= read -r -d '' ENTRY; do")
+		  lines.Add("        TARGETS+=(""$ENTRY"")")
+		  lines.Add("    done < <(find ""$HOME/LLGames""               -maxdepth 1 -type d -iname ""*$NAME*"" -print0 2>/dev/null)")
+		  lines.Add("")
+		  lines.Add("    while IFS= read -r -d '' ENTRY; do")
+		  lines.Add("        TARGETS+=(""$ENTRY"")")
+		  lines.Add("    done < <(find ""$HOME/.wine/drive_c/ppApps""  -maxdepth 1 -type d -iname ""*$NAME*"" -print0 2>/dev/null)")
+		  lines.Add("")
+		  lines.Add("    while IFS= read -r -d '' ENTRY; do")
+		  lines.Add("        TARGETS+=(""$ENTRY"")")
+		  lines.Add("    done < <(find ""$HOME/.wine/drive_c/ppGames"" -maxdepth 1 -type d -iname ""*$NAME*"" -print0 2>/dev/null)")
+		  lines.Add("")
+		  lines.Add("fi")
+		  lines.Add("")
+		  lines.Add("")
+		  lines.Add("#################################")
+		  lines.Add("# Not found handler")
+		  lines.Add("#################################")
+		  lines.Add("")
+		  lines.Add("if [ ${#TARGETS[@]} -eq 0 ]; then")
+		  lines.Add("")
+		  lines.Add("    say")
+		  lines.Add("    say ""Install not found""")
+		  lines.Add("    say")
+		  lines.Add("")
+		  lines.Add("    if [ ""$SILENT"" = false ] && [ ""$IS_SSAPP"" = true ]; then")
+		  lines.Add("")
+		  lines.Add("        if command -v wine >/dev/null 2>&1; then")
+		  lines.Add("            echo ""Opening Wine uninstaller...""")
+		  lines.Add("            wine uninstaller")
+		  lines.Add("        else")
+		  lines.Add("            echo ""Wine is not installed. Cannot open Wine uninstaller.""")
+		  lines.Add("        fi")
+		  lines.Add("")
+		  lines.Add("    else")
+		  lines.Add("")
+		  lines.Add("        say ""Nothing to remove.""")
+		  lines.Add("")
+		  lines.Add("    fi")
+		  lines.Add("")
+		  lines.Add("    [ ""$SILENT"" = false ] && sleep 3")
+		  lines.Add("    exit 0")
+		  lines.Add("")
+		  lines.Add("fi")
+		  lines.Add("")
+		  lines.Add("")
+		  lines.Add("#################################")
+		  lines.Add("# Remove installs")
+		  lines.Add("#################################")
+		  lines.Add("")
+		  lines.Add("say")
+		  lines.Add("say ""Removing...""")
+		  lines.Add("")
+		  lines.Add("for T in ""${TARGETS[@]}""")
+		  lines.Add("do")
+		  lines.Add("")
+		  lines.Add("    say ""$T""")
+		  lines.Add("    rm -rf ""$T""")
+		  lines.Add("")
+		  lines.Add("done")
+		  lines.Add("")
+		  lines.Add("")
+		  lines.Add("#################################")
+		  lines.Add("# Remove desktop entry")
+		  lines.Add("#################################")
+		  lines.Add("")
+		  lines.Add("say")
+		  lines.Add("say ""Removing menu entry...""")
+		  lines.Add("")
+		  lines.Add("rm -f ""$DESKTOP""")
+		  lines.Add("")
+		  lines.Add("")
+		  lines.Add("#################################")
+		  lines.Add("# Refresh menu")
+		  lines.Add("#################################")
+		  lines.Add("")
+		  lines.Add("if command -v update-desktop-database >/dev/null 2>&1; then")
+		  lines.Add("    update-desktop-database ""$HOME/.local/share/applications"" 2>/dev/null")
+		  lines.Add("fi")
+		  lines.Add("")
+		  lines.Add("")
+		  lines.Add("say")
+		  lines.Add("say ""Uninstall Complete""")
+		  lines.Add("say")
+		  lines.Add("")
+		  lines.Add("if [ ""$SILENT"" = false ]; then")
+		  lines.Add("    echo ""Self closing in 3 seconds, press space to keep terminal open...""")
+		  lines.Add("    if read -r -s -n 1 -t 3 _KEY; then")
+		  lines.Add("        sleep 0.5")
+		  lines.Add("        while read -r -s -n 1 -t 0 _ 2>/dev/null; do :; done")
+		  lines.Add("        echo ""Press ESC to close""")
+		  lines.Add("        while read -r -s -n 1 _KEY; do")
+		  lines.Add("            [ ""$_KEY"" = $'\e' ] && break")
+		  lines.Add("        done")
+		  lines.Add("    fi")
+		  lines.Add("fi")
+		  lines.Add("EOF")
+		  
+		  ' ── UninstallLauncher.sh heredoc ─────────────────────────────────
+		  lines.Add("$WRITE /LastOS/Tools/UninstallLauncher.sh > /dev/null << 'EOF'")
+		  lines.Add("#!/usr/bin/env bash")
+		  lines.Add("DESKTOP=""$1""")
+		  lines.Add("SILENT=""$2""")
+		  lines.Add("")
+		  lines.Add("if [ ""$SILENT"" = ""--silent"" ]; then")
+		  lines.Add("    bash /LastOS/Tools/Uninstall.sh ""$DESKTOP"" --silent")
+		  lines.Add("    exit 0")
+		  lines.Add("fi")
+		  lines.Add("")
+		  lines.Add("if command -v gnome-terminal >/dev/null 2>&1; then")
+		  lines.Add("    gnome-terminal --title=""LastOS Uninstall"" -- bash /LastOS/Tools/Uninstall.sh ""$DESKTOP""")
+		  lines.Add("elif command -v konsole >/dev/null 2>&1; then")
+		  lines.Add("    konsole -e bash /LastOS/Tools/Uninstall.sh ""$DESKTOP""")
+		  lines.Add("elif command -v xfce4-terminal >/dev/null 2>&1; then")
+		  lines.Add("    xfce4-terminal -e ""bash /LastOS/Tools/Uninstall.sh '$DESKTOP'""")
+		  lines.Add("elif command -v mate-terminal >/dev/null 2>&1; then")
+		  lines.Add("    mate-terminal -e ""bash /LastOS/Tools/Uninstall.sh '$DESKTOP'""")
+		  lines.Add("elif command -v lxterminal >/dev/null 2>&1; then")
+		  lines.Add("    lxterminal -e ""bash /LastOS/Tools/Uninstall.sh '$DESKTOP'""")
+		  lines.Add("elif command -v x-terminal-emulator >/dev/null 2>&1; then")
+		  lines.Add("    x-terminal-emulator -e ""bash /LastOS/Tools/Uninstall.sh '$DESKTOP'""")
+		  lines.Add("elif command -v xterm >/dev/null 2>&1; then")
+		  lines.Add("    xterm -e ""bash /LastOS/Tools/Uninstall.sh '$DESKTOP'""")
+		  lines.Add("else")
+		  lines.Add("    exit 1")
+		  lines.Add("fi")
+		  lines.Add("EOF")
+		  
+		  ' Final chmod calls
+		  lines.Add("$CHMOD +x /LastOS/Tools/Uninstall.sh")
+		  lines.Add("$CHMOD +x /LastOS/Tools/UninstallLauncher.sh")
+		  
+		  ' ── Write temp script ─────────────────────────────────────────────
+		  Dim scriptContent As String = Join(lines, Chr(10))
+		  
+		  Dim tmpFile As FolderItem = SpecialFolder.Temporary.Child("LLSetupTools_" + Str(Ticks) + ".sh")
+		  Dim tout As TextOutputStream = TextOutputStream.Create(tmpFile)
+		  tout.Write(scriptContent)
+		  tout.Close
+		  
+		  ' Make it executable (needed even for the sudo path)
+		  Dim chSh As New Shell
+		  chSh.TimeOut = -1
+		  chSh.Execute("chmod +x " + Chr(34) + tmpFile.NativePath + Chr(34))
+		  
+		  ' ── Run with or without sudo ──────────────────────────────────────
+		  If needsSudo Then
+		    If Debugging Then Debug("SetupUninstallTools: Running via RunSudo")
+		    RunSudo(Chr(34) + tmpFile.NativePath + Chr(34))
+		  Else
+		    If Debugging Then Debug("SetupUninstallTools: Running as current user")
+		    Dim sh As New Shell
+		    sh.TimeOut = -1
+		    sh.Execute(Chr(34) + tmpFile.NativePath + Chr(34))
+		  End If
+		  
+		  If Debugging Then Debug("SetupUninstallTools: Complete")
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub UpdateLoading(status As String)
 		  Loading.Status.Text = status
 		  Loading.Refresh
@@ -4542,9 +4890,20 @@ End
 		  
 		  If Debugging Then Debug("Admin Enabled: " + AdminEnabled.ToString)
 		  
+		  ' ── Ensure /LastOS/Tools uninstaller scripts are in place ─────────
+		  ' Checks writability; uses RunSudo automatically if elevated access
+		  ' is needed to create the folder or write the scripts.
+		  SetupUninstallTools()
+		  
 		  'Install Store Mode
 		  If OriginalStoreMode = 4 Or InstallStore = True Then
 		    Loading.Hide
+		    'Delete uninstall tools so they are recreated fresh after install
+		    If TargetLinux Then
+		      Deltree "/LastOS/Tools/Uninstall.sh"
+		      Deltree "/LastOS/Tools/UninstallLauncher.sh"
+		    End If
+		    
 		    InstallLLStore
 		    'PreQuitApp ' Save Debug etc
 		    'QuitApp 'Done installing, exit app, no need to continue

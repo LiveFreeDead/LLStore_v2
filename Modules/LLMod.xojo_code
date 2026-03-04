@@ -5146,6 +5146,14 @@ Protected Module LLMod
 		        DesktopContent = DesktopContent + "Categories=" + ItemLnk(I).Categories + Chr(10)
 		        DesktopContent = DesktopContent + "Terminal=" + Str(ItemLnk(I).Terminal) + Chr(10)
 		        
+		        ' Tag as LastOS-managed and add right-click Uninstall action
+		        DesktopContent = DesktopContent + "X-LastOS-App=true" + Chr(10)
+		        DesktopContent = DesktopContent + "Actions=Uninstall;" + Chr(10)
+		        DesktopContent = DesktopContent + Chr(10)
+		        DesktopContent = DesktopContent + "[Desktop Action Uninstall]" + Chr(10)
+		        DesktopContent = DesktopContent + "Name=Uninstall LLStore Item" + Chr(10)
+		        DesktopContent = DesktopContent + "Exec=bash /LastOS/Tools/UninstallLauncher.sh %k" + Chr(10)
+		        
 		        'Linux Associations
 		        If ItemLnk(I).Associations.Trim <> "" Then
 		          'System Wide (LLApps only)
@@ -5618,6 +5626,12 @@ Protected Module LLMod
 		  DesktopContent = DesktopContent + "Icon=" + Icon + Chr(10)
 		  DesktopContent = DesktopContent + "Categories=Game" + Chr(10)
 		  DesktopContent = DesktopContent + "Terminal=No" + Chr(10)
+		  DesktopContent = DesktopContent + "X-LastOS-App=true" + Chr(10)
+		  DesktopContent = DesktopContent + "Actions=Uninstall;" + Chr(10)
+		  DesktopContent = DesktopContent + Chr(10)
+		  DesktopContent = DesktopContent + "[Desktop Action Uninstall]" + Chr(10)
+		  DesktopContent = DesktopContent + "Name=Uninstall LLStore Item" + Chr(10)
+		  DesktopContent = DesktopContent + "Exec=bash /LastOS/Tools/UninstallLauncher.sh %k" + Chr(10)
 		  
 		  SaveDataToFile (DesktopContent, DesktopFile)
 		  ShellFast.Execute("chmod 775 "+Chr(34)+DesktopFile+Chr(34))
