@@ -2812,7 +2812,7 @@ Protected Module LLMod
 		    ShellFast.Execute("chmod +x "+Q+DolDir+"llfile.desktop"+Q)
 		    'Rebuild KDE sycoca so the service menu is active without a logout.
 		    'Timeout prevents this from hanging the install on slow KDE setups.
-		    ShellFast.Execute("timeout 15 kbuildsycoca6 --noincremental 2>/dev/null || timeout 15 kbuildsycoca5 --noincremental 2>/dev/null || true")
+		    ShellFast.Execute("bash -c 'timeout 15 kbuildsycoca6 --noincremental 2>/dev/null || timeout 15 kbuildsycoca5 --noincremental 2>/dev/null || true &'") 'Backgrounded: KDE cache rebuild, can be slow, no need to block
 		  End If
 		  
 		  ' =====================================================================
@@ -3820,8 +3820,8 @@ Protected Module LLMod
 		    
 		    'Make LLStore as default for all supported types
 		    'application/x-llfile
-		    ShellFast.Execute ("xdg-mime default llfile_filetype.desktop application/x-llfile")
-		    RunSudo ("xdg-mime default llfile_filetype.desktop application/x-llfile")
+		    ShellFast.Execute ("bash -c 'xdg-mime default llfile_filetype.desktop application/x-llfile > /dev/null 2>&1 &'") 'Backgrounded: no need to wait
+		    RunSudo ("xdg-mime default llfile_filetype.desktop application/x-llfile &") 'Backgrounded: no need to wait
 		    
 		    
 		    'Make Shortcuts
@@ -3857,6 +3857,9 @@ Protected Module LLMod
 		    DesktopOutPath = Slash(HomePath)+"Desktop/"
 		    SaveDataToFile(DesktopContent, DesktopOutPath+DesktopFile)
 		    ShellFast.Execute ("chmod 775 "+Chr(34)+DesktopOutPath+DesktopFile+Chr(34)) 'Change Read/Write/Execute to defaults
+		    If SysDesktopEnvironment.Trim.Lowercase = "gnome" Or SysDesktopEnvironment.Trim.Lowercase = "unity" Or SysDesktopEnvironment.Trim.Lowercase = "ubuntu" Or SysDesktopEnvironment.Trim.Lowercase = "budgie" Then 'Only GNOME/Unity (Nautilus) uses the trusted metadata flag; other DEs rely on the executable bit alone
+		      ShellFast.Execute ("gio set -t string " + Chr(34) + DesktopOutPath+DesktopFile + Chr(34) + " metadata::trusted true") 'Trust desktop file so Nautilus shows it in colour and allows double-click without prompting
+		    End If
 		    
 		    'Editor
 		    DesktopContent = "[Desktop Entry]" + Chr(10)
@@ -3900,6 +3903,9 @@ Protected Module LLMod
 		    DesktopOutPath = Slash(HomePath)+"Desktop/"
 		    SaveDataToFile(DesktopContent, DesktopOutPath+DesktopFile)
 		    ShellFast.Execute ("chmod 775 "+Chr(34)+DesktopOutPath+DesktopFile+Chr(34)) 'Change Read/Write/Execute to defaults
+		    If SysDesktopEnvironment.Trim.Lowercase = "gnome" Or SysDesktopEnvironment.Trim.Lowercase = "unity" Or SysDesktopEnvironment.Trim.Lowercase = "ubuntu" Or SysDesktopEnvironment.Trim.Lowercase = "budgie" Then 'Only GNOME/Unity (Nautilus) uses the trusted metadata flag; other DEs rely on the executable bit alone
+		      ShellFast.Execute ("gio set -t string " + Chr(34) + DesktopOutPath+DesktopFile + Chr(34) + " metadata::trusted true") 'Trust desktop file so Nautilus shows it in colour and allows double-click without prompting
+		    End If
 		    
 		    'Run Fixes
 		    If Wayland = True Then 
@@ -4718,6 +4724,7 @@ Protected Module LLMod
 		  Dim J As Integer
 		  Dim CurrentIconTheme As String
 		  Dim Shelly As New Shell
+		  Shelly.TimeOut = 30 'Prevent blocking forever on slow/broken xdg or dbus calls
 		  Dim Res As String
 		  Dim TypeName As String
 		  
@@ -4748,7 +4755,7 @@ Protected Module LLMod
 		    MakeFolder(Slash(HomePath)+".local/share/applications")
 		    
 		    'MIME Type
-		    Shelly.Execute ("gsettings get org.gnome.desktop.interface icon-theme")
+		    Shelly.Execute ("bash -c 'timeout 5 gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null || echo "+Chr(34)+Chr(34)+"'") 'timeout 5 prevents D-Bus hang on non-GNOME desktops (KDE, XFCE, etc.)
 		    CurrentIconTheme = Shelly.Result
 		    CurrentIconTheme = CurrentIconTheme.ReplaceAll ("'", "") 
 		    'ShellFast.Execute ("cp "+Chr(34)+LOGO+Chr(34)+" "+BaseDir+"/icon.png") 
@@ -4781,7 +4788,7 @@ Protected Module LLMod
 		    FileContent = FileContent + "    </mime-type>" + Chr(10)
 		    FileContent = FileContent + "</mime-info>" + Chr(10)
 		    SaveDataToFile(FileContent, FileOut)
-		    Shelly.Execute ("xdg-mime install " + FileOut)
+		    ShellFast.Execute ("bash -c 'xdg-mime install " + FileOut + " > /dev/null 2>&1 && rm " + FileOut + " &'") 'Backgrounded: install then clean up temp file
 		    
 		    ShellFast.Execute ("bash -c 'update-mime-database $HOME/.local/share/mime > /dev/null 2>&1 &'") 'Backgrounded: cache refresh only
 		    
@@ -4790,7 +4797,6 @@ Protected Module LLMod
 		      RunSudo ("xdg-mime install " + FileOut)
 		      RunSudo ("update-mime-database /usr/share/mime/ &") 'Backgrounded: very slow, cache refresh only
 		    End If
-		    Shelly.Execute ("rm " + FileOut)
 		    
 		    'I can make each added type the default, but that seems extreme
 		    'ShellFast.Execute ("xdg-mime default "+APP+"_filetype.desktop application/x-"+APP)
@@ -4835,10 +4841,9 @@ Protected Module LLMod
 		      'RunSudo ("sudo update-icon-caches /usr/share/icons/*") 'This is WAY too slow to do all the time, disabled!!!!
 		    End If
 		    
-		    Shelly.Execute ("desktop-file-install --dir=$HOME/.local/share/applications " + FileOut)
-		    Shelly.Execute (" rm " + FileOut)
+		    ShellFast.Execute ("bash -c 'desktop-file-install --dir=$HOME/.local/share/applications " + FileOut + " > /dev/null 2>&1 && rm " + FileOut + " &'") 'Backgrounded: install then clean up temp file
 		    ShellFast.Execute ("bash -c 'update-desktop-database $HOME/.local/share/applications > /dev/null 2>&1 &'") 'Backgrounded: cache refresh only
-		    Shelly.Execute ("xdg-mime default " + APP + ".desktop application/x-" + APP)
+		    ShellFast.Execute ("bash -c 'xdg-mime default " + APP + ".desktop application/x-" + APP + " > /dev/null 2>&1 &'")
 		    ShellFast.Execute ("bash -c 'update-icon-caches $HOME/.local/share/icons/* > /dev/null 2>&1 &'") 'Backgrounded: cache refresh only
 		    
 		    ShellFast.Execute ("chmod 775 "+Chr(34)+"$HOME/.local/share/applications/"+ APP + "_filetype.desktop"+Chr(34)) 'Change Read/Write/Execute to defaults
@@ -5240,6 +5245,9 @@ Protected Module LLMod
 		        If ItemLnk(I).Desktop = True Then
 		          SaveDataToFile(DesktopContent, Slash(HomePath)+"Desktop/"+DesktopFile) 'Also save to Desktop
 		          ShellFast.Execute ("chmod 775 "+Chr(34)+Slash(HomePath)+"Desktop/"+DesktopFile+Chr(34)) 'Change Read/Write/Execute to defaults
+		          If SysDesktopEnvironment.Trim.Lowercase = "gnome" Or SysDesktopEnvironment.Trim.Lowercase = "unity" Or SysDesktopEnvironment.Trim.Lowercase = "ubuntu" Or SysDesktopEnvironment.Trim.Lowercase = "budgie" Then 'Only GNOME/Unity (Nautilus) uses the trusted metadata flag; other DEs rely on the executable bit alone
+		            ShellFast.Execute ("gio set -t string " + Chr(34) + Slash(HomePath)+"Desktop/"+DesktopFile + Chr(34) + " metadata::trusted true") 'Trust desktop file so Nautilus shows it in colour and allows double-click without prompting
+		          End If
 		        End If
 		        
 		        'Panel Link
@@ -5247,7 +5255,7 @@ Protected Module LLMod
 		          If Exist(Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.json") Then 'If it's not there, don't bother
 		            ShellFast.Execute("type -P jq")
 		            If ShellFast.Result <> "" Then 'Can only add to the panel if jq is installed to work with .json files
-		              ShellFast.Execute("jq --arg order "+Chr(34)+DesktopFile+Chr(34)+" '."+Chr(34)+"pinned-apps"+Chr(34)+".value |= if index($order) then . else . + [$order] end' "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.json | tee "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.new >/dev/null && mv "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.new "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.json")
+		              ShellFast.Execute("jq --arg order "+Chr(34)+DesktopFile+Chr(34)+" '."+Chr(34)+"pinned-apps"+Chr(34)+".value |= if index($order) then . else . + [$order] end' "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.json | tee "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.new >/dev/null && mv "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.new "+Slash(HomePath)+".config/cinnamon/spices/grouped-window-list@cinnamon.org/2.json > /dev/null 2>&1 &") 'Backgrounded: panel config write, no need to block
 		              RunRefreshScript = True
 		            End If
 		          End If
@@ -5255,7 +5263,7 @@ Protected Module LLMod
 		        
 		        'Favorites Menu
 		        If ItemLnk(I).Favorite = True Then
-		          ShellFast.Execute("gsettings set org.cinnamon favorite-apps "+Chr(34)+"$(gsettings get org.cinnamon favorite-apps | sed s/.$//), '"+DesktopFile+"']"+Chr(34))
+		          ShellFast.Execute("gsettings set org.cinnamon favorite-apps "+Chr(34)+"$(gsettings get org.cinnamon favorite-apps | sed s/.$//), '"+DesktopFile+"']"+Chr(34)+" > /dev/null 2>&1 &") 'Backgrounded: favorites update, no need to block
 		        End If
 		      Next I
 		    End If
@@ -5693,6 +5701,9 @@ Protected Module LLMod
 		  
 		  SaveDataToFile (DesktopContent, DesktopFile)
 		  ShellFast.Execute("chmod 775 "+Chr(34)+DesktopFile+Chr(34))
+		  If SysDesktopEnvironment.Trim.Lowercase = "gnome" Or SysDesktopEnvironment.Trim.Lowercase = "unity" Or SysDesktopEnvironment.Trim.Lowercase = "ubuntu" Or SysDesktopEnvironment.Trim.Lowercase = "budgie" Then 'Only GNOME/Unity (Nautilus) uses the trusted metadata flag; other DEs rely on the executable bit alone
+		    ShellFast.Execute("gio set -t string " + Chr(34) + DesktopFile + Chr(34) + " metadata::trusted true") 'Trust desktop file so Nautilus shows it in colour and allows double-click without prompting
+		  End If
 		  
 		End Sub
 	#tag EndMethod
@@ -7101,7 +7112,7 @@ Protected Module LLMod
 		        Wend
 		        
 		        'Update Linux .desktop Links Database (usually occurs after sudo scripts as that installs system wide .desktop files)
-		        If TargetLinux Then RunSudo ("update-desktop-database /usr/share/applications")
+		        If TargetLinux Then RunSudo ("update-desktop-database /usr/share/applications &") 'Backgrounded: cache refresh, no need to block
 		        
 		      End If
 		    End If
