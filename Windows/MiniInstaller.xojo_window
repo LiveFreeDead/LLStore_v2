@@ -877,10 +877,12 @@ End
 		    
 		    If RunRefreshScript = True Or ForceDERefresh = True Then RunRefresh("cinnamon -r&") 'Refresh after Mini Installer Completes so Panel Items show
 		    'Also do KDE
-		    If SysDesktopEnvironment = "KDE" Then
+		    If SysDesktopEnvironment = "kde" Or SysDesktopEnvironment = "plasma" Then
 		      If RunRefreshScript = True Or ForceDERefresh = True Then 
 		        ForceDERefresh = False
-		        RunRefresh("kquitapp plasmashell && plasmashell&") 'Refresh after Mini Installer Completes so Panel Items show
+		        ' Rebuild KDE service cache so installed .desktop entries appear immediately.
+		        ' kbuildsycoca is non-destructive — no plasmashell restart needed.
+		        ShellFast.Execute("bash -c 'timeout 15 kbuildsycoca6 --noincremental 2>/dev/null || timeout 15 kbuildsycoca5 --noincremental 2>/dev/null || true &'")
 		      End If
 		    End If
 		    

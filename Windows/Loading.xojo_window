@@ -3420,6 +3420,27 @@ End
 		      End If
 		    End If
 		    
+		    ' ── sg fast-path: user IS in lastos-users per /etc/group but the current session was
+		    ' started before the group was added (no re-login yet).  The dir is root:lastos-users 775
+		    ' so group members can write directly, but the running process lacks the effective GID
+		    ' because PAM only applies groups at login time.
+		    ' sg lastos-users -c activates the GID for this single command — no root / polkit needed.
+		    ' This is the most common scenario on CachyOS/Arch after a fresh LLStore install.
+		    If Not groupNeeded And needsSudo Then
+		      If Debugging Then Debug("SetupUninstallTools: Trying sg lastos-users (group exists in /etc/group but not active in session)")
+		      Dim sgFastSh As New Shell
+		      sgFastSh.TimeOut = 30
+		      sgFastSh.ExecuteMode = Shell.ExecuteModes.Synchronous
+		      sgFastSh.Execute("sg lastos-users -c " + Chr(34) + "bash " + Chr(34) + tmpFile.NativePath + Chr(34) + Chr(34))
+		      If Exist(toolsDir + "/Uninstall.sh") And Exist(toolsDir + "/UninstallLauncher.sh") Then
+		        If Debugging Then Debug("SetupUninstallTools: sg lastos-users succeeded — scripts written")
+		        Dim sgTmpF As FolderItem = GetFolderItem(tmpFile.NativePath, FolderItem.PathTypeNative)
+		        If sgTmpF <> Nil And sgTmpF.Exists Then sgTmpF.Remove
+		        Return
+		      End If
+		      If Debugging Then Debug("SetupUninstallTools: sg path failed, falling back to RunSudoOnceDirect")
+		    End If
+		    
 		    ' If groupNeeded but NOT needsSudo, the script only contains group setup — still uses RunSudoOnceDirect
 		    ' If needsSudo, setup_lastos_group.sh + folder setup all run in one elevated call
 		    RunSudoOnceDirect(tmpFile.NativePath)
@@ -5207,10 +5228,13 @@ End
 		    
 		    If RunRefreshScript = True Or ForceDERefresh = True Then RunRefresh("cinnamon -r&")
 		    
-		    If SysDesktopEnvironment = "kde" Or SysDesktopEnvironment = "KDE" Then
+		    If SysDesktopEnvironment = "kde" Or SysDesktopEnvironment = "plasma" Then
 		      If RunRefreshScript = True Or ForceDERefresh = True Then
 		        ForceDERefresh = False
-		        RunRefresh("kquitapp plasmashell && plasmashell&")
+		        ' Rebuild KDE service cache so the new .desktop entry appears immediately.
+		        ' kbuildsycoca is non-destructive and works without restarting plasmashell.
+		        ' Try kbuildsycoca6 (KDE6) then kbuildsycoca5 (KDE5) in that order.
+		        ShellFast.Execute("bash -c 'timeout 15 kbuildsycoca6 --noincremental 2>/dev/null || timeout 15 kbuildsycoca5 --noincremental 2>/dev/null || true &'")
 		      End If
 		    End If
 		  End If
