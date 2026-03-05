@@ -26,7 +26,6 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -67,7 +66,6 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -76,7 +74,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -85,7 +82,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -94,7 +90,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -103,7 +98,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer InstallTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   120
@@ -112,7 +106,6 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer BuildTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   120
@@ -3073,129 +3066,44 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub ShowDownloadImages()
-		  Dim F As FolderItem
-		  Dim WebWall As String
-		  Dim UN As String
-		  
-		  Try
-		    'Get UN Name (Universal Name)
-		    UN = UniversalName(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("TitleName"))+Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("BuildType")))
-		    
-		    If  Exist(Slash(RepositoryPathLocal)+".lldb/"+UN+".jpg") Then 'Screenshot
-		      WebWall = Slash(RepositoryPathLocal)+".lldb/"+UN+".jpg" 'Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("FileScreenshot"))
-		      If WebWall = "" Or Not Exist(WebWall) Then
-		        WebWall = Slash(ThemePath) + "Screenshot.jpg" 'Default Theme Wallpaper used if no other given (could do Category Screenshots here if wanted)
-		      End If
-		      
-		      F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
-		      ScreenShotCurrent = Picture.Open(F)
-		      Main.ScaleScreenShot
-		    End If
-		  Catch
-		  End Try
-		  Try
-		    If Exist(Slash(RepositoryPathLocal)+".lldb/"+UN+".png") Then 'Fader
-		      WebWall = Slash(RepositoryPathLocal)+".lldb/"+UN+".png" 'Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("FileFader"))
-		      If WebWall = "" Or Not Exist(WebWall) Then
-		        WebWall = Slash(ThemePath) + "Icon.png" 'Default Theme Icon  used if no other given (could do Category Icons here if wanted)
-		      End If
-		      F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
-		      CurrentFader = Picture.Open(F)
-		      
-		      'Clone From Wallpaper to Icon BG
-		      If CurrentFader <> Nil Then
-		        If Main.ItemFaderPic.Backdrop <> Nil And Main.Backdrop <> Nil Then ' Only do if Valid
-		          Main.ItemFaderPic.Backdrop.Graphics.DrawPicture(Main.Backdrop,0,0,Main.ItemFaderPic.Width, Main.ItemFaderPic.Height, Main.ItemFaderPic.Left, Main.ItemFaderPic.Top, Main.ItemFaderPic.Width, Main.ItemFaderPic.Height)
-		          'Draw Fader Icon on BG
-		          Main.ItemFaderPic.Backdrop.Graphics.DrawPicture(CurrentFader,0,0,Main.ItemFaderPic.Width, Main.ItemFaderPic.Height,0,0,CurrentFader.Width, CurrentFader.Height)
-		          Main.ItemFaderPic.Refresh
-		        End If
-		        
-		        ' --- Update the listbox row icon with the newly downloaded image ---
-		        ' Add the downloaded fader into the shared icon cache and point this
-		        ' item's IconRef at the new slot.  Then repaint just the visible rows
-		        ' via Items.Refresh — this preserves ScrollPosition and SelectedRowIndex
-		        ' automatically, so the list position is never lost.
-		        If CurrentItemID >= 0 Then
-		          Dim NewIconIdx As Integer = Data.Icons.RowCount
-		          Data.Icons.AddRow
-		          Data.Icons.RowImageAt(NewIconIdx) = CurrentFader
-		          Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("IconRef")) = Str(NewIconIdx)
-		          Main.Items.Refresh ' Repaint rows — does NOT reset scroll or selection
-		        End If
-		        
-		      End If
-		    End If
-		  Catch
-		  End Try
-		End Sub
-	#tag EndMethod
-
-	#tag Method, Flags = &h0
-		Sub StartIconDownload(URL As String, LocalPath As String)
-		  ' Downloads a .png icon/fader using an async curl shell.
-		  ' DownloadScreenAndIcon timer polls IsRunning and calls ShowDownloadImages on completion.
-		  Try
-		    If ShellIcon <> Nil And ShellIcon.IsRunning Then ShellIcon.Close
-		    ShellIcon = New Shell
-		    ShellIcon.TimeOut = -1
-		    ShellIcon.ExecuteMode = Shell.ExecuteModes.Asynchronous
-		    Dim CurlBin As String = LinuxCurl
-		    If TargetWindows Then CurlBin = WinCurl
-		    ShellIcon.Execute(CurlBin + " -L -s --connect-timeout 15 -o " + Chr(34) + LocalPath + Chr(34) + " " + Chr(34) + URL + Chr(34))
-		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Multiple
-		  Catch
-		  End Try
-		End Sub
-	#tag EndMethod
-
-	#tag Method, Flags = &h0
-		Sub StartScreenshotDownload(URL As String, LocalPath As String)
-		  ' Downloads a .jpg screenshot using an async curl shell.
-		  ' DownloadScreenAndIcon timer polls IsRunning and calls ShowDownloadImages on completion.
-		  Try
-		    If ShellScreenshot <> Nil And ShellScreenshot.IsRunning Then ShellScreenshot.Close
-		    ShellScreenshot = New Shell
-		    ShellScreenshot.TimeOut = -1
-		    ShellScreenshot.ExecuteMode = Shell.ExecuteModes.Asynchronous
-		    Dim CurlBin As String = LinuxCurl
-		    If TargetWindows Then CurlBin = WinCurl
-		    ShellScreenshot.Execute(CurlBin + " -L -s --connect-timeout 15 -o " + Chr(34) + LocalPath + Chr(34) + " " + Chr(34) + URL + Chr(34))
-		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Multiple
-		  Catch
-		  End Try
-		End Sub
-	#tag EndMethod
-
-	#tag Method, Flags = &h0
 		Sub SetupUninstallTools()
-		  ' Writes /LastOS/Tools/Uninstall.sh and UninstallLauncher.sh.
-		  ' Runs as the current user if the folder is already writable,
-		  ' or falls back to RunSudo if it needs elevated privileges.
-		  ' Linux only — exits immediately on any other platform.
 		  If Not TargetLinux Then Return
 		  
 		  Dim toolsDir As String = "/LastOS/Tools"
 		  Dim needsSudo As Boolean = False
 		  
-		  ' ── Already installed? Skip. ──────────────────────────────────────
-		  If Exist(toolsDir + "/Uninstall.sh") And Exist(toolsDir + "/UninstallLauncher.sh") Then
-		    If Debugging Then Debug("SetupUninstallTools: Scripts already present, skipping")
+		  ' ── Check group membership (no execution yet) ────────────────────
+		  Dim gSh As New Shell
+		  gSh.TimeOut = 5
+		  gSh.ExecuteMode = Shell.ExecuteModes.Synchronous
+		  
+		  gSh.Execute("getent group lastos-users 2>/dev/null")
+		  Dim groupNeeded As Boolean = (gSh.Result.Trim = "")
+		  
+		  If Not groupNeeded Then
+		    gSh.Execute("whoami 2>/dev/null")
+		    Dim currentUser As String = gSh.Result.Trim
+		    gSh.Execute("id -nG " + Chr(34) + currentUser + Chr(34) + " 2>/dev/null")
+		    If Not gSh.Result.Trim.Contains("lastos-users") Then groupNeeded = True
+		  End If
+		  
+		  ' NOTE: Group setup execution is deferred — handled below after needsSudo is known
+		  
+		  ' ── Already installed? ────────────────────────────────────────────
+		  If Not groupNeeded And Exist(toolsDir + "/Uninstall.sh") And Exist(toolsDir + "/UninstallLauncher.sh") Then
+		    If Debugging Then Debug("SetupUninstallTools: Scripts already present")
 		    Return
 		  End If
 		  
-		  ' ── Determine whether sudo is required ────────────────────────────
+		  ' ── Determine whether sudo is required for uninstall scripts ──────
 		  Dim toolsDirF As FolderItem = GetFolderItem(toolsDir, FolderItem.PathTypeNative)
 		  
 		  If toolsDirF <> Nil And toolsDirF.Exists Then
-		    ' Folder exists — writable by current user?
 		    If Not toolsDirF.IsWriteable Then
 		      needsSudo = True
-		      If Debugging Then Debug("SetupUninstallTools: /LastOS/Tools exists but is not writable — will use sudo")
+		      If Debugging Then Debug("SetupUninstallTools: /LastOS/Tools not writable — will use sudo")
 		    End If
 		  Else
-		    ' Folder does not exist — attempt to create it without sudo first
 		    #Pragma BreakOnExceptions Off
 		    Try
 		      MakeFolder(toolsDir)
@@ -3214,8 +3122,20 @@ End
 		  ' ── Build the script content ──────────────────────────────────────
 		  Dim lines() As String
 		  
-		  ' Outer wrapper — detect write method
-		  lines.Add("#!/usr/bin/env bash")
+		  ' ── Always call setup_lastos_group.sh whenever the script will run elevated.
+		  '     It is fully idempotent (skips group/member steps if already correct) and
+		  '     is the ONLY place that runs  chown root:lastos-users  on /LastOS + /LastOS/Tools.
+		  '     Previously this was guarded by (groupNeeded And needsSudo), so the chown was
+		  '     silently skipped whenever the group existed but dir ownership was still wrong. ──
+		  If needsSudo Or groupNeeded Then
+		    If Debugging Then Debug("SetupUninstallTools: Including group + chown setup in sudo script")
+		    lines.Add("#!/usr/bin/env bash")
+		    lines.Add("bash " + Chr(34) + ToolPath + "setup_lastos_group.sh" + Chr(34) + " /LastOS")
+		    lines.Add("")
+		  Else
+		    lines.Add("#!/usr/bin/env bash")
+		  End If
+		  
 		  lines.Add("if ! mkdir -p /LastOS/Tools 2>/dev/null; then")
 		  lines.Add("    sudo mkdir -p /LastOS/Tools")
 		  lines.Add("    WRITE=""sudo tee""")
@@ -3224,9 +3144,11 @@ End
 		  lines.Add("    WRITE=""tee""")
 		  lines.Add("    CHMOD=""chmod""")
 		  lines.Add("fi")
-		  
-		  ' ── Uninstall.sh heredoc ─────────────────────────────────────────
-		  lines.Add("$WRITE /LastOS/Tools/Uninstall.sh > /dev/null << 'EOF'")
+		  lines.Add("# Ensure group ownership is correct even if Tools was just created after chown -R ran")
+		  lines.Add("chown root:lastos-users /LastOS /LastOS/Tools /LastOS/LLStore 2>/dev/null || true")
+		  lines.Add("")
+		  ' ── Write /LastOS/Tools/Uninstall.sh ─────────────────────────────────────
+		  lines.Add("cat << 'UNINSTALL_EOF' | $WRITE /LastOS/Tools/Uninstall.sh > /dev/null")
 		  lines.Add("#!/usr/bin/env bash")
 		  lines.Add("")
 		  lines.Add("###########################################")
@@ -3440,10 +3362,11 @@ End
 		  lines.Add("        done")
 		  lines.Add("    fi")
 		  lines.Add("fi")
-		  lines.Add("EOF")
-		  
-		  ' ── UninstallLauncher.sh heredoc ─────────────────────────────────
-		  lines.Add("$WRITE /LastOS/Tools/UninstallLauncher.sh > /dev/null << 'EOF'")
+		  lines.Add("UNINSTALL_EOF")
+		  lines.Add("$CHMOD 775 /LastOS/Tools/Uninstall.sh")
+		  lines.Add("")
+		  ' ── Write /LastOS/Tools/UninstallLauncher.sh ──────────────────────────────
+		  lines.Add("cat << 'LAUNCHER_EOF' | $WRITE /LastOS/Tools/UninstallLauncher.sh > /dev/null")
 		  lines.Add("#!/usr/bin/env bash")
 		  lines.Add("DESKTOP=""$1""")
 		  lines.Add("SILENT=""$2""")
@@ -3470,29 +3393,60 @@ End
 		  lines.Add("else")
 		  lines.Add("    exit 1")
 		  lines.Add("fi")
-		  lines.Add("EOF")
+		  lines.Add("LAUNCHER_EOF")
+		  lines.Add("$CHMOD 775 /LastOS/Tools/UninstallLauncher.sh")
 		  
-		  ' Final chmod calls
-		  lines.Add("$CHMOD +x /LastOS/Tools/Uninstall.sh")
-		  lines.Add("$CHMOD +x /LastOS/Tools/UninstallLauncher.sh")
-		  
-		  ' ── Write temp script ─────────────────────────────────────────────
+		  ' ── Write and execute temp script ────────────────────────────────
 		  Dim scriptContent As String = Join(lines, Chr(10))
-		  
 		  Dim tmpFile As FolderItem = SpecialFolder.Temporary.Child("LLSetupTools_" + Str(Ticks) + ".sh")
 		  Dim tout As TextOutputStream = TextOutputStream.Create(tmpFile)
 		  tout.Write(scriptContent)
 		  tout.Close
 		  
-		  ' Make it executable (needed even for the sudo path)
 		  Dim chSh As New Shell
 		  chSh.TimeOut = -1
 		  chSh.Execute("chmod +x " + Chr(34) + tmpFile.NativePath + Chr(34))
 		  
-		  ' ── Run with or without sudo ──────────────────────────────────────
-		  If needsSudo Then
-		    If Debugging Then Debug("SetupUninstallTools: Running via RunSudo")
-		    RunSudo(Chr(34) + tmpFile.NativePath + Chr(34))
+		  If needsSudo Or groupNeeded Then
+		    ' Both cases handled: either sudo needed for folders, or group setup needs sudo,
+		    ' or both (group call was already prepended into the script above)
+		    If Debugging Then
+		      If needsSudo And groupNeeded Then
+		        Debug("SetupUninstallTools: Running via RunSudoOnceDirect (folders + group setup)")
+		      ElseIf needsSudo Then
+		        Debug("SetupUninstallTools: Running via RunSudoOnceDirect (folders only)")
+		      Else
+		        Debug("SetupUninstallTools: Running via RunSudoOnceDirect (group setup only)")
+		      End If
+		    End If
+		    
+		    ' If groupNeeded but NOT needsSudo, the script only contains group setup — still uses RunSudoOnceDirect
+		    ' If needsSudo, setup_lastos_group.sh + folder setup all run in one elevated call
+		    RunSudoOnceDirect(tmpFile.NativePath)
+		    
+		    ' ── Restart via sg if the group was just set up ──────────────────────────
+		    ' setup_lastos_group.sh added the user to lastos-users, but the *running* process
+		    ' won't see that new membership until it relaunches under sg — no logout needed.
+		    ' Only do this when the group setup actually ran (groupNeeded was true) and only
+		    ' when it was triggered by the sudo path (i.e. the script ran with elevation).
+		    If groupNeeded Then
+		      ' Confirm the group now exists in /etc/group before attempting sg relaunch
+		      Dim sgCheckSh As New Shell
+		      sgCheckSh.TimeOut = 5
+		      sgCheckSh.ExecuteMode = Shell.ExecuteModes.Synchronous
+		      sgCheckSh.Execute("getent group lastos-users >/dev/null 2>&1 && echo yes || echo no")
+		      
+		      If sgCheckSh.Result.Trim = "yes" And AppPath <> "" Then
+		        If Debugging Then Debug("SetupUninstallTools: Relaunching via sg lastos-users to activate group membership in session")
+		        ' Detach a new LLStore in the lastos-users group context, then exit this one.
+		        ' nohup + & ensures the child outlives this process cleanly.
+		        Dim rlSh As New Shell
+		        rlSh.TimeOut = -1
+		        rlSh.Execute("nohup sg lastos-users -c " + Chr(34) + "exec " + Chr(34) + Slash(AppPath) + "llstore" + Chr(34) + Chr(34) + " >/dev/null 2>&1 &")
+		        ForceQuit = True
+		        Quit
+		      End If
+		    End If
 		  Else
 		    If Debugging Then Debug("SetupUninstallTools: Running as current user")
 		    Dim sh As New Shell
@@ -3501,6 +3455,102 @@ End
 		  End If
 		  
 		  If Debugging Then Debug("SetupUninstallTools: Complete")
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub ShowDownloadImages()
+		  Dim F As FolderItem
+		  Dim WebWall As String
+		  Dim UN As String
+		  
+		  Try
+		    'Get UN Name (Universal Name)
+		    UN = UniversalName(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("TitleName"))+Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("BuildType")))
+		    
+		    If  Exist(Slash(RepositoryPathLocal)+".lldb/"+UN+".jpg") Then 'Screenshot
+		      WebWall = Slash(RepositoryPathLocal)+".lldb/"+UN+".jpg" 'Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("FileScreenshot"))
+		      If WebWall = "" Or Not Exist(WebWall) Then
+		        WebWall = Slash(ThemePath) + "Screenshot.jpg" 'Default Theme Wallpaper used if no other given (could do Category Screenshots here if wanted)
+		      End If
+		      
+		      F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
+		      ScreenShotCurrent = Picture.Open(F)
+		      Main.ScaleScreenShot
+		    End If
+		  Catch
+		  End Try
+		  Try
+		    If Exist(Slash(RepositoryPathLocal)+".lldb/"+UN+".png") Then 'Fader
+		      WebWall = Slash(RepositoryPathLocal)+".lldb/"+UN+".png" 'Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("FileFader"))
+		      If WebWall = "" Or Not Exist(WebWall) Then
+		        WebWall = Slash(ThemePath) + "Icon.png" 'Default Theme Icon  used if no other given (could do Category Icons here if wanted)
+		      End If
+		      F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
+		      CurrentFader = Picture.Open(F)
+		      
+		      'Clone From Wallpaper to Icon BG
+		      If CurrentFader <> Nil Then
+		        If Main.ItemFaderPic.Backdrop <> Nil And Main.Backdrop <> Nil Then ' Only do if Valid
+		          Main.ItemFaderPic.Backdrop.Graphics.DrawPicture(Main.Backdrop,0,0,Main.ItemFaderPic.Width, Main.ItemFaderPic.Height, Main.ItemFaderPic.Left, Main.ItemFaderPic.Top, Main.ItemFaderPic.Width, Main.ItemFaderPic.Height)
+		          'Draw Fader Icon on BG
+		          Main.ItemFaderPic.Backdrop.Graphics.DrawPicture(CurrentFader,0,0,Main.ItemFaderPic.Width, Main.ItemFaderPic.Height,0,0,CurrentFader.Width, CurrentFader.Height)
+		          Main.ItemFaderPic.Refresh
+		        End If
+		        
+		        ' --- Update the listbox row icon with the newly downloaded image ---
+		        ' Add the downloaded fader into the shared icon cache and point this
+		        ' item's IconRef at the new slot.  Then repaint just the visible rows
+		        ' via Items.Refresh — this preserves ScrollPosition and SelectedRowIndex
+		        ' automatically, so the list position is never lost.
+		        If CurrentItemID >= 0 Then
+		          Dim NewIconIdx As Integer = Data.Icons.RowCount
+		          Data.Icons.AddRow
+		          Data.Icons.RowImageAt(NewIconIdx) = CurrentFader
+		          Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("IconRef")) = Str(NewIconIdx)
+		          Main.Items.Refresh ' Repaint rows — does NOT reset scroll or selection
+		        End If
+		        
+		      End If
+		    End If
+		  Catch
+		  End Try
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub StartIconDownload(URL As String, LocalPath As String)
+		  ' Downloads a .png icon/fader using an async curl shell.
+		  ' DownloadScreenAndIcon timer polls IsRunning and calls ShowDownloadImages on completion.
+		  Try
+		    If ShellIcon <> Nil And ShellIcon.IsRunning Then ShellIcon.Close
+		    ShellIcon = New Shell
+		    ShellIcon.TimeOut = -1
+		    ShellIcon.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		    Dim CurlBin As String = LinuxCurl
+		    If TargetWindows Then CurlBin = WinCurl
+		    ShellIcon.Execute(CurlBin + " -L -s --connect-timeout 15 -o " + Chr(34) + LocalPath + Chr(34) + " " + Chr(34) + URL + Chr(34))
+		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Multiple
+		  Catch
+		  End Try
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub StartScreenshotDownload(URL As String, LocalPath As String)
+		  ' Downloads a .jpg screenshot using an async curl shell.
+		  ' DownloadScreenAndIcon timer polls IsRunning and calls ShowDownloadImages on completion.
+		  Try
+		    If ShellScreenshot <> Nil And ShellScreenshot.IsRunning Then ShellScreenshot.Close
+		    ShellScreenshot = New Shell
+		    ShellScreenshot.TimeOut = -1
+		    ShellScreenshot.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		    Dim CurlBin As String = LinuxCurl
+		    If TargetWindows Then CurlBin = WinCurl
+		    ShellScreenshot.Execute(CurlBin + " -L -s --connect-timeout 15 -o " + Chr(34) + LocalPath + Chr(34) + " " + Chr(34) + URL + Chr(34))
+		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Multiple
+		  Catch
+		  End Try
 		End Sub
 	#tag EndMethod
 
@@ -4890,10 +4940,12 @@ End
 		  
 		  If Debugging Then Debug("Admin Enabled: " + AdminEnabled.ToString)
 		  
-		  ' ── Ensure /LastOS/Tools uninstaller scripts are in place ─────────
-		  ' Checks writability; uses RunSudo automatically if elevated access
-		  ' is needed to create the folder or write the scripts.
-		  SetupUninstallTools()
+		  ' ── Startup sudo tasks (group membership + uninstall scripts) ──────
+		  ' Both checks are combined into a single one-shot elevated call so the
+		  ' user sees at most ONE polkit/sudo prompt.  The elevated shell closes
+		  ' when done — SudoShellLoop is never opened for these startup tasks.
+		  ' If neither task is needed the call returns immediately with no prompt.
+		  SetupUninstallTools  ' True = also check lastos-users group
 		  
 		  'Install Store Mode
 		  If OriginalStoreMode = 4 Or InstallStore = True Then

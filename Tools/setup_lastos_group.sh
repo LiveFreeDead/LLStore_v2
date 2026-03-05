@@ -2,12 +2,6 @@
 # =============================================================================
 # setup_lastos_group.sh  -  LastOS security-hardened folder permissions
 # =============================================================================
-# Optimized for Xojo tools and multi-user/Live environments:
-#   - Creates 'lastos-users' group for administrative/write access.
-#   - Sets 2775 permissions: Group can write, but EVERYONE can execute.
-#   - Ensures Xojo .so libraries are globally readable to prevent load errors.
-#   - Configures system defaults so future users are added to the group.
-# =============================================================================
 
 GROUP="lastos-users"
 TARGET_DIR="${1:-/LastOS}"
@@ -15,80 +9,127 @@ TARGET_DIR="${1:-/LastOS}"
 # --------------------------------------------------------------------------
 # Detect the real user (even under sudo/pkexec)
 # --------------------------------------------------------------------------
-REAL_USER="${SUDO_USER:-${PKEXEC_UID:+$(id -nu "$PKEXEC_UID")}}"
-[ -z "$REAL_USER" ] && REAL_USER=$(who am i 2>/dev/null | awk '{print $1}')
-[ -z "$REAL_USER" ] || [ "$REAL_USER" = "root" ] && REAL_USER="$USER"
+# Priority order: SUDO_USER > PKEXEC_UID > logname > who am i > USER
+# We never want to operate on root itself as the target user.
+REAL_USER=""
+
+# sudo sets SUDO_USER
+[ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ] && REAL_USER="$SUDO_USER"
+
+# pkexec sets PKEXEC_UID (numeric) - resolve to name
+if [ -z "$REAL_USER" ] && [ -n "${PKEXEC_UID:-}" ]; then
+    _PKU=$(id -nu "$PKEXEC_UID" 2>/dev/null)
+    [ -n "$_PKU" ] && [ "$_PKU" != "root" ] && REAL_USER="$_PKU"
+fi
+
+# logname reads the login name from utmp, works in most terminal contexts
+if [ -z "$REAL_USER" ]; then
+    _LN=$(logname 2>/dev/null)
+    [ -n "$_LN" ] && [ "$_LN" != "root" ] && REAL_USER="$_LN"
+fi
+
+# who am i reads the controlling tty owner
+if [ -z "$REAL_USER" ]; then
+    _WI=$(who am i 2>/dev/null | awk '{print $1}')
+    [ -n "$_WI" ] && [ "$_WI" != "root" ] && REAL_USER="$_WI"
+fi
+
+# Last resort: $USER if it was explicitly passed via "pkexec env USER=... bash"
+# but only if it's not root
+if [ -z "$REAL_USER" ] && [ -n "${USER:-}" ] && [ "$USER" != "root" ]; then
+    REAL_USER="$USER"
+fi
 
 info() { echo "[LastOS] $*"; }
+warn() { echo "[LastOS] WARNING: $*" >&2; }
+
+info "Real user detected: ${REAL_USER:-<none>}"
 
 # --------------------------------------------------------------------------
-# 1. Create group and ensure future users get it
+# 1. Create the lastos-users group
 # --------------------------------------------------------------------------
 if ! getent group "$GROUP" > /dev/null 2>&1; then
     info "Creating group: $GROUP"
-    groupadd --system "$GROUP" 2>/dev/null || addgroup --system "$GROUP" 2>/dev/null
+    # Prefer groupadd (shadow-utils) - handles hyphenated names reliably
+    if command -v groupadd > /dev/null 2>&1; then
+        groupadd --system "$GROUP"
+    elif command -v addgroup > /dev/null 2>&1; then
+        addgroup --system "$GROUP"
+    else
+        warn "Neither groupadd nor addgroup found — cannot create group"
+    fi
+
+    # Verify group was actually created
+    if ! getent group "$GROUP" > /dev/null 2>&1; then
+        warn "Group '$GROUP' could not be created. Folder permissions may be limited."
+        # Don't exit — still set up directory permissions as best we can
+    else
+        info "Group '$GROUP' created successfully"
+    fi
+else
+    info "Group '$GROUP' already exists"
 fi
 
-# Attempt to make 'lastos-users' a default for new users (Debian/Ubuntu/Arch)
+# --------------------------------------------------------------------------
+# 2. Add the real user to the group
+# --------------------------------------------------------------------------
+if [ -n "$REAL_USER" ] && getent group "$GROUP" > /dev/null 2>&1; then
+    # Check via /etc/group directly (not session id — those need re-login)
+    if getent group "$GROUP" | awk -F: '{print $4}' | tr ',' '\n' | grep -qx "$REAL_USER"; then
+        info "User '$REAL_USER' is already a member of '$GROUP'"
+    else
+        info "Adding user '$REAL_USER' to group '$GROUP'..."
+        if command -v usermod > /dev/null 2>&1; then
+            usermod -aG "$GROUP" "$REAL_USER"
+        else
+            adduser "$REAL_USER" "$GROUP"
+        fi
+
+        # Verify the user was actually added
+        if getent group "$GROUP" | awk -F: '{print $4}' | tr ',' '\n' | grep -qx "$REAL_USER"; then
+            info "User '$REAL_USER' successfully added to '$GROUP'"
+        else
+            warn "Could not confirm '$REAL_USER' was added to '$GROUP'"
+        fi
+    fi
+elif [ -z "$REAL_USER" ]; then
+    warn "Could not determine real user — skipping group membership step"
+fi
+
+# --------------------------------------------------------------------------
+# 3. Make lastos-users the default for future new users (Debian/Ubuntu)
+# --------------------------------------------------------------------------
 if [ -f /etc/adduser.conf ]; then
-    sed -i 's/^#EXTRA_GROUPS=.*/EXTRA_GROUPS="'"$GROUP"'"/' /etc/adduser.conf
-    sed -i 's/^#ADD_EXTRA_GROUPS=.*/ADD_EXTRA_GROUPS=1/' /etc/adduser.conf
+    # Replace whether the line is currently commented out or not,
+    # and regardless of whatever value it previously had.
+    sed -i "s|^#\?EXTRA_GROUPS=.*|EXTRA_GROUPS=\"$GROUP\"|" /etc/adduser.conf
+    sed -i "s|^#\?ADD_EXTRA_GROUPS=.*|ADD_EXTRA_GROUPS=1|"  /etc/adduser.conf
 fi
 
 # --------------------------------------------------------------------------
-# 2. Add current user to group
-# --------------------------------------------------------------------------
-if [ -n "$REAL_USER" ] && [ "$REAL_USER" != "root" ]; then
-    info "Adding user '$REAL_USER' to group '$GROUP'..."
-    usermod -aG "$GROUP" "$REAL_USER" 2>/dev/null || adduser "$REAL_USER" "$GROUP" 2>/dev/null
-fi
-
-# --------------------------------------------------------------------------
-# 3. Directory Setup and Ownership
+# 4. Directory setup and permissions
 # --------------------------------------------------------------------------
 mkdir -p "$TARGET_DIR"
 info "Setting ownership: root:$GROUP on $TARGET_DIR"
 chown -R root:"$GROUP" "$TARGET_DIR"
 
-# --------------------------------------------------------------------------
-# 4. Apply Robust Permissions (Xojo Compatible)
-#    We use 2775 for dirs and 775/664 for files. 
-#    This allows 'others' to READ/EXECUTE but NOT WRITE.
-# --------------------------------------------------------------------------
-info "Applying 775/775 permissions for Xojo compatibility..."
-
-# Set Directories: drwxrwsr-x (SGID ensures new files stay in the group)
+info "Applying permissions: dirs=775 (rwxrwxr-x), scripts=775, data files=664 (rw-rw-r--)"
+# Directories: root+group full access, others read+list+execute only (no write)
 find "$TARGET_DIR" -type d -exec chmod 775 {} +
-
-# Set Files: -rw-rw-r-- (Standard files)
-find "$TARGET_DIR" -type f -exec chmod 775 {} +
-
-# Set Executables: -rwxrwxr-x (Binaries and Scripts)
-# We find anything already marked executable and ensure 'others' have 'x'
-find "$TARGET_DIR" -type f \( -perm -100 -o -name "*.so" -o -name "llstore" \) -exec chmod 775 {} +
-
-#ACL is ignore by squishfs, but may be useful for the installer, I'll disable for now as not sure it's needed if the group works
-## --------------------------------------------------------------------------
-## 5. Apply POSIX ACLs (The "Safety Net")
-## --------------------------------------------------------------------------
-#if command -v setfacl >/dev/null 2>&1; then
-#    info "Applying POSIX ACLs (Inheritance)..."
-#    # Recursive application: Group gets rwx, Others get r-x
-#    setfacl -R -m g:"$GROUP":rwx "$TARGET_DIR"
-#    setfacl -R -m o::rx "$TARGET_DIR"
-#    
-#    # Default ACLs: Ensures new files created later follow this rule
-#    setfacl -R -d -m g:"$GROUP":rwx "$TARGET_DIR"
-#    setfacl -R -d -m o::rx "$TARGET_DIR"
-#else
-#    info "Note: 'setfacl' not found. Permissions rely on SGID bits."
-#fi
+# Executable files (.sh, .py, .run, binary-flagged): same as dirs
+find "$TARGET_DIR" -type f \( -name "*.sh" -o -name "*.py" -o -name "*.run" \
+     -o -name "*.AppImage" -o -name "llstore" -o -name "*.so" \
+     -o -perm /111 \) -exec chmod 775 {} +
+# Everything else (ini, txt, desktop, png, etc.): group can rw, others read-only
+find "$TARGET_DIR" -type f ! -name "*.sh" ! -name "*.py" ! -name "*.run" \
+     ! -name "*.AppImage" ! -name "llstore" ! -name "*.so" \
+     ! -perm /111 -exec chmod 664 {} +
 
 # --------------------------------------------------------------------------
-# 6. Summary
+# 5. Summary
 # --------------------------------------------------------------------------
-info "Done. $TARGET_DIR is secured but executable by all users."
-info "Xojo libraries in $TARGET_DIR/LLStore/ should now load correctly."
+info "Done. $TARGET_DIR is secured."
 if [ -n "$REAL_USER" ]; then
-    info "Note: $REAL_USER may need to re-login to gain WRITE access."
+    info "Note: '$REAL_USER' needs to re-login for the new group to be active in their session."
+    info "      LLStore handles this automatically via 'sg' on first launch."
 fi

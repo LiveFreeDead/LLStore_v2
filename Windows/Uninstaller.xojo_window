@@ -167,6 +167,7 @@ Begin DesktopWindow Uninstaller
       _ScrollWidth    =   -1
    End
    Begin Timer Timer1
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   10
@@ -179,6 +180,13 @@ End
 
 #tag WindowCode
 	#tag Event
+		Sub Closing()
+		  Debug("-- Uninstaller Closed")
+		  If Not ForceQuit Then Main.Items.SetFocus
+		End Sub
+	#tag EndEvent
+
+	#tag Event
 		Sub Opening()
 		  ' Centre the window on screen
 		  Uninstaller.Left = (Screen(0).AvailableWidth / 2) - (Uninstaller.Width / 2)
@@ -189,14 +197,6 @@ End
 		  Timer1.Period = 100
 		  Timer1.RunMode = Timer.RunModes.Single
 		  
-		End Sub
-	#tag EndEvent
-
-
-	#tag Event
-		Sub Closing()
-		  Debug("-- Uninstaller Closed")
-		  If Not ForceQuit Then Main.Items.SetFocus
 		End Sub
 	#tag EndEvent
 
@@ -266,29 +266,6 @@ End
 
 #tag EndWindowCode
 
-#tag Events SelectAllButton
-	#tag Event
-		Sub Pressed()
-		  Dim I As Integer
-		  For I = 0 To UninstallItems.RowCount - 1
-		    UninstallItems.CellTextAt(I, 1) = "T"
-		  Next I
-		  UninstallItems.Refresh
-		End Sub
-	#tag EndEvent
-#tag EndEvents
-#tag Events SelectNoneButton
-	#tag Event
-		Sub Pressed()
-		  Dim I As Integer
-		  For I = 0 To UninstallItems.RowCount - 1
-		    UninstallItems.CellTextAt(I, 1) = "F"
-		  Next I
-		  UninstallItems.Refresh
-		End Sub
-	#tag EndEvent
-#tag EndEvents
-
 #tag Events UninstallButton
 	#tag Event
 		Sub Pressed()
@@ -327,17 +304,17 @@ End
 		  ' If they are missing, try to build them now via SetupUninstallTools.
 		  ' If they still don't exist after that (e.g. immutable/read-only root on
 		  ' distros like Bazzite, Silverblue, etc.) warn the user and abort.
-		  If Not Exist("/LastOS/Tools/UninstallLauncher.sh") Then
-		    Loading.SetupUninstallTools()
-		  End If
-		  
-		  If Not Exist("/LastOS/Tools/UninstallLauncher.sh") Then
-		    MsgBox "The uninstall tools could not be written to /LastOS/Tools/." + Chr(10) + Chr(10) + _
-		    "This usually means your operating system has a read-only root filesystem " + _
-		    "(common on immutable distros such as Bazzite, Silverblue, or SteamOS)." + Chr(10) + Chr(10) + _
-		    "Uninstall cannot continue."
-		    Return
-		  End If
+		  'If Not Exist("/LastOS/Tools/UninstallLauncher.sh") Then
+		  'Loading.SetupUninstallTools()
+		  'End If
+		  '
+		  'If Not Exist("/LastOS/Tools/UninstallLauncher.sh") Then
+		  'MsgBox "The uninstall tools could not be written to /LastOS/Tools/." + Chr(10) + Chr(10) + _
+		  '"This usually means your operating system has a read-only root filesystem " + _
+		  '"(common on immutable distros such as Bazzite, Silverblue, or SteamOS)." + Chr(10) + Chr(10) + _
+		  '"Uninstall cannot continue."
+		  'Return
+		  'End If
 		  
 		  ' Save both the selected row and the current scroll position before we touch anything
 		  Dim SavedRow    As Integer = UninstallItems.SelectedRowIndex
@@ -427,6 +404,28 @@ End
 		    UninstallItems.SelectedRowIndex = TargetRow
 		  End If
 		  
+		  UninstallItems.Refresh
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events SelectAllButton
+	#tag Event
+		Sub Pressed()
+		  Dim I As Integer
+		  For I = 0 To UninstallItems.RowCount - 1
+		    UninstallItems.CellTextAt(I, 1) = "T"
+		  Next I
+		  UninstallItems.Refresh
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events SelectNoneButton
+	#tag Event
+		Sub Pressed()
+		  Dim I As Integer
+		  For I = 0 To UninstallItems.RowCount - 1
+		    UninstallItems.CellTextAt(I, 1) = "F"
+		  Next I
 		  UninstallItems.Refresh
 		End Sub
 	#tag EndEvent

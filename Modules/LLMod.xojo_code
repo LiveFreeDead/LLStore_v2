@@ -7177,6 +7177,33 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub RunSudoOnceDirect(ScriptPath As String)
+		  ' Runs a single elevated script without opening or affecting SudoShellLoop.
+		  ' Intended only for one-shot startup tasks (group setup, uninstall scripts).
+		  ' Uses sudo_script.sh which tries pkexec first (polkit GUI dialog — no terminal
+		  ' window needed) then falls back to sudo / doas / kdesu.  Because no persistent
+		  ' loop is opened, the elevated shell exits as soon as the script finishes —
+		  ' exactly the "open, do work, close" behaviour wanted for startup.
+		  ' On systems where only password-sudo is available and no GUI helper exists the
+		  ' call fails silently; EnableSudoScript handles the rest when an install starts.
+		  If TargetWindows Then Return
+		  If Not TargetLinux  Then Return
+		  
+		  Dim sh As New Shell
+		  sh.TimeOut    = -1
+		  sh.ExecuteMode = Shell.ExecuteModes.Synchronous
+		  
+		  ' Ensure the script is executable before handing it to sudo_script.sh
+		  sh.Execute("chmod +x " + Chr(34) + ScriptPath + Chr(34))
+		  
+		  ' Run once with elevated privileges — exits when done, no loop
+		  sh.Execute(Chr(34) + ToolPath + "sudo_script.sh" + Chr(34) + " " + Chr(34) + ScriptPath + Chr(34))
+		  
+		  If Debugging Then Debug("RunSudoOnceDirect: exit=" + sh.ExitCode.ToString + " script=" + ScriptPath)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub RunSudoScripts()
 		  If Debugging Then Debug("--- Starting Run Sudo Scripts ---")
 		  
