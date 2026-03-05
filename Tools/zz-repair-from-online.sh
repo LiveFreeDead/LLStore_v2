@@ -1,79 +1,98 @@
 #!/bin/bash
 
-#This script can repair or install LL Store using the latest available full package.
+# Repairs or fresh-installs LLStore using the latest package from GitHub.
 
-#Functions
-inst () {
-APT_CMD=$(which apt 2>/dev/null)
-DNF_CMD=$(which dnf 2>/dev/null)
-EMERGE_CMD=$(which emerge 2>/dev/null)
-EOPKG_CMD=$(which eopkg 2>/dev/null)
-APK_CMD=$(which apk 2>/dev/null)
-PACMAN_CMD=$(which pacman 2>/dev/null)
-ZYPPER_CMD=$(which zypper 2>/dev/null)
-YUM_CMD=$(which yum 2>/dev/null)
+# ---------------------------------------------------------------------------
+# Package install helper (mirrors LLScript_Sudo_Core.sh priority order)
+# ---------------------------------------------------------------------------
+inst() {
+    local PM_CMD PM
+    if   PM_CMD=$(command -v pamac  2>/dev/null); then PM="pamac"
+    elif PM_CMD=$(command -v dnf    2>/dev/null); then PM="dnf"
+    elif PM_CMD=$(command -v apt    2>/dev/null); then PM="apt"
+    elif PM_CMD=$(command -v pacman 2>/dev/null); then PM="pacman"
+    elif PM_CMD=$(command -v zypper 2>/dev/null); then PM="zypper"
+    elif PM_CMD=$(command -v yum    2>/dev/null); then PM="yum"
+    elif PM_CMD=$(command -v emerge 2>/dev/null); then PM="emerge"
+    elif PM_CMD=$(command -v eopkg  2>/dev/null); then PM="eopkg"
+    elif PM_CMD=$(command -v apk    2>/dev/null); then PM="apk"
+    else echo "Error: no supported package manager found. Cannot install: $*"; return 1; fi
 
-if [[ ! -z $DNF_CMD ]]; then
-    sudo $DNF_CMD -y install $*
-elif [[ ! -z $APT_CMD ]]; then
-    sudo $APT_CMD -y install $*
-elif [[ ! -z $EMERGE_CMD ]]; then
-    sudo $EMERGE_CMD $PACKAGES
-elif [[ ! -z $EOPKG_CMD ]]; then
-    sudo $EOPKG_CMD -y install $*
-elif [[ ! -z $APK_CMD ]]; then
-    sudo $APK_CMD add install $*
-elif [[ ! -z $PACMAN_CMD ]]; then
-    #yes | sudo $PACMAN_CMD -S $*
-    # Syu gets dependancies etc
-    yes | sudo $PACMAN_CMD -Syu $*
-elif [[ ! -z $ZYPPER_CMD ]]; then
-    sudo $ZYPPER_CMD --non-interactive install $*
-elif [[ ! -z $YUM_CMD ]]; then
-    sudo $YUM_CMD -y install $*
-else
-    echo "error can't install package $*"
-fi
+    for PKG in "$@"; do
+        echo "Installing: $PKG"
+        case "$PM" in
+            pamac)  sudo "$PM_CMD" install --no-confirm "$PKG" ;;
+            dnf)    sudo "$PM_CMD" -y install "$PKG" ;;
+            apt)    sudo "$PM_CMD" -y install "$PKG" ;;
+            pacman) yes | sudo "$PM_CMD" -S --noconfirm "$PKG" ;;
+            zypper) sudo "$PM_CMD" --non-interactive install "$PKG" ;;
+            yum)    sudo "$PM_CMD" -y install "$PKG" ;;
+            emerge) sudo "$PM_CMD" "$PKG" ;;
+            eopkg)  sudo "$PM_CMD" -y install "$PKG" ;;
+            apk)    sudo "$PM_CMD" add "$PKG" ;;
+        esac
+    done
 }
 
 clear
 
-echo "This may ask for sudo password if unzip, gnome-terminal or jq isn't installed."
+echo "This may ask for your sudo password if unzip, jq or a terminal isn't installed."
 echo ""
 
-if [[ $(which unzip) ]]; then
-echo "Found unzip."
+# ---------------------------------------------------------------------------
+# Required tools
+# ---------------------------------------------------------------------------
+command -v unzip &>/dev/null && echo "Found unzip." || inst unzip
+command -v jq    &>/dev/null && echo "Found jq."    || inst jq
+
+# ---------------------------------------------------------------------------
+# Terminal detection — same list as DefaultTerminal.sh
+# ---------------------------------------------------------------------------
+TERMINALS=(ptyxis gnome-terminal konsole xfce4-terminal mate-terminal
+           lxterminal qterminal tilix terminator alacritty kitty foot
+           x-terminal-emulator xterm)
+
+SYS_TERMINAL=""
+for t in "${TERMINALS[@]}"; do
+    command -v "$t" &>/dev/null && SYS_TERMINAL="$t" && break
+done
+
+if [[ -z "$SYS_TERMINAL" ]]; then
+    echo "No terminal emulator found — installing one..."
+    # Pick best terminal for the detected DE, fall back to gnome-terminal
+    DE="${XDG_SESSION_DESKTOP:-${XDG_CURRENT_DESKTOP:-${DESKTOP_SESSION:-}}}"
+    DE="${DE,,}"
+    case "$DE" in
+        plasma*|kde*)  TERM_PKG="konsole" ;;
+        xfce*)         TERM_PKG="xfce4-terminal" ;;
+        mate*)         TERM_PKG="mate-terminal" ;;
+        lxde*)         TERM_PKG="lxterminal" ;;
+        lxqt*)         TERM_PKG="qterminal" ;;
+        *)             TERM_PKG="gnome-terminal" ;;
+    esac
+    inst "$TERM_PKG"
+    command -v "$TERM_PKG" &>/dev/null && SYS_TERMINAL="$TERM_PKG" \
+        || { echo "Warning: terminal install may not have completed."; }
 else
-inst unzip
+    echo "Found terminal: $SYS_TERMINAL"
 fi
 
-if [[ $(which gnome-terminal) ]]; then
-echo "Found gnome-terminal."
-else
-inst gnome-terminal
-fi
-
-if [[ $(which jq) ]]; then
-echo "Found jq."
-else
-inst jq
-fi
-
-
+# ---------------------------------------------------------------------------
+# Download and run the latest LLStore
+# ---------------------------------------------------------------------------
 cd /tmp
 
-rm ./llstore_latest.zip
+rm -f ./llstore_latest.zip
 rm -rf ./LLUpdate
 
-FILE=llstore_latest.zip     
-wget -O $FILE -c "https://github.com/LiveFreeDead/LastOSLinux_Repository/raw/refs/heads/main/llstore_latest.zip"
-unzip -o ./$FILE -d ./LLUpdate
+FILE=llstore_latest.zip
+wget -O "$FILE" -c "https://github.com/LiveFreeDead/LastOSLinux_Repository/raw/refs/heads/main/llstore_latest.zip"
+unzip -o "./$FILE" -d ./LLUpdate
 
 cd LLUpdate
-
 bash setup.sh
-
 cd ..
 
 rm -rf ./LLUpdate
-rm ./llstore_latest.zip
+rm -f ./llstore_latest.zip
+

@@ -172,9 +172,12 @@ FLATSCRIPT
         chmod +x "$TMPSCRIPT"
 
         case "$OSTERM" in
-            gnome-terminal) "$OSTERM" --wait -- bash "$TMPSCRIPT" ;;
-            konsole)        "$OSTERM" -e bash "$TMPSCRIPT" ;;
-            *)              "$OSTERM" -e bash "$TMPSCRIPT" ;;
+            gnome-terminal)              "$OSTERM" --wait -- bash "$TMPSCRIPT" ;;
+            ptyxis|mate-terminal|tilix)  "$OSTERM" -- bash "$TMPSCRIPT" ;;
+            alacritty)                   "$OSTERM" -- bash "$TMPSCRIPT" ;;
+            kitty|foot)                  "$OSTERM" bash "$TMPSCRIPT" ;;
+            terminator)                  "$OSTERM" -x bash "$TMPSCRIPT" ;;
+            *)                           "$OSTERM" -e bash "$TMPSCRIPT" ;;
         esac
 
         rm -f "$TMPSCRIPT"
@@ -184,7 +187,7 @@ FLATSCRIPT
 #---------- System Detection ----------
 
 # Get Best Terminal
-TERMS=(gnome-terminal konsole xfce4-terminal x-terminal-emulator xterm)
+TERMS=(ptyxis gnome-terminal konsole xfce4-terminal mate-terminal lxterminal qterminal tilix terminator alacritty kitty foot x-terminal-emulator xterm)
 OSTERM=""
 for t in "${TERMS[@]}"; do
     if command -v "$t" &>/dev/null; then

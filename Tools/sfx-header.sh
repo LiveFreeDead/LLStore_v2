@@ -27,14 +27,19 @@ in_terminal() { [ -t 0 ] && [ -t 1 ]; }
 # If not in a terminal, try to re-launch inside one
 # ---------------------------------------------------------------------------
 relaunch_in_terminal() {
-    local terms=(gnome-terminal konsole kde-ptyxis xfce4-terminal lxterminal \
+    # kde-ptyxis removed — KDE uses konsole; ptyxis is a GNOME terminal (not KDE).
+    local terms=(ptyxis gnome-terminal konsole xfce4-terminal mate-terminal \
+                 lxterminal qterminal tilix terminator alacritty kitty foot \
                  x-terminal-emulator xterm)
     for t in "${terms[@]}"; do
         if command -v "$t" &>/dev/null; then
             case "$t" in
-                gnome-terminal)     exec "$t" -- bash "$SELF" "$@" ;;
-                konsole|kde-ptyxis) exec "$t" -e bash "$SELF" "$@" ;;
-                *)                  exec "$t" -e bash "$SELF" "$@" ;;
+                gnome-terminal)              exec "$t" --wait -- bash "$SELF" "$@" ;;
+                ptyxis|mate-terminal|tilix)  exec "$t" -- bash "$SELF" "$@" ;;
+                alacritty)                   exec "$t" -- bash "$SELF" "$@" ;;
+                kitty|foot)                  exec "$t" bash "$SELF" "$@" ;;
+                terminator)                  exec "$t" -x bash "$SELF" "$@" ;;
+                *)                           exec "$t" -e bash "$SELF" "$@" ;;
             esac
         fi
     done

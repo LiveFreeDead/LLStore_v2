@@ -736,12 +736,57 @@ Protected Module LLMod
 		          
 		          'Added -E to the following to pass Env Variables to the Sudo scripts.
 		          
+		          ' Absolute paths to avoid working-directory issues across terminals
+		          Dim AbsSudoScript As String = ToolPath + "sudo_script.sh"
+		          Dim AbsLLStoreSudo As String = ToolPath + "LLStore_Sudo.sh"
+		          Dim SudoCommand As String = "'" + AbsSudoScript + "' " + Chr(34) + AbsLLStoreSudo + Chr(34)
+		          
+		          ' Terminal-specific execution. Grouped by flag style:
+		          '  -- bash -c  : GNOME-family terminals (VTE-based) that use -- to end their own args
+		          '  -e bash -c  : Most traditional terminals that accept -e <program> [args...]
+		          '  direct args : kitty / foot pass the command without any flag
 		          If SysTerminal.Trim = "gnome-terminal" Then
-		            SudoShellLoop.Execute(SysTerminal.Trim+" --wait -e "+"'"+ToolPath+"sudo_script.sh "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)+"'") 'A fix for the Folder Item not working as expected is to make it trimmed, it's having problems with Extra Spaces etc?
-		          ElseIf SysTerminal.Trim = "kde-ptyxis" Then
-		            SudoShellLoop.Execute(SysTerminal.Trim+" -x "+"'"+ToolPath+"sudo_script.sh "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)+"'") 'A fix for the Folder Item not working as expected is to make it trimmed, it's having problems with Extra Spaces etc?
+		            ' gnome-terminal needs --wait or it daemonizes and returns immediately
+		            SudoShellLoop.Execute(SysTerminal.Trim + " --wait -- bash -c " + Chr(34) + SudoCommand + Chr(34))
+		          ElseIf SysTerminal.Trim = "ptyxis" Then
+		            ' Ptyxis: GNOME default terminal (Ubuntu 24.10+ / Fedora 41+)
+		            SudoShellLoop.Execute(SysTerminal.Trim + " -- bash -c " + Chr(34) + SudoCommand + Chr(34))
+		          ElseIf SysTerminal.Trim = "mate-terminal" Then
+		            ' MATE desktop terminal (VTE-based, same family as gnome-terminal)
+		            SudoShellLoop.Execute(SysTerminal.Trim + " -- bash -c " + Chr(34) + SudoCommand + Chr(34))
+		          ElseIf SysTerminal.Trim = "tilix" Then
+		            ' Tilix tiling terminal (VTE-based)
+		            SudoShellLoop.Execute(SysTerminal.Trim + " -- bash -c " + Chr(34) + SudoCommand + Chr(34))
+		          ElseIf SysTerminal.Trim = "konsole" Then
+		            ' KDE Konsole
+		            SudoShellLoop.Execute(SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34))
+		          ElseIf SysTerminal.Trim = "xfce4-terminal" Then
+		            ' XFCE Terminal
+		            SudoShellLoop.Execute(SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34))
+		          ElseIf SysTerminal.Trim = "lxterminal" Then
+		            ' LXDE Terminal
+		            SudoShellLoop.Execute(SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34))
+		          ElseIf SysTerminal.Trim = "qterminal" Then
+		            ' LXQt Terminal
+		            SudoShellLoop.Execute(SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34))
+		          ElseIf SysTerminal.Trim = "terminator" Then
+		            ' Terminator: uses -x (execute and hold window open)
+		            SudoShellLoop.Execute(SysTerminal.Trim + " -x bash -c " + Chr(34) + SudoCommand + Chr(34))
+		          ElseIf SysTerminal.Trim = "alacritty" Then
+		            ' Alacritty: GPU-accelerated, uses -- separator (v0.13+ deprecated -e)
+		            SudoShellLoop.Execute(SysTerminal.Trim + " -- bash -c " + Chr(34) + SudoCommand + Chr(34))
+		          ElseIf SysTerminal.Trim = "kitty" Then
+		            ' Kitty: GPU-accelerated, passes command directly without flag
+		            SudoShellLoop.Execute(SysTerminal.Trim + " bash -c " + Chr(34) + SudoCommand + Chr(34))
+		          ElseIf SysTerminal.Trim = "foot" Then
+		            ' Foot: Wayland-native, passes command directly without flag
+		            SudoShellLoop.Execute(SysTerminal.Trim + " bash -c " + Chr(34) + SudoCommand + Chr(34))
+		          ElseIf SysTerminal.Trim = "xterm" Then
+		            ' xterm: universal fallback
+		            SudoShellLoop.Execute(SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34))
 		          Else
-		            SudoShellLoop.Execute(SysTerminal.Trim+" -e "+"'"+ToolPath+"sudo_script.sh "+Chr(34)+ToolPath+"LLStore_Sudo.sh"+Chr(34)+"'") 
+		            ' x-terminal-emulator (Debian/Ubuntu symlink) and any unknown terminals
+		            SudoShellLoop.Execute(SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34))
 		          End If
 		          
 		          TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
@@ -2765,8 +2810,9 @@ Protected Module LLMod
 		    
 		    SaveDataToFile(KDE, DolDir+"llfile.desktop")
 		    ShellFast.Execute("chmod +x "+Q+DolDir+"llfile.desktop"+Q)
-		    'Rebuild KDE sycoca so the service menu is active without a logout
-		    ShellFast.Execute("kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true")
+		    'Rebuild KDE sycoca so the service menu is active without a logout.
+		    'Timeout prevents this from hanging the install on slow KDE setups.
+		    ShellFast.Execute("timeout 15 kbuildsycoca6 --noincremental 2>/dev/null || timeout 15 kbuildsycoca5 --noincremental 2>/dev/null || true")
 		  End If
 		  
 		  ' =====================================================================
@@ -2961,9 +3007,11 @@ Protected Module LLMod
 		Sub InstallLinuxMenuSorting(KeepSudo2 As Boolean = True)
 		  Dim MainPath As String = Slash(AppPath)
 		  
-		  EnableSudoScript
-		  
-		  '
+		  ' Note: EnableSudoScript is intentionally NOT called here.
+		  ' InstallLLStore already starts the sudo loop before this is called,
+		  ' and calling it a second time can cause the handshake to hang on
+		  ' distros where the terminal takes time to re-open (e.g. Mint, KDE).
+		  ' If calling this standalone, call EnableSudoScript first yourself.
 		  
 		  RunSudo("cp  -R "+Chr(34)+MainPath+"Tools/LinuxMenuSorting/xdg/menus/applications-merged"+Chr(34)+" "+Chr(34)+"/etc/xdg/menus/"+Chr(34))
 		  RunSudo("cp  -R "+Chr(34)+MainPath+"Tools/LinuxMenuSorting/desktop-directories"+Chr(34)+" "+Chr(34)+"/usr/share/"+Chr(34))
@@ -3672,6 +3720,7 @@ Protected Module LLMod
 		    InstallPath = "/LastOS/LLStore/"
 		    Target = InstallPath+"llstore"
 		    App.DoEvents(7)
+		    NotifyStep("Step 1/10: Setting up sudo access...")
 		    EnableSudoScript
 		    
 		    MakeFolder(Slash(HomePath)+".local/share/applications")
@@ -3726,9 +3775,11 @@ Protected Module LLMod
 		    InstallScript = InstallScript + "fi" + Chr(10)
 		    
 		    'Execute the install script with sudo once
+		    NotifyStep("Step 2/10: Copying files to /LastOS/LLStore/...")
 		    RunSudo(InstallScript)
 		    
 		    'Copy user-specific items without sudo (to user's home directory)
+		    NotifyStep("Step 3/10: Copying user templates...")
 		    ShellFast.Execute("cp -R "+Chr(34)+MainPath+"Templates"+Chr(34)+" "+Chr(34)+Slash(HomePath)+Chr(34))
 		    
 		    If Exist(MainPath+"Tools/hicolor") Then ShellFast.Execute ("cp -R "+Chr(34)+MainPath+"Tools/hicolor"+Chr(34)+" "+Chr(34)+Slash(HomePath)+".local/share/icons/"+Chr(34))
@@ -3750,16 +3801,20 @@ Protected Module LLMod
 		      ShellFast.Execute("cp -R "+Chr(34)+MainPath+"scripts/nautilus"+Chr(34)+" "+Chr(34)+Slash(HomePath)+".local/share/"+Chr(34))
 		    End If
 		    
+		    NotifyStep("Step 4/10: Installing context menus...")
 		    InstallLinuxContextMenus 'Install context menus for all detected Linux file managers
 		    
+		    NotifyStep("Step 5/10: Setting up menu sorting...")
 		    InstallLinuxMenuSorting(True) 'This adds my own menu sorting style
 		    
 		    Dim Bin As String = " /usr/bin/" 'Make sure to include the space at the start of this as it's used.
 		    
 		    'Make SymLinks to Store
+		    NotifyStep("Step 6/10: Creating symlinks in /usr/bin/...")
 		    RunSudo("ln -sf "+Target+Bin+"llapp ; ln -sf "+Target+Bin+"lledit ; ln -sf "+Target+Bin+"llfile ; ln -sf "+Target+Bin+"llinstall ; ln -sf "+Target+Bin+"lllauncher ; ln -sf "+Target+Bin+"llstore" ) 'Sym Links do not need to be set to Exec
 		    
 		    'Make Associations - I changed it from Target to "llfile"
+		    NotifyStep("Step 7/10: Registering file types...")
 		    'MakeFileType("LLFile", "apz pgz tar app ppg lla llg", "Install LLFiles", Target, InstallPath, InstallPath+"llstore Resources/appicon_256.png", "", True) 'True is for SystemWide
 		    MakeFileType("LLFile", "apz pgz tar app ppg lla llg", "Install LLFiles", "llfile", InstallPath, InstallPath+"llstore Resources/appicon_256.png", "", True) 'True is for SystemWide
 		    
@@ -3770,6 +3825,7 @@ Protected Module LLMod
 		    
 		    
 		    'Make Shortcuts
+		    NotifyStep("Step 8/10: Creating desktop shortcuts...")
 		    Dim DesktopContent As String
 		    Dim DesktopFile As String
 		    Dim DesktopOutPath As String
@@ -3847,6 +3903,7 @@ Protected Module LLMod
 		    
 		    'Run Fixes
 		    If Wayland = True Then 
+		      NotifyStep("Step 9/10: Applying Wayland fixes...")
 		      If Exist(Slash(ToolPath)+"WaylandFixes.sh") Then
 		        ShellFast.Execute(Slash(ToolPath)+"WaylandFixes.sh")
 		      End If
@@ -3855,6 +3912,7 @@ Protected Module LLMod
 		    'Refresh desktop database — must happen before Unlock closes the sudo terminal.
 		    'User path: backgrounded via ShellFast, no privileges needed.
 		    '/usr/share/applications: root-owned, sent through the still-open sudo terminal with & so it doesn't block.
+		    NotifyStep("Step 10/10: Refreshing desktop database...")
 		    If TargetLinux Then ShellFast.Execute ("bash -c 'update-desktop-database ~/.local/share/applications > /dev/null 2>&1 &'")
 		    If TargetLinux Then RunSudo ("update-desktop-database /usr/share/applications &")
 		    '
@@ -5736,11 +5794,47 @@ Protected Module LLMod
 		  TermSh.TimeOut = -1
 		  
 		  If SysTerminal.Trim = "gnome-terminal" Then
-		    TermSh.Execute(SysTerminal.Trim + " --wait -e " + Chr(39) + Cmd + Chr(39))
-		  ElseIf SysTerminal.Trim = "kde-ptyxis" Then
-		    TermSh.Execute(SysTerminal.Trim + " -x " + Chr(39) + Cmd + Chr(39))
+		    ' gnome-terminal needs --wait or it daemonizes and returns immediately
+		    TermSh.Execute(SysTerminal.Trim + " --wait -- bash -c " + Chr(39) + Cmd + Chr(39))
+		  ElseIf SysTerminal.Trim = "ptyxis" Then
+		    ' Ptyxis: GNOME default terminal (Ubuntu 24.10+ / Fedora 41+)
+		    TermSh.Execute(SysTerminal.Trim + " -- bash -c " + Chr(39) + Cmd + Chr(39))
+		  ElseIf SysTerminal.Trim = "mate-terminal" Then
+		    ' MATE desktop terminal (VTE-based)
+		    TermSh.Execute(SysTerminal.Trim + " -- bash -c " + Chr(39) + Cmd + Chr(39))
+		  ElseIf SysTerminal.Trim = "tilix" Then
+		    ' Tilix tiling terminal (VTE-based)
+		    TermSh.Execute(SysTerminal.Trim + " -- bash -c " + Chr(39) + Cmd + Chr(39))
+		  ElseIf SysTerminal.Trim = "konsole" Then
+		    ' KDE Konsole
+		    TermSh.Execute(SysTerminal.Trim + " -e bash -c " + Chr(39) + Cmd + Chr(39))
+		  ElseIf SysTerminal.Trim = "xfce4-terminal" Then
+		    ' XFCE Terminal
+		    TermSh.Execute(SysTerminal.Trim + " -e bash -c " + Chr(39) + Cmd + Chr(39))
+		  ElseIf SysTerminal.Trim = "lxterminal" Then
+		    ' LXDE Terminal
+		    TermSh.Execute(SysTerminal.Trim + " -e bash -c " + Chr(39) + Cmd + Chr(39))
+		  ElseIf SysTerminal.Trim = "qterminal" Then
+		    ' LXQt Terminal
+		    TermSh.Execute(SysTerminal.Trim + " -e bash -c " + Chr(39) + Cmd + Chr(39))
+		  ElseIf SysTerminal.Trim = "terminator" Then
+		    ' Terminator: -x executes and holds window open
+		    TermSh.Execute(SysTerminal.Trim + " -x bash -c " + Chr(39) + Cmd + Chr(39))
+		  ElseIf SysTerminal.Trim = "alacritty" Then
+		    ' Alacritty: GPU-accelerated, -- separator (v0.13+ deprecated -e)
+		    TermSh.Execute(SysTerminal.Trim + " -- bash -c " + Chr(39) + Cmd + Chr(39))
+		  ElseIf SysTerminal.Trim = "kitty" Then
+		    ' Kitty: GPU-accelerated, passes command directly without -e flag
+		    TermSh.Execute(SysTerminal.Trim + " bash -c " + Chr(39) + Cmd + Chr(39))
+		  ElseIf SysTerminal.Trim = "foot" Then
+		    ' Foot: Wayland-native, passes command directly without -e flag
+		    TermSh.Execute(SysTerminal.Trim + " bash -c " + Chr(39) + Cmd + Chr(39))
+		  ElseIf SysTerminal.Trim = "xterm" Then
+		    ' xterm: universal fallback
+		    TermSh.Execute(SysTerminal.Trim + " -e bash -c " + Chr(39) + Cmd + Chr(39))
 		  Else
-		    TermSh.Execute(SysTerminal.Trim + " -e " + Chr(39) + Cmd + Chr(39))
+		    ' x-terminal-emulator (Debian/Ubuntu symlink) and any unknowns
+		    TermSh.Execute(SysTerminal.Trim + " -e bash -c " + Chr(39) + Cmd + Chr(39))
 		  End If
 		  
 		  If Debugging Then Debug("MakeSFX: launched for: " + FileINI)
@@ -6078,6 +6172,25 @@ Protected Module LLMod
 		  #Else
 		    Notification.Refresh 
 		    App.DoEvents(30)
+		  #EndIf
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub NotifyStep(StepText As String)
+		  ' Lightweight update of the notification window status line.
+		  ' Call this between major steps in long operations (e.g. InstallLLStore)
+		  ' so the user can see progress without the window flickering or resetting.
+		  ' Does NOT reset the timeout timer or reposition the window.
+		  If MiniInstallerShowing Then Return
+		  If Not Notification.Visible Then Return
+		  Notification.Status.Text = StepText
+		  #If TargetWindows Then
+		    Notification.Refresh(True)
+		    App.DoEvents(15)
+		  #Else
+		    Notification.Refresh(True)
+		    App.DoEvents(15)
 		  #EndIf
 		End Sub
 	#tag EndMethod
