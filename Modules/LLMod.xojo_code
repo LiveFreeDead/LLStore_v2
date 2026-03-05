@@ -2287,6 +2287,8 @@ Protected Module LLMod
 		  Shelly.ExecuteMode = Shell.ExecuteModes.Asynchronous
 		  Shelly.TimeOut = -1
 		  
+		  Var InstallStartDT As DateTime = DateTime.Now ' Capture start time for install log
+		  
 		  ' Clear temp path in case it fails to load
 		  ItemTempPath = ""
 		  
@@ -2683,7 +2685,7 @@ Protected Module LLMod
 		  If CleanUpIsle2 <> "" Then Deltree(CleanUpIsle2)
 		  CleanUpIsle2 = ""
 		  
-		  LogInstall("Success", "Installed: " + ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "] To: " + InstallToPath)
+		  LogInstallEntry(ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "]", ItemLLItem.FileINI.Trim, InstallToPath, InstallStartDT)
 		  Return True
 		End Function
 	#tag EndMethod
@@ -3052,6 +3054,8 @@ Protected Module LLMod
 		  
 		  Shelly.ExecuteMode = Shell.ExecuteModes.Asynchronous
 		  Shelly.TimeOut = -1
+		  
+		  Var InstallStartDT As DateTime = DateTime.Now ' Capture start time for install log
 		  
 		  'Clear Temp Path incase it fails to load
 		  ItemTempPath = ""
@@ -3581,7 +3585,7 @@ Protected Module LLMod
 		  If CleanUpIsle2 <> "" Then Deltree(CleanUpIsle2) 'If used temp
 		  CleanUpIsle2 = ""
 		  
-		  LogInstall("Success", "Installed: " + ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "] To: " + InstallToPath)
+		  LogInstallEntry(ItemLLItem.TitleName + " [" + ItemLLItem.BuildType + "]", ItemLLItem.FileINI.Trim, InstallToPath, InstallStartDT)
 		  Return True ' Successfully Installed
 		End Function
 	#tag EndMethod
@@ -4648,50 +4652,154 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Sub LogInstall(EntryType As String, Message As String)
-		  ' Logs installer events to $HOME/zLastOSRepository/zzLLStore_Installs.log
-		  ' EntryType should be "Success", "Skipped", or "FAIL"
-		  ' FAIL entries automatically include a timestamp for cross-reference with the Debug log
+		  ' Legacy stub — Skipped/FAIL internal events are intentionally not written to the
+		  ' user-facing install log. The Debug log (DebugOutput) captures all diagnostic
+		  ' detail. Structured install/uninstall entries are written by LogInstallEntry().
+		  #Pragma Unused EntryType
+		  #Pragma Unused Message
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub LogInstallEntry(Title As String, Source As String, Destination As String, StartDT As DateTime)
+		  ' Appends a human-readable INSTALLED block to $HOME/LLStore.log.
+		  ' Called on successful install completion from InstallLLFile() and Installing().
+		  ' For uninstall entries call LogUninstallEntry() which shares this format.
+		  '
+		  ' Example output:
+		  '
+		  ' ══════════════════════════════════════════════════════════════
+		  '  INSTALLED  ·  05 March 2026  ·  14:23:07
+		  ' ──────────────────────────────────────────────────────────────
+		  '   Title       :  Firefox Browser [LLApp]
+		  '   Source      :  /home/user/Downloads/Firefox.lla
+		  '   Destination :  /home/user/ppAppsLive/Firefox
+		  '   Result      :  Success
+		  ' ──────────────────────────────────────────────────────────────
+		  '   Completed   :  14:23:41
+		  ' ══════════════════════════════════════════════════════════════
+		  
 		  #Pragma BreakOnExceptions Off
 		  Try
-		    ' Build log directory and file path from HomePath global
-		    Dim LogDir As String = Slash(HomePath) + "zLastOSRepository"
-		    MakeFolder(LogDir) ' Create directory if it doesn't exist (safe, no crash)
-		    Dim LogPath As String = Slash(LogDir) + "zzLLStore_Installs.log"
+		    Dim LogPath As String = Slash(HomePath) + "LLStore.log"
+		    If TargetWindows Then LogPath = LogPath.ReplaceAll("/", "\") ' PathTypeNative needs backslashes on Windows
 		    
-		    ' Validate and build the prefix
-		    Dim Prefix As String
-		    If EntryType = "Success" Then
-		      Prefix = "Success: "
-		    ElseIf EntryType = "Skipped" Then
-		      Prefix = "Skipped: "
-		    Else
-		      Prefix = "FAIL: "
-		    End If
+		    Var EndDT As DateTime = DateTime.Now
 		    
-		    ' Build the log line - add timestamp to FAIL entries for debug log cross-reference
-		    Dim LogLine As String
-		    If EntryType = "FAIL" Then
-		      Var d As DateTime = DateTime.Now
-		      LogLine = Prefix + d.Hour.ToString("00") + ":" + d.Minute.ToString("00") + ":" + d.Second.ToString("00") + Chr(9) + Message + Chr(10)
-		    Else
-		      LogLine = Prefix + Message + Chr(10)
-		    End If
+		    ' ── Month name helper ──────────────────────────────────────
+		    Dim MonthNames() As String = Array("", "January", "February", "March", "April", _
+		      "May", "June", "July", "August", "September", "October", "November", "December")
 		    
-		    ' Append to file using BinaryStream (supports true append without overwriting)
+		    ' ── Format date/time strings ──────────────────────────────
+		    Dim StartDate As String = StartDT.Day.ToString("00") + " " + MonthNames(StartDT.Month) + " " + StartDT.Year.ToString
+		    Dim StartTime As String = StartDT.Hour.ToString("00") + ":" + StartDT.Minute.ToString("00") + ":" + StartDT.Second.ToString("00")
+		    Dim EndTime   As String = EndDT.Hour.ToString("00")   + ":" + EndDT.Minute.ToString("00")   + ":" + EndDT.Second.ToString("00")
+		    
+		    ' ── Build the log block ───────────────────────────────────
+		    ' EndOfLine resolves to CR+LF on Windows and LF on Linux so the
+		    ' file opens correctly in Notepad / any default text editor.
+		    Dim NL    As String = EndOfLine
+		    Dim Rule1 As String = "══════════════════════════════════════════════════════════════" + NL
+		    Dim Rule2 As String = "──────────────────────────────────────────────────────────────" + NL
+		    
+		    Dim Block As String
+		    Block = NL + Rule1
+		    Block = Block + " INSTALLED  ·  " + StartDate + "  ·  " + StartTime + NL
+		    Block = Block + Rule2
+		    Block = Block + "   Title       :  " + Title       + NL
+		    If Source <> ""      Then Block = Block + "   Source      :  " + Source      + NL
+		    If Destination <> "" Then Block = Block + "   Destination :  " + Destination + NL
+		    Block = Block + "   Result      :  Success" + NL
+		    Block = Block + Rule2
+		    Block = Block + "   Completed   :  " + EndTime + NL
+		    Block = Block + Rule1
+		    
+		    ' ── Append to $HOME/LLStore.log ───────────────────────────
 		    Dim LogFI As FolderItem = GetFolderItem(LogPath, FolderItem.PathTypeNative)
 		    Dim BS As BinaryStream
 		    If LogFI.Exists Then
-		      BS = BinaryStream.Open(LogFI, True) ' Open existing for writing
-		      BS.Position = BS.Length ' Seek to end for append
+		      BS = BinaryStream.Open(LogFI, True)
+		      BS.Position = BS.Length ' Seek to end for true append
 		    Else
-		      BS = BinaryStream.Create(LogFI, True) ' Create new log file
+		      BS = BinaryStream.Create(LogFI, True)
 		    End If
 		    If BS <> Nil Then
-		      BS.Write(LogLine)
+		      BS.Write(Block)
 		      BS.Close
 		    End If
 		  Catch
-		    ' Silently swallow all errors - never crash the app over logging
+		    ' Silently swallow all errors — never crash the app over logging
+		  End Try
+		  #Pragma BreakOnExceptions On
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub LogUninstallEntry(Title As String, DesktopFile As String, StartDT As DateTime)
+		  ' Appends a human-readable UNINSTALLED block to $HOME/LLStore.log.
+		  ' Called from Uninstaller.xojo_window after a .desktop file is confirmed removed.
+		  '
+		  ' Example output:
+		  '
+		  ' ══════════════════════════════════════════════════════════════
+		  '  UNINSTALLED  ·  05 March 2026  ·  14:30:15
+		  ' ──────────────────────────────────────────────────────────────
+		  '   Title       :  Firefox Browser
+		  '   Desktop     :  /home/user/.local/share/applications/Firefox.desktop
+		  '   Result      :  Success
+		  ' ──────────────────────────────────────────────────────────────
+		  '   Completed   :  14:30:17
+		  ' ══════════════════════════════════════════════════════════════
+		  
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    Dim LogPath As String = Slash(HomePath) + "LLStore.log"
+		    If TargetWindows Then LogPath = LogPath.ReplaceAll("/", "\") ' PathTypeNative needs backslashes on Windows
+		    
+		    Var EndDT As DateTime = DateTime.Now
+		    
+		    ' ── Month name helper ──────────────────────────────────────
+		    Dim MonthNames() As String = Array("", "January", "February", "March", "April", _
+		      "May", "June", "July", "August", "September", "October", "November", "December")
+		    
+		    ' ── Format date/time strings ──────────────────────────────
+		    Dim StartDate As String = StartDT.Day.ToString("00") + " " + MonthNames(StartDT.Month) + " " + StartDT.Year.ToString
+		    Dim StartTime As String = StartDT.Hour.ToString("00") + ":" + StartDT.Minute.ToString("00") + ":" + StartDT.Second.ToString("00")
+		    Dim EndTime   As String = EndDT.Hour.ToString("00")   + ":" + EndDT.Minute.ToString("00")   + ":" + EndDT.Second.ToString("00")
+		    
+		    ' ── Build the log block ───────────────────────────────────
+		    ' EndOfLine resolves to CR+LF on Windows and LF on Linux so the
+		    ' file opens correctly in Notepad / any default text editor.
+		    Dim NL    As String = EndOfLine
+		    Dim Rule1 As String = "══════════════════════════════════════════════════════════════" + NL
+		    Dim Rule2 As String = "──────────────────────────────────────────────────────────────" + NL
+		    
+		    Dim Block As String
+		    Block = NL + Rule1
+		    Block = Block + " UNINSTALLED  ·  " + StartDate + "  ·  " + StartTime + NL
+		    Block = Block + Rule2
+		    Block = Block + "   Title       :  " + Title       + NL
+		    If DesktopFile <> "" Then Block = Block + "   Desktop     :  " + DesktopFile + NL
+		    Block = Block + "   Result      :  Success" + NL
+		    Block = Block + Rule2
+		    Block = Block + "   Completed   :  " + EndTime + NL
+		    Block = Block + Rule1
+		    
+		    ' ── Append to $HOME/LLStore.log ───────────────────────────
+		    Dim LogFI As FolderItem = GetFolderItem(LogPath, FolderItem.PathTypeNative)
+		    Dim BS As BinaryStream
+		    If LogFI.Exists Then
+		      BS = BinaryStream.Open(LogFI, True)
+		      BS.Position = BS.Length ' Seek to end for true append
+		    Else
+		      BS = BinaryStream.Create(LogFI, True)
+		    End If
+		    If BS <> Nil Then
+		      BS.Write(Block)
+		      BS.Close
+		    End If
+		  Catch
+		    ' Silently swallow all errors — never crash the app over logging
 		  End Try
 		  #Pragma BreakOnExceptions On
 		End Sub

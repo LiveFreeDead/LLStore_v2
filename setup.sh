@@ -228,27 +228,40 @@ echo "Done."
 
 # ---------------------------------------------------------------------------
 # 8. lastos-users group
-#    Run setup_lastos_group.sh (which calls usermod internally via sudo).
+#    Only run setup_lastos_group.sh (which needs sudo/pkexec) if the group
+#    doesn't exist yet OR the user isn't already a member.  Skipping it on
+#    subsequent runs means no password prompt after the first-time setup.
 #    After that we use 'sg' to make llstore -setup run with the group ACTIVE
 #    in this very session — no logout required, no need to run setup twice.
 # ---------------------------------------------------------------------------
 header "Configuring lastos-users group..."
 
-"$TOOLS/sudo_script.sh" "$TOOLS/setup_lastos_group.sh"
+# Check whether group setup is actually needed before asking for privilege.
+_GROUP_EXISTS=false
+_USER_IN_GROUP=false
+getent group lastos-users &>/dev/null && _GROUP_EXISTS=true
+id -nG "$REAL_USER" 2>/dev/null | grep -qw "lastos-users" && _USER_IN_GROUP=true
 
-# Verify the group now exists on this system
-if getent group lastos-users &>/dev/null; then
-    # Check if the user is already in the group in the current session.
-    # If not (freshly added), 'sg' launches a sub-shell that has it.
-    if id -nG "$REAL_USER" 2>/dev/null | grep -qw "lastos-users"; then
-        GROUP_ACTIVE=true
-    else
-        GROUP_ACTIVE=false
-    fi
-    echo "lastos-users group active in this session: $GROUP_ACTIVE"
+if [[ "$_GROUP_EXISTS" == "true" && "$_USER_IN_GROUP" == "true" ]]; then
+    echo "lastos-users group already exists and $REAL_USER is already a member — skipping sudo."
+    GROUP_ACTIVE=true
 else
-    echo "Warning: lastos-users group could not be confirmed — continuing anyway."
-    GROUP_ACTIVE=true  # let llstore deal with it
+    "$TOOLS/sudo_script.sh" "$TOOLS/setup_lastos_group.sh"
+
+    # Verify the group now exists on this system
+    if getent group lastos-users &>/dev/null; then
+        # Check if the user is already in the group in the current session.
+        # If not (freshly added), 'sg' launches a sub-shell that has it.
+        if id -nG "$REAL_USER" 2>/dev/null | grep -qw "lastos-users"; then
+            GROUP_ACTIVE=true
+        else
+            GROUP_ACTIVE=false
+        fi
+        echo "lastos-users group active in this session: $GROUP_ACTIVE"
+    else
+        echo "Warning: lastos-users group could not be confirmed — continuing anyway."
+        GROUP_ACTIVE=true  # let llstore deal with it
+    fi
 fi
 
 # ---------------------------------------------------------------------------

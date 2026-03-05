@@ -343,6 +343,18 @@ End
 		  Dim SavedRow    As Integer = UninstallItems.SelectedRowIndex
 		  Dim SavedScroll As Integer = UninstallItems.ScrollPosition
 		  
+		  ' Snapshot the names + desktop paths of all checked items, and note when we started.
+		  ' We use these after the shell runs to log whichever items were successfully removed.
+		  Var UninstStartDT As DateTime = DateTime.Now
+		  Dim UninstNames()    As String
+		  Dim UninstDesktops() As String
+		  For I = 0 To UninstallItems.RowCount - 1
+		    If UninstallItems.CellTextAt(I, 1) = "T" Then
+		      UninstNames.Add(UninstallItems.CellTextAt(I, 0))
+		      UninstDesktops.Add(UninstallItems.CellTextAt(I, 2))
+		    End If
+		  Next I
+		  
 		  ' Run UninstallLauncher.sh --silent for each checked item
 		  Dim Sh As New Shell
 		  Sh.TimeOut = -1
@@ -370,6 +382,17 @@ End
 		      End If
 		    End If
 		  Next Row
+		  
+		  ' Write one UNINSTALLED log entry for each item whose .desktop file is now gone.
+		  ' We match against the snapshot taken before the shell ran, so the list is accurate
+		  ' even if the UI has already removed the row.
+		  Dim UI As Integer
+		  For UI = 0 To UninstNames.Count - 1
+		    Dim CheckDF As FolderItem = GetFolderItem(UninstDesktops(UI), FolderItem.PathTypeNative)
+		    If CheckDF = Nil Or Not CheckDF.Exists Then
+		      LogUninstallEntry(UninstNames(UI), UninstDesktops(UI), UninstStartDT)
+		    End If
+		  Next UI
 		  
 		  If UninstallItems.RowCount > 0 Then
 		    If SavedRow    >= UninstallItems.RowCount Then SavedRow    = UninstallItems.RowCount - 1

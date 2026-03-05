@@ -1274,6 +1274,13 @@ End
 		    MC = MC + 1
 		    base.Item(MC).Shortcut  = "S"
 		    
+		    base.Append New MenuItem(MenuItem.TextSeparator) 'Sep (before log viewer)
+		    MC = MC + 1
+		    
+		    base.Append New MenuItem("View Install Log") 'Store mode only — opens $HOME/LLStore.log
+		    MC = MC + 1
+		    base.Item(MC).Shortcut  = "G"
+		    
 		    
 		    
 		  End If
@@ -1507,6 +1514,22 @@ End
 		    #Pragma BreakOnExceptions On
 		  Case "Update " ' Update Sizes In Items
 		    UpdateSizesInItems()
+		  Case "View In" ' View Install Log — Store mode only
+		    Dim LogPath As String = Slash(HomePath) + "LLStore.log"
+		    If TargetWindows Then LogPath = LogPath.ReplaceAll("/", "\")
+		    Dim LogFI As FolderItem = GetFolderItem(LogPath, FolderItem.PathTypeNative)
+		    If LogFI <> Nil And LogFI.Exists Then
+		      Dim OpenSh As New Shell
+		      If TargetWindows Then
+		        OpenSh.Execute("explorer " + Chr(34) + LogPath + Chr(34))
+		      Else
+		        OpenSh.Execute("xdg-open " + Chr(34) + LogPath + Chr(34))
+		      End If
+		    Else
+		      MsgBox "No install log found yet." + Chr(10) + Chr(10) + _
+		        "The log ( ~/LLStore.log ) is created automatically" + Chr(10) + _
+		        "when items are first installed or uninstalled."
+		    End If
 		  End Select
 		  
 		  If OldSortType <> SortType Then GenerateItems()
