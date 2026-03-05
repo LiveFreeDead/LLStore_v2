@@ -240,6 +240,7 @@ End
 	#tag Event
 		Sub Closing()
 		  Debug("-- MiniInstaller Closed")
+		  If Not ForceQuit Then Main.Items.SetFocus
 		End Sub
 	#tag EndEvent
 

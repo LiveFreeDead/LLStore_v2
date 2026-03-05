@@ -505,6 +505,12 @@ End
 		  
 		End Sub
 	#tag EndEvent
+	#tag Event
+		Sub Closing()
+		  Debug("-- ControlPanel Closed")
+		  If Not ForceQuit Then Main.Items.SetFocus
+		End Sub
+	#tag EndEvent
 
 
 	#tag Method, Flags = &h0

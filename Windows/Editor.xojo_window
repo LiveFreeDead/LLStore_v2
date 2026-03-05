@@ -5181,6 +5181,7 @@ End
 	#tag Event
 		Sub Closing()
 		  Debug("-- Editor Closed")
+		  If Not ForceQuit And Not EditorOnly Then Main.Items.SetFocus
 		End Sub
 	#tag EndEvent
 

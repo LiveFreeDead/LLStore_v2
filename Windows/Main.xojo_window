@@ -373,7 +373,6 @@ Begin DesktopWindow Main
       Width           =   128
    End
    Begin Timer FirstShown
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -430,7 +429,6 @@ Begin DesktopWindow Main
       _ScrollWidth    =   -1
    End
    Begin Timer KeyTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -439,7 +437,6 @@ Begin DesktopWindow Main
       TabPanelIndex   =   0
    End
    Begin Timer DoContextTimer
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   200
@@ -521,7 +518,6 @@ Begin DesktopWindow Main
       Width           =   80
    End
    Begin Timer SearchNow
-      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -605,6 +601,14 @@ End
 		    If Asc(Key) = 76 Or Asc(Key) = 108 Then SaveCurrentList() 'Ctrl + L or l
 		    
 		    If Asc(Key) = 84 Or Asc(Key) = 116 Or Asc(Key) = 20 Then Tools.Show 'Ctrl + T or t '20 is T in Windows
+		    
+		    If TargetLinux Then
+		      If Asc(Key) = 85 Or Asc(Key) = 117 Or Asc(Key) = 21 Then  'Ctrl + U or u '21 is U in Windows
+		        Uninstaller.Left = (Screen(0).AvailableWidth/2) - (Uninstaller.Width/2)
+		        Uninstaller.Top = (Screen(0).AvailableHeight/2) - (Uninstaller.Height/2)
+		        Uninstaller.Show
+		      End If
+		    End If
 		    
 		    If Asc(Key) = 80 Or Asc(Key) = 112 Or Asc(Key) = 16 Then ControlPanel.Show 'Ctrl + P or p '20 is T in Windows
 		    
@@ -1336,6 +1340,10 @@ End
 		  MC = MC + 1 
 		  
 		  If TargetLinux Then
+		    base.Append New MenuItem("Uninstaller") '0
+		    MC = MC + 1
+		    base.Item(MC).Shortcut  = "U"
+		    
 		    base.Append New MenuItem("Make SFX") '0
 		    MC = MC + 1
 		    base.Item(MC).Shortcut  = "X"
@@ -1368,6 +1376,12 @@ End
 		    MakeDesktopShortcut()
 		  Case "Build I"
 		    BuildToDesktop()
+		  Case "Uninsta" ' Uninstaller (Linux only)
+		    If TargetLinux Then
+		      Uninstaller.Left = (Screen(0).AvailableWidth/2) - (Uninstaller.Width/2)
+		      Uninstaller.Top = (Screen(0).AvailableHeight/2) - (Uninstaller.Height/2)
+		      Uninstaller.Show
+		    End If
 		  Case "Make SF"
 		    Try
 		      MakeSFX(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("FileINI")).ReplaceAll("\","/"))
@@ -3132,6 +3146,12 @@ End
 		      Tools.Show
 		    Case 112
 		      ControlPanel.Show
+		    Case 117 'Ctrl + U - Uninstaller (Linux only)
+		      If TargetLinux Then
+		        Uninstaller.Left = (Screen(0).AvailableWidth/2) - (Uninstaller.Width/2)
+		        Uninstaller.Top = (Screen(0).AvailableHeight/2) - (Uninstaller.Height/2)
+		        Uninstaller.Show
+		      End If
 		    End Select
 		  End If
 		  

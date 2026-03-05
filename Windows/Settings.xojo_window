@@ -1030,6 +1030,7 @@ End
 	#tag Event
 		Sub Closing()
 		  Debug("-- Settings Closed")
+		  If Not ForceQuit Then Main.Items.SetFocus
 		End Sub
 	#tag EndEvent
 

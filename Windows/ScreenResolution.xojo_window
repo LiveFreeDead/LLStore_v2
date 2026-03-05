@@ -224,6 +224,7 @@ End
 	#tag Event
 		Sub Closing()
 		  Debug("-- ScreenResolution Closed")
+		  If Not ForceQuit Then Main.Items.SetFocus
 		End Sub
 	#tag EndEvent
 
