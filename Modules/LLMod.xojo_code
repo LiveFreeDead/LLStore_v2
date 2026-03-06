@@ -761,14 +761,14 @@ Protected Module LLMod
 		            ' KDE Konsole
 		            SudoShellLoop.Execute(SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34))
 		          ElseIf SysTerminal.Trim = "xfce4-terminal" Then
-		            ' XFCE Terminal
-		            SudoShellLoop.Execute(SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34))
+		            ' XFCE Terminal — -e requires a single string, not separate args
+		            SudoShellLoop.Execute(SysTerminal.Trim + " -e " + Chr(34) + "bash " + Chr(39) + AbsSudoScript + Chr(39) + " " + Chr(39) + AbsLLStoreSudo + Chr(39) + Chr(34))
 		          ElseIf SysTerminal.Trim = "lxterminal" Then
-		            ' LXDE Terminal
-		            SudoShellLoop.Execute(SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34))
+		            ' LXDE Terminal — same single-string -e requirement as xfce4-terminal
+		            SudoShellLoop.Execute(SysTerminal.Trim + " -e " + Chr(34) + "bash " + Chr(39) + AbsSudoScript + Chr(39) + " " + Chr(39) + AbsLLStoreSudo + Chr(39) + Chr(34))
 		          ElseIf SysTerminal.Trim = "qterminal" Then
-		            ' LXQt Terminal
-		            SudoShellLoop.Execute(SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34))
+		            ' LXQt Terminal — same single-string -e requirement as xfce4-terminal
+		            SudoShellLoop.Execute(SysTerminal.Trim + " -e " + Chr(34) + "bash " + Chr(39) + AbsSudoScript + Chr(39) + " " + Chr(39) + AbsLLStoreSudo + Chr(39) + Chr(34))
 		          ElseIf SysTerminal.Trim = "terminator" Then
 		            ' Terminator: uses -x (execute and hold window open)
 		            SudoShellLoop.Execute(SysTerminal.Trim + " -x bash -c " + Chr(34) + SudoCommand + Chr(34))
@@ -6064,14 +6064,14 @@ Protected Module LLMod
 		    ' KDE Konsole
 		    TermSh.Execute(SysTerminal.Trim + " -e bash -c " + Chr(39) + Cmd + Chr(39))
 		  ElseIf SysTerminal.Trim = "xfce4-terminal" Then
-		    ' XFCE Terminal
-		    TermSh.Execute(SysTerminal.Trim + " -e bash -c " + Chr(39) + Cmd + Chr(39))
+		    ' XFCE Terminal — -e requires a single string, not separate args
+		    TermSh.Execute(SysTerminal.Trim + " -e " + Chr(34) + "bash -c " + Chr(39) + Cmd + Chr(39) + Chr(34))
 		  ElseIf SysTerminal.Trim = "lxterminal" Then
-		    ' LXDE Terminal
-		    TermSh.Execute(SysTerminal.Trim + " -e bash -c " + Chr(39) + Cmd + Chr(39))
+		    ' LXDE Terminal — same single-string -e requirement as xfce4-terminal
+		    TermSh.Execute(SysTerminal.Trim + " -e " + Chr(34) + "bash -c " + Chr(39) + Cmd + Chr(39) + Chr(34))
 		  ElseIf SysTerminal.Trim = "qterminal" Then
-		    ' LXQt Terminal
-		    TermSh.Execute(SysTerminal.Trim + " -e bash -c " + Chr(39) + Cmd + Chr(39))
+		    ' LXQt Terminal — same single-string -e requirement as xfce4-terminal
+		    TermSh.Execute(SysTerminal.Trim + " -e " + Chr(34) + "bash -c " + Chr(39) + Cmd + Chr(39) + Chr(34))
 		  ElseIf SysTerminal.Trim = "terminator" Then
 		    ' Terminator: -x executes and holds window open
 		    TermSh.Execute(SysTerminal.Trim + " -x bash -c " + Chr(39) + Cmd + Chr(39))

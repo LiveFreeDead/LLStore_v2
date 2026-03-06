@@ -29,6 +29,9 @@ if [[ ! -t 0 ]] || [[ ! -t 1 ]]; then
                 ptyxis|gnome-terminal|tilix|terminator|alacritty|kitty|foot)
                     exec "$TERM_TRY" -- bash "$SELF"
                     ;;
+                xfce4-terminal|lxterminal|qterminal)
+                    exec "$TERM_TRY" -e "bash \"$SELF\""
+                    ;;
                 konsole)
                     exec "$TERM_TRY" -e bash "$SELF"
                     ;;

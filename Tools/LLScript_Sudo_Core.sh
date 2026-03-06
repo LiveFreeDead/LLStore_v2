@@ -188,6 +188,7 @@ FLATSCRIPT
             alacritty)                   "$OSTERM" -- bash "$TMPSCRIPT" ;;
             kitty|foot)                  "$OSTERM" bash "$TMPSCRIPT" ;;
             terminator)                  "$OSTERM" -x bash "$TMPSCRIPT" ;;
+            xfce4-terminal|lxterminal|qterminal) "$OSTERM" -e "bash \"$TMPSCRIPT\"" ;;
             *)                           "$OSTERM" -e bash "$TMPSCRIPT" ;;
         esac
 
