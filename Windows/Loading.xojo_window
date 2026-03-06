@@ -3080,12 +3080,11 @@ End
 		  gSh.Execute("getent group lastos-users 2>/dev/null")
 		  Dim groupNeeded As Boolean = (gSh.Result.Trim = "")
 		  
-		  If Not groupNeeded Then
-		    gSh.Execute("whoami 2>/dev/null")
-		    Dim currentUser As String = gSh.Result.Trim
-		    gSh.Execute("id -nG " + Chr(34) + currentUser + Chr(34) + " 2>/dev/null")
-		    If Not gSh.Result.Trim.Contains("lastos-users") Then groupNeeded = True
-		  End If
+		  ' groupNeeded = True only when the group is genuinely absent from /etc/group.
+		  ' The 'group exists but session hasn't picked up the new GID yet' case is NOT
+		  ' a groupNeeded situation — it is handled by the sg lastos-users fast-path below.
+		  ' Setting groupNeeded=True for that case blocks the fast-path guard
+		  ' (If Not groupNeeded And needsSudo) and forces an unnecessary sudo prompt.
 		  
 		  ' NOTE: Group setup execution is deferred — handled below after needsSudo is known
 		  
@@ -4971,12 +4970,10 @@ End
 		  'Install Store Mode
 		  If OriginalStoreMode = 4 Or InstallStore = True Then
 		    Loading.Hide
-		    'Delete uninstall tools so they are recreated fresh after install
-		    If TargetLinux Then
-		      Deltree "/LastOS/Tools/Uninstall.sh"
-		      Deltree "/LastOS/Tools/UninstallLauncher.sh"
-		    End If
-		    
+		    ' NOTE: Do NOT delete uninstall scripts here. SetupUninstallTools (called
+		    ' above) already wrote them without sudo when the path was writable, and
+		    ' InstallLLStore embeds fresh copies in its own sudo script anyway.
+		    ' Deleting them here forced a redundant sudo prompt even when none was needed.
 		    InstallLLStore
 		    'PreQuitApp ' Save Debug etc
 		    'QuitApp 'Done installing, exit app, no need to continue
