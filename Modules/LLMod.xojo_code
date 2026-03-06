@@ -3989,7 +3989,7 @@ Protected Module LLMod
 		    DesktopOutPath = Slash(HomePath)+"Desktop/"
 		    SaveDataToFile(DesktopContent, DesktopOutPath+DesktopFile)
 		    ShellFast.Execute ("chmod 775 "+Chr(34)+DesktopOutPath+DesktopFile+Chr(34)) 'Change Read/Write/Execute to defaults
-		    If SysDesktopEnvironment.Trim.Lowercase = "gnome" Or SysDesktopEnvironment.Trim.Lowercase = "unity" Or SysDesktopEnvironment.Trim.Lowercase = "ubuntu" Or SysDesktopEnvironment.Trim.Lowercase = "budgie" Then 'Only GNOME/Unity (Nautilus) uses the trusted metadata flag; other DEs rely on the executable bit alone
+		    If SysDesktopEnvironment.Trim.Lowercase = "gnome" Or SysDesktopEnvironment.Trim.Lowercase = "unity" Or SysDesktopEnvironment.Trim.Lowercase = "ubuntu" Or SysDesktopEnvironment.Trim.Lowercase = "budgie" Or SysDesktopEnvironment.Trim.Lowercase = "zorin" Or SysDesktopEnvironment.Trim.Lowercase = "zorin:gnome" Then 'Only GNOME/Unity/Zorin (Nautilus) uses the trusted metadata flag; other DEs rely on the executable bit alone
 		      ShellFast.Execute ("gio set -t string " + Chr(34) + DesktopOutPath+DesktopFile + Chr(34) + " metadata::trusted true") 'Trust desktop file so Nautilus shows it in colour and allows double-click without prompting
 		    End If
 		    
@@ -4035,7 +4035,7 @@ Protected Module LLMod
 		    DesktopOutPath = Slash(HomePath)+"Desktop/"
 		    SaveDataToFile(DesktopContent, DesktopOutPath+DesktopFile)
 		    ShellFast.Execute ("chmod 775 "+Chr(34)+DesktopOutPath+DesktopFile+Chr(34)) 'Change Read/Write/Execute to defaults
-		    If SysDesktopEnvironment.Trim.Lowercase = "gnome" Or SysDesktopEnvironment.Trim.Lowercase = "unity" Or SysDesktopEnvironment.Trim.Lowercase = "ubuntu" Or SysDesktopEnvironment.Trim.Lowercase = "budgie" Then 'Only GNOME/Unity (Nautilus) uses the trusted metadata flag; other DEs rely on the executable bit alone
+		    If SysDesktopEnvironment.Trim.Lowercase = "gnome" Or SysDesktopEnvironment.Trim.Lowercase = "unity" Or SysDesktopEnvironment.Trim.Lowercase = "ubuntu" Or SysDesktopEnvironment.Trim.Lowercase = "budgie" Or SysDesktopEnvironment.Trim.Lowercase = "zorin" Or SysDesktopEnvironment.Trim.Lowercase = "zorin:gnome" Then 'Only GNOME/Unity/Zorin (Nautilus) uses the trusted metadata flag; other DEs rely on the executable bit alone
 		      ShellFast.Execute ("gio set -t string " + Chr(34) + DesktopOutPath+DesktopFile + Chr(34) + " metadata::trusted true") 'Trust desktop file so Nautilus shows it in colour and allows double-click without prompting
 		    End If
 		    
@@ -5481,7 +5481,7 @@ Protected Module LLMod
 		        If ItemLnk(I).Desktop = True Then
 		          SaveDataToFile(DesktopContent, Slash(HomePath)+"Desktop/"+DesktopFile) 'Also save to Desktop
 		          ShellFast.Execute ("chmod 775 "+Chr(34)+Slash(HomePath)+"Desktop/"+DesktopFile+Chr(34)) 'Change Read/Write/Execute to defaults
-		          If SysDesktopEnvironment.Trim.Lowercase = "gnome" Or SysDesktopEnvironment.Trim.Lowercase = "unity" Or SysDesktopEnvironment.Trim.Lowercase = "ubuntu" Or SysDesktopEnvironment.Trim.Lowercase = "budgie" Then 'Only GNOME/Unity (Nautilus) uses the trusted metadata flag; other DEs rely on the executable bit alone
+		          If SysDesktopEnvironment.Trim.Lowercase = "gnome" Or SysDesktopEnvironment.Trim.Lowercase = "unity" Or SysDesktopEnvironment.Trim.Lowercase = "ubuntu" Or SysDesktopEnvironment.Trim.Lowercase = "budgie" Or SysDesktopEnvironment.Trim.Lowercase = "zorin" Or SysDesktopEnvironment.Trim.Lowercase = "zorin:gnome" Then 'Only GNOME/Unity/Zorin (Nautilus) uses the trusted metadata flag; other DEs rely on the executable bit alone
 		            ShellFast.Execute ("gio set -t string " + Chr(34) + Slash(HomePath)+"Desktop/"+DesktopFile + Chr(34) + " metadata::trusted true") 'Trust desktop file so Nautilus shows it in colour and allows double-click without prompting
 		          End If
 		        End If
@@ -5945,7 +5945,7 @@ Protected Module LLMod
 		  
 		  SaveDataToFile (DesktopContent, DesktopFile)
 		  ShellFast.Execute("chmod 775 "+Chr(34)+DesktopFile+Chr(34))
-		  If SysDesktopEnvironment.Trim.Lowercase = "gnome" Or SysDesktopEnvironment.Trim.Lowercase = "unity" Or SysDesktopEnvironment.Trim.Lowercase = "ubuntu" Or SysDesktopEnvironment.Trim.Lowercase = "budgie" Then 'Only GNOME/Unity (Nautilus) uses the trusted metadata flag; other DEs rely on the executable bit alone
+		  If SysDesktopEnvironment.Trim.Lowercase = "gnome" Or SysDesktopEnvironment.Trim.Lowercase = "unity" Or SysDesktopEnvironment.Trim.Lowercase = "ubuntu" Or SysDesktopEnvironment.Trim.Lowercase = "budgie" Or SysDesktopEnvironment.Trim.Lowercase = "zorin" Or SysDesktopEnvironment.Trim.Lowercase = "zorin:gnome" Then 'Only GNOME/Unity/Zorin (Nautilus) uses the trusted metadata flag; other DEs rely on the executable bit alone
 		    ShellFast.Execute("gio set -t string " + Chr(34) + DesktopFile + Chr(34) + " metadata::trusted true") 'Trust desktop file so Nautilus shows it in colour and allows double-click without prompting
 		  End If
 		  

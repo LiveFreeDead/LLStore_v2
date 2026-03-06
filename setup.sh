@@ -402,12 +402,13 @@ fi
 #   (b) the current user is not yet a member of it
 # Guard against both cases and fall back to a plain launch so at minimum
 # the install still completes (LLStore will request sudo again if needed).
-if getent group lastos-users &>/dev/null && \
+if command -v sg &>/dev/null && \
+   getent group lastos-users &>/dev/null && \
    id -nG "$REAL_USER" 2>/dev/null | grep -qw "lastos-users"; then
     echo "Activating lastos-users group via sg..."
     sg lastos-users -c "cd \"$SCRIPT_DIR\" && $LAUNCH_CMD"
 else
-    echo "Note: lastos-users group not yet active in this session — launching directly."
+    echo "Note: launching directly (sg unavailable or lastos-users not yet active in this session)."
     echo "      LLStore will request elevated permissions if needed."
     cd "$SCRIPT_DIR" && eval "$LAUNCH_CMD"
 fi
