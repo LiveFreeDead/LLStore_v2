@@ -18,9 +18,9 @@ terms=(
   x-terminal-emulator  # Debian/Ubuntu alternatives symlink (fallback)
   xterm             # Universal fallback
 )
-for t in ${terms[*]}
+for t in "${terms[@]}"
 do
-    if [ $(command -v $t) ]
+    if command -v "$t" &>/dev/null
     then
         detected_term=$t
         break

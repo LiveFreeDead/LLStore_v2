@@ -78,6 +78,9 @@ inst () {
             apk)
                 apk info -e "$PKG" &>/dev/null && INSTALLED=true
                 ;;
+            emerge)
+                equery list "$PKG" &>/dev/null && INSTALLED=true
+                ;;
         esac
         if $INSTALLED; then
             $FORCE_REINSTALL || { echo "Already installed: $PKG"; continue; }
@@ -128,10 +131,18 @@ inst () {
                 sudo "$PM_CMD" "$PKG" &>/dev/null && OK=true
                 ;;
             eopkg)
-                sudo "$PM_CMD" -y install "$PKG" &>/dev/null && OK=true
+                if $FORCE_REINSTALL && $INSTALLED; then
+                    sudo "$PM_CMD" -y reinstall "$PKG" &>/dev/null && OK=true
+                else
+                    sudo "$PM_CMD" -y install "$PKG" &>/dev/null && OK=true
+                fi
                 ;;
             apk)
-                sudo "$PM_CMD" add "$PKG" &>/dev/null && OK=true
+                if $FORCE_REINSTALL && $INSTALLED; then
+                    sudo "$PM_CMD" fix --reinstall "$PKG" &>/dev/null && OK=true
+                else
+                    sudo "$PM_CMD" add "$PKG" &>/dev/null && OK=true
+                fi
                 ;;
             *)
                 sudo "$PM_CMD" install "$PKG" &>/dev/null && OK=true

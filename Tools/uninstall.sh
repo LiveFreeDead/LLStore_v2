@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/bin/bash
 #
 # The script deletes current directory and launchers
 # base version 01.12.2020 by Хрюнделёк

@@ -91,22 +91,7 @@ for method in "${METHODS[@]}"; do
     if command_exists "$method"; then
         echo "Found $method, attempting to use it..."
         
-        # Special handling for pkexec which may need full path
-        if [ "$method" = "pkexec" ]; then
-            # For pkexec, we need to be more careful about the command structure
-            if run_elevated "$method" "$COMMAND"; then
-                SUCCESS=true
-                break
-            fi
-        else
-            if run_elevated "$method" "$COMMAND"; then
-                SUCCESS=true
-                break
-            fi
-        fi
-        
-        # Check exit status
-        if [ $? -eq 0 ]; then
+        if run_elevated "$method" "$COMMAND"; then
             SUCCESS=true
             break
         else

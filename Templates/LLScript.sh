@@ -39,7 +39,7 @@ case "$ID" in
     fedora|nobara)
         ;;
 
-    opensuse-tumbleweed)
+    opensuse-tumbleweed|opensuse-leap)
         ;;
 
     almalinux)

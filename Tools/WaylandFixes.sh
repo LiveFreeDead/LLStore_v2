@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if ! command -v gsettings &>/dev/null; then
+    echo "GNOME gsettings not found, skipping WaylandFixes."
+    exit 0
+fi
+
 profile=$(gsettings get org.gnome.Terminal.ProfilesList default)
 profile=${profile:1:-1} # remove leading and trailing single quotes
 

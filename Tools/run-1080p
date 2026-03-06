@@ -1,30 +1,221 @@
 #!/bin/bash
 
-#Bypass if Wayland, xrandr doesn't work
-if [ $XDG_SESSION_TYPE = "wayland" ]; then
-    #run passed command here
-    $@
-    exit 0
+# run-1080p: Temporarily switch to 1920x1080 + 100% UI scale to run a program,
+# then restore the original resolution, scaling, and window positions when it exits.
+#
+# Requires: wmctrl (apt install wmctrl) for window save/restore
+# Supports:
+#   Cinnamon  X11 + Wayland  gsettings org.cinnamon.desktop.interface scaling-factor
+#   All DEs   X11            xrandr resolution switch
+
+# --------------------------------------------------------------------------
+# Capture window positions immediately — before anything else changes.
+# wmctrl -lG columns: id  desktop  x  y  w  h  host  title
+# Filter: desktop != -1  (excludes conky, desktop applets, sticky widgets)
+#         NF > 7         (must have a title column — excludes untitled windows)
+# --------------------------------------------------------------------------
+_window_snapshot=""
+if command -v wmctrl &>/dev/null; then
+    _window_snapshot=$(wmctrl -lG 2>/dev/null | awk '$2 != -1 && NF > 7 {print $1, $3, $4, $5, $6}')
+    _wcount=$(echo "$_window_snapshot" | grep -c .)
+    echo "[windows] saved ${_wcount} titled window positions"
+else
+    echo "[windows] wmctrl not found — skipping (install with: apt install wmctrl)"
 fi
 
-# Resolution to 1080p
-if [ "$(type -P xrandr)" ]; then
-    echo "Found xrandr" 
-    xrandr -s 1920x1080
+# --------------------------------------------------------------------------
+# Helper: read a gsettings integer value safely.
+# gsettings returns e.g. "uint32 2" — awk grabs the last token (2),
+# avoiding the "32" false-match that grep -oP \d+ | head -1 would give.
+# --------------------------------------------------------------------------
+_gs_int() {
+    gsettings get "$1" "$2" 2>/dev/null | awk '{print $NF}'
+}
+
+# --------------------------------------------------------------------------
+# Helper: write gsettings scaling and tell Cinnamon to live-apply it via
+# the same D-Bus signal the display panel's Apply button sends.
+# --------------------------------------------------------------------------
+_cinnamon_set_scale() {
+    local _scale="$1"
+    echo "  [gsettings] setting scaling-factor to ${_scale}"
+    gsettings set org.cinnamon.desktop.interface scaling-factor "$_scale"
+    echo "  [dbus] sending reexec_self() to Cinnamon shell"
+    dbus-send --session --type=method_call \
+        --dest=org.Cinnamon /org/Cinnamon \
+        org.Cinnamon.Eval \
+        string:'global.reexec_self()' &>/dev/null \
+        && echo "  [dbus] signal sent OK" \
+        || echo "  [dbus] signal failed (dbus-send returned non-zero)"
+}
+
+# --------------------------------------------------------------------------
+# Helper: set resolution on a specific output using --output --mode
+# which is reliable across multiple runs, unlike xrandr -s.
+# --------------------------------------------------------------------------
+_xrandr_set_res() {
+    local _output="$1" _mode="$2"
+    echo "[xrandr] xrandr --output ${_output} --mode ${_mode}"
+    xrandr --output "$_output" --mode "$_mode" \
+        && echo "[xrandr] OK" \
+        || echo "[xrandr] FAILED — mode '${_mode}' may not be in the modelist for '${_output}'"
+}
+
+# --------------------------------------------------------------------------
+# Helper: restore saved window geometries — single call at the very end
+# after everything has settled, to avoid cumulative drift from multiple passes.
+# --------------------------------------------------------------------------
+_restore_windows() {
+    if ! command -v wmctrl &>/dev/null || [ -z "$_window_snapshot" ]; then
+        return
+    fi
+    echo "[windows] waiting 1.5s for Cinnamon shell to settle..."
+    sleep 1.5
+    echo "[windows] restoring window positions..."
+    local _id _x _y _w _h _count=0
+    while read -r _id _x _y _w _h; do
+        [ -z "$_id" ] && continue
+        wmctrl -ir "$_id" -e "0,${_x},${_y},${_w},${_h}" 2>/dev/null && (( _count++ )) || true
+    done <<< "$_window_snapshot"
+    echo "[windows] restored ${_count} windows"
+}
+
+# --------------------------------------------------------------------------
+# Helper: kill conky before changes, relaunch from its own config after.
+# This is more reliable than trying to wmctrl-reposition conky, which ignores
+# external geometry requests and repositions itself on every redraw anyway.
+# --------------------------------------------------------------------------
+_conky_was_running=false
+_conky_kill() {
+    if pgrep -x conky &>/dev/null; then
+        _conky_was_running=true
+        echo "[conky] killing conky before resolution/scale change"
+        pkill -x conky 2>/dev/null || true
+    fi
+}
+_conky_restart() {
+    if $_conky_was_running; then
+        echo "[conky] relaunching conky..."
+        # Launch conky detached so it doesn't block the script
+        nohup conky &>/dev/null &
+        echo "[conky] conky relaunched (pid $!)"
+    fi
+}
+
+
+# --------------------------------------------------------------------------
+# Detect Cinnamon
+# --------------------------------------------------------------------------
+_is_cinnamon=false
+_de="${XDG_CURRENT_DESKTOP:-${DESKTOP_SESSION:-}}"
+echo "[detect] XDG_CURRENT_DESKTOP='${XDG_CURRENT_DESKTOP:-}' DESKTOP_SESSION='${DESKTOP_SESSION:-}'"
+echo "[detect] XDG_SESSION_TYPE='${XDG_SESSION_TYPE:-}'"
+case "${_de,,}" in
+    *cinnamon*) _is_cinnamon=true ; echo "[detect] Cinnamon matched via DE string" ;;
+esac
+if ! $_is_cinnamon && pgrep -x cinnamon &>/dev/null; then
+    _is_cinnamon=true
+    echo "[detect] Cinnamon matched via pgrep"
+fi
+echo "[detect] _is_cinnamon=${_is_cinnamon}"
+
+# --------------------------------------------------------------------------
+# Save current state
+# --------------------------------------------------------------------------
+_orig_res=""
+_orig_output=""
+_orig_cinnamon_scale=1
+
+# xrandr — detect primary output and current mode (X11 only)
+if [ "${XDG_SESSION_TYPE:-}" != "wayland" ] && command -v xrandr &>/dev/null; then
+    _orig_output=$(xrandr -q 2>/dev/null | awk '/connected primary/{print $1; exit}')
+    [ -z "$_orig_output" ] && \
+        _orig_output=$(xrandr -q 2>/dev/null | awk '/connected/{print $1; exit}')
+    _orig_res=$(xrandr -q 2>/dev/null | awk '/\*/{print $1; exit}')
+    echo "[xrandr] output: '${_orig_output}'  current mode: '${_orig_res}'"
+else
+    echo "[xrandr] skipped (wayland or xrandr not found)"
 fi
 
-#run passed command here
-$@
+# Cinnamon UI scale
+if $_is_cinnamon && command -v gsettings &>/dev/null; then
+    _raw=$(gsettings get org.cinnamon.desktop.interface scaling-factor 2>/dev/null)
+    _orig_cinnamon_scale=$(_gs_int org.cinnamon.desktop.interface scaling-factor)
+    _orig_cinnamon_scale=${_orig_cinnamon_scale:-1}
+    echo "[cinnamon] raw gsettings value: '${_raw}' → parsed: '${_orig_cinnamon_scale}'"
+    if [ "$_orig_cinnamon_scale" -gt 4 ] 2>/dev/null; then
+        echo "[cinnamon] WARNING: corrupt scale value ${_orig_cinnamon_scale}x — resetting to 2x"
+        _cinnamon_set_scale 2
+        _orig_cinnamon_scale=2
+    fi
+elif ! $_is_cinnamon; then
+    echo "[cinnamon] skipped — Cinnamon not detected"
+else
+    echo "[cinnamon] skipped — gsettings not found"
+fi
 
-#sleep 5
+# --------------------------------------------------------------------------
+# Restore function — trap ensures this always runs on exit, Ctrl-C, or crash
+# --------------------------------------------------------------------------
+_restore() {
+    echo "--- run-1080p: restoring ---"
+    echo "[restore] output='${_orig_output}' res='${_orig_res}' scale='${_orig_cinnamon_scale}'"
 
-if [ "$(type -P xrandr)" ]; then
+    [ -n "$_orig_output" ] && [ -n "$_orig_res" ] && [ "$_orig_res" != "1920x1080" ] && {
+        echo "[restore] Resolution: 1920x1080 → ${_orig_res}"
+        _xrandr_set_res "$_orig_output" "$_orig_res"
+        sleep 0.5
+    }
 
-   #This doesn't restore the Cinnamon User Interface Scale, it puts back to correct resolution only.
-    res="$(xrandr -q|grep '^\*')"
-    if [[ "${res:1:1}" != 0 ]]; then
-            xrandr -s 0
+    if $_is_cinnamon && [ "$_orig_cinnamon_scale" -gt 1 ] 2>/dev/null; then
+        echo "[restore] Cinnamon scaling: 1x → ${_orig_cinnamon_scale}x"
+        _deadline=$(( $(date +%s) + 3 ))
+        while true; do
+            _cinnamon_set_scale "$_orig_cinnamon_scale"
+            sleep 0.3
+            _current=$(_gs_int org.cinnamon.desktop.interface scaling-factor)
+            echo "[restore] verify read-back: '${_current}' (want '${_orig_cinnamon_scale}')"
+            if [ "$_current" = "$_orig_cinnamon_scale" ]; then
+                echo "[restore] Cinnamon scaling confirmed: ${_orig_cinnamon_scale}x"
+                break
+            fi
+            if [ "$(date +%s)" -ge "$_deadline" ]; then
+                echo "[restore] WARNING: scaling did not confirm after 3s (stuck at ${_current}x)"
+                break
+            fi
+            sleep 0.2
+        done
+    else
+        echo "[restore] scaling skipped — _is_cinnamon=${_is_cinnamon}, _orig_cinnamon_scale=${_orig_cinnamon_scale}"
     fi
 
+    # Single window restore at the very end, after everything has settled.
+    _restore_windows
+    # Relaunch conky last so it draws at its config position, not a wmctrl-shifted one.
+    _conky_restart
+}
+trap '_restore' EXIT INT TERM
+
+# Kill conky before changing resolution/scale so it does not get repositioned randomly.
+_conky_kill
+
+# --------------------------------------------------------------------------
+# Apply 1080p / 100% scale
+# --------------------------------------------------------------------------
+if [ -n "$_orig_output" ] && [ -n "$_orig_res" ] && [ "$_orig_res" != "1920x1080" ]; then
+    echo "[apply] Resolution: ${_orig_res} → 1920x1080"
+    _xrandr_set_res "$_orig_output" "1920x1080"
 fi
-exit 0
+if $_is_cinnamon && [ "$_orig_cinnamon_scale" -gt 1 ] 2>/dev/null; then
+    echo "[apply] Cinnamon scaling: ${_orig_cinnamon_scale}x → 1x"
+    _cinnamon_set_scale 1
+else
+    echo "[apply] scaling skipped — _is_cinnamon=${_is_cinnamon}, _orig_cinnamon_scale=${_orig_cinnamon_scale}"
+fi
+
+# --------------------------------------------------------------------------
+# Run the program
+# --------------------------------------------------------------------------
+echo "[run] launching: $*"
+"$@"
+exit $?
