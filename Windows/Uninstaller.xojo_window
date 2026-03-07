@@ -11,7 +11,7 @@ Begin DesktopWindow Uninstaller
    HasMaximizeButton=   True
    HasMinimizeButton=   True
    HasTitleBar     =   True
-   Height          =   530
+   Height          =   560
    ImplicitInstance=   True
    MacProcID       =   0
    MaximumHeight   =   32000
@@ -118,6 +118,37 @@ Begin DesktopWindow Uninstaller
       Visible         =   True
       Width           =   130
    End
+   Begin DesktopButton RefreshButton
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Cancel          =   False
+      Caption         =   "Refresh List"
+      Default         =   False
+      Enabled         =   True
+      FontName        =   "System"
+      FontSize        =   0.0
+      FontUnit        =   0
+      Height          =   26
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   0
+      LockBottom      =   True
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   False
+      MacButtonStyle  =   0
+      Scope           =   0
+      TabIndex        =   4
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "Re-scan installed LLStore and Wine items"
+      Top             =   527
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   130
+   End
    Begin DesktopListBox UninstallItems
       AllowAutoDeactivate=   True
       AllowAutoHideScrollbars=   False
@@ -127,8 +158,8 @@ Begin DesktopWindow Uninstaller
       AllowRowDragging=   False
       AllowRowReordering=   False
       Bold            =   False
-      ColumnCount     =   3
-      ColumnWidths    =   "*,0,0"
+      ColumnCount     =   4
+      ColumnWidths    =   "*,0,0,0"
       DefaultRowHeight=   -1
       DropIndicatorVisible=   False
       Enabled         =   True
@@ -175,14 +206,36 @@ Begin DesktopWindow Uninstaller
       Scope           =   0
       TabPanelIndex   =   0
    End
+   Begin Timer Timer2
+      Enabled         =   True
+      Index           =   -2147483648
+      LockedInPosition=   False
+      Period          =   100
+      RunMode         =   0
+      Scope           =   0
+      TabPanelIndex   =   0
+   End
 End
 #tag EndDesktopWindow
 
 #tag WindowCode
+#tag Property, Flags = &h21
+	PendingUninstLeft As Integer
+#tag EndProperty
+#tag Property, Flags = &h21
+	PendingUninstTop As Integer
+#tag EndProperty
 	#tag Event
 		Sub Closing()
 		  Debug("-- Uninstaller Closed")
-		  If Not ForceQuit Then Main.Items.SetFocus
+		  If UninstallerOnly Then
+		    ForceQuit = True
+		    PreQuitApp
+		    QuitApp
+		  Else
+		    Main.Visible = True
+		    If Not ForceQuit Then Main.Items.SetFocus
+		  End If
 		End Sub
 	#tag EndEvent
 
@@ -191,6 +244,9 @@ End
 		  ' Centre the window on screen
 		  Uninstaller.Left = (Screen(0).AvailableWidth / 2) - (Uninstaller.Width / 2)
 		  Uninstaller.Top  = (Screen(0).AvailableHeight / 2) - (Uninstaller.Height / 2)
+		  
+		  ' Hide main so the uninstaller is the only window
+		  If Not UninstallerOnly Then Main.Visible = False
 		  
 		  UninstallItems.AddRow("Getting Installed Items...")
 		  
@@ -240,6 +296,8 @@ End
 		  Dim Sh As New Shell
 		  Sh.TimeOut = 15000
 		  Sh.Execute("bash " + Chr(34) + ScriptPath + Chr(34))
+		  Dim DelSh1 As New Shell
+		  DelSh1.Execute("rm -f " + Chr(34) + ScriptPath + Chr(34))
 		  
 		  ' Parse each output line:  Name|/path/to/file.desktop
 		  Dim RawLines() As String = Sh.Result.Split(Chr(10))
@@ -256,13 +314,87 @@ End
 		    
 		    If ItemName = "" Or DesktopFile = "" Then Continue
 		    
-		    UninstallItems.AddRow(ItemName, "F", DesktopFile)
+		    UninstallItems.AddRow(ItemName, "F", DesktopFile, "llstore")
 		  Next I
 		  
 		  UninstallItems.Refresh
 		End Sub
 	#tag EndMethod
 
+	#tag Method, Flags = &h0
+		Sub PopulateWineItems()
+		  'Read Wine registry files directly using iconv + awk. No Python, no wine process spawn.
+		  'iconv is part of glibc and present on every distro that runs Wine.
+		  'Parses HKLM (system.reg) and HKCU (user.reg) from the default Wine prefix.
+		  'Col 0 = display name + " [Wine]", Col 1 = "F", Col 2 = UninstallString, Col 3 = "wine"
+		  If Not TargetLinux Then Return
+		  Dim H As String = NoSlash(HomePath)
+		  If H = "" Then Return
+		  
+		  Dim ScriptPath As String = "/tmp/llstore_wine_uninst_scan.sh"
+		  Dim Q As String = Chr(34)
+		  Dim S As String
+		  
+		  S = "#!/bin/bash" + Chr(10)
+		  S = S + "parse_reg() {" + Chr(10)
+		  S = S + "  local f=" + Q + "$1" + Q + Chr(10)
+		  S = S + "  [ -f " + Q + "$f" + Q + " ] || return" + Chr(10)
+		  S = S + "  { if od -A n -N 2 -t x1 " + Q + "$f" + Q + " 2>/dev/null | grep -qi 'ff fe'; then iconv -f UTF-16LE -t UTF-8 " + Q + "$f" + Q + " 2>/dev/null; else cat " + Q + "$f" + Q + "; fi; } | awk '" + Chr(10)
+		  S = S + "    BEGIN { name=" + Q + Q + "; uninst=" + Q + Q + "; icon=" + Q + Q + "; loc=" + Q + Q + " }" + Chr(10)
+		  S = S + "    /^\[/ { if (name != " + Q + Q + ") { if (uninst == " + Q + Q + ") { if (icon != " + Q + Q + ") uninst=icon; else if (loc != " + Q + Q + ") { if (loc !~ /\\$/) loc=loc " + Q + "\\" + Q + "; uninst=" + Q + "INSTDIR:" + Q + " loc } }; if (uninst != " + Q + Q + ") print name " + Q + "|" + Q + " uninst }; name=" + Q + Q + "; uninst=" + Q + Q + "; icon=" + Q + Q + "; loc=" + Q + Q + " }" + Chr(10)
+		  S = S + "    /^" + Q + "DisplayName" + Q + "=/ { val=substr($0,15); gsub(/^" + Q + "|" + Q + "$/, " + Q + Q + ", val); name=val }" + Chr(10)
+		  S = S + "    /^" + Q + "UninstallString" + Q + "=/ { val=substr($0,19); gsub(/^" + Q + "|" + Q + "$/, " + Q + Q + ", val); uninst=val }" + Chr(10)
+		  S = S + "    /^" + Q + "DisplayIcon" + Q + "=/ { val=substr($0,15); gsub(/^" + Q + "|" + Q + "$/, " + Q + Q + ", val); sub(/,[0-9]+$/, " + Q + Q + ", val); if (tolower(val) ~ /uninst[^\\]*\.exe$/) icon=val }" + Chr(10)
+		  S = S + "    /^" + Q + "InstallLocation" + Q + "=/ { val=substr($0,19); gsub(/^" + Q + "|" + Q + "$/, " + Q + Q + ", val); loc=val }" + Chr(10)
+		  S = S + "    /^" + Q + "InstallPath" + Q + "=/ { if (loc == " + Q + Q + ") { val=substr($0,15); gsub(/^" + Q + "|" + Q + "$/, " + Q + Q + ", val); loc=val } }" + Chr(10)
+		  S = S + "    END { if (name != " + Q + Q + ") { if (uninst == " + Q + Q + ") { if (icon != " + Q + Q + ") uninst=icon; else if (loc != " + Q + Q + ") { if (loc !~ /\\$/) loc=loc " + Q + "\\" + Q + "; uninst=" + Q + "INSTDIR:" + Q + " loc } }; if (uninst != " + Q + Q + ") print name " + Q + "|" + Q + " uninst } }" + Chr(10)
+		  S = S + "  '" + Chr(10)
+		  S = S + "}" + Chr(10)
+		  S = S + "find_uninst_in_windir() {" + Chr(10)
+		  S = S + "  local windir=" + Q + "$1" + Q + " lindir" + Chr(10)
+		  S = S + "  lindir=$(printf '%s' " + Q + "$windir" + Q + " | sed 's|\\|/|g;s|^[Cc]:|" + H + "/.wine/drive_c|')" + Chr(10)
+		  S = S + "  lindir=" + Q + "${lindir%/}" + Q + Chr(10)
+		  S = S + "  [ -d " + Q + "$lindir" + Q + " ] || return" + Chr(10)
+		  S = S + "  local f" + Chr(10)
+		  S = S + "  for f in " + Q + "$lindir" + Q + "/[Uu]nins*.exe " + Q + "$lindir" + Q + "/[Uu]ninstall*.exe " + Q + "$lindir" + Q + "/*[Uu]ninst*.exe; do" + Chr(10)
+		  S = S + "    [ -f " + Q + "$f" + Q + " ] && printf '%s\\%s\n' " + Q + "${windir%\\}" + Q + " " + Q + "$(basename " + Q + "$f" + Q + ")" + Q + " && return" + Chr(10)
+		  S = S + "  done" + Chr(10)
+		  S = S + "}" + Chr(10)
+		  S = S + "{ parse_reg " + Q + H + "/.wine/system.reg" + Q + "; parse_reg " + Q + H + "/.wine/user.reg" + Q + "; } | sort -u | while IFS='|' read -r _n _u; do" + Chr(10)
+		  S = S + "  if [[ " + Q + "$_u" + Q + " == INSTDIR:* ]]; then" + Chr(10)
+		  S = S + "    _r=$(find_uninst_in_windir " + Q + "${_u#INSTDIR:}" + Q + ")" + Chr(10)
+		  S = S + "    [ -n " + Q + "$_r" + Q + " ] && printf '%s|%s\n' " + Q + "$_n" + Q + " " + Q + "$_r" + Q + Chr(10)
+		  S = S + "  else" + Chr(10)
+		  S = S + "    printf '%s|%s\n' " + Q + "$_n" + Q + " " + Q + "$_u" + Q + Chr(10)
+		  S = S + "  fi" + Chr(10)
+		  S = S + "done" + Chr(10)
+		  
+		  SaveDataToFile(S, ScriptPath)
+		  Dim Sh As New Shell
+		  Sh.TimeOut = 10000
+		  Sh.Execute("bash " + Chr(34) + ScriptPath + Chr(34))
+		  Dim DelSh2 As New Shell
+		  DelSh2.Execute("rm -f " + Chr(34) + ScriptPath + Chr(34))
+		  
+		  Dim RawLines() As String = Sh.Result.Split(Chr(10))
+		  Dim I As Integer
+		  For I = 0 To RawLines.Count - 1
+		    Dim Line As String = RawLines(I).Trim
+		    If Line = "" Then Continue
+		    Dim PipePos As Integer = Line.IndexOf("|")
+		    If PipePos < 1 Then Continue
+		    Dim ItemName     As String = Left(Line, PipePos).Trim
+		    Dim UninstString As String = Mid(Line, PipePos + 2).Trim
+		    ' Strip leading/trailing backslash-escaped quotes left by Wine registry parser (e.g. \"C:\...\" -> C:\...)
+		    If UninstString.Left(2) = Chr(92) + Chr(34) Then UninstString = UninstString.Mid(3)
+		    If UninstString.Right(2) = Chr(92) + Chr(34) Then UninstString = UninstString.Left(UninstString.Length - 2)
+		    If ItemName = "" Or UninstString = "" Then Continue
+		    UninstallItems.AddRow(ItemName + " [Wine]", "F", UninstString, "wine")
+		  Next I
+		  
+		  UninstallItems.Refresh
+		End Sub
+	#tag EndMethod
 
 #tag EndWindowCode
 
@@ -282,8 +414,7 @@ End
 		    Return
 		  End If
 		  
-		  ' Confirm with the user — MessageDialog gives us full control over button
-		  ' labels and which is the default (Enter) action
+		  ' Confirm with the user
 		  Dim ItemWord As String = "Items"
 		  If CheckedCount = 1 Then ItemWord = "Item"
 		  
@@ -295,116 +426,17 @@ End
 		  Dlg.AlternateActionButton.Visible = True
 		  
 		  Dim DlgResult As MessageDialogButton = Dlg.ShowModal(Self)
+		  If DlgResult <> Dlg.AlternateActionButton Then Return
 		  
-		  If DlgResult <> Dlg.AlternateActionButton Then
-		    Return  ' User clicked No or closed the dialog
-		  End If
+		  ' Hide both windows then let the event loop process the hide before we block
+		  PendingUninstLeft = Uninstaller.Left
+		  PendingUninstTop  = Uninstaller.Top
+		  Uninstaller.Visible = False
+		  Main.Visible = False
 		  
-		  ' Ensure the uninstall scripts exist in /LastOS/Tools/.
-		  ' If they are missing, try to build them now via SetupUninstallTools.
-		  ' If they still don't exist after that (e.g. immutable/read-only root on
-		  ' distros like Bazzite, Silverblue, etc.) warn the user and abort.
-		  'If Not Exist("/LastOS/Tools/UninstallLauncher.sh") Then
-		  'Loading.SetupUninstallTools()
-		  'End If
-		  '
-		  'If Not Exist("/LastOS/Tools/UninstallLauncher.sh") Then
-		  'MsgBox "The uninstall tools could not be written to /LastOS/Tools/." + Chr(10) + Chr(10) + _
-		  '"This usually means your operating system has a read-only root filesystem " + _
-		  '"(common on immutable distros such as Bazzite, Silverblue, or SteamOS)." + Chr(10) + Chr(10) + _
-		  '"Uninstall cannot continue."
-		  'Return
-		  'End If
-		  
-		  ' Save both the selected row and the current scroll position before we touch anything
-		  Dim SavedRow    As Integer = UninstallItems.SelectedRowIndex
-		  Dim SavedScroll As Integer = UninstallItems.ScrollPosition
-		  
-		  ' Snapshot the names + desktop paths of all checked items, and note when we started.
-		  ' We use these after the shell runs to log whichever items were successfully removed.
-		  Var UninstStartDT As DateTime = DateTime.Now
-		  Dim UninstNames()    As String
-		  Dim UninstDesktops() As String
-		  For I = 0 To UninstallItems.RowCount - 1
-		    If UninstallItems.CellTextAt(I, 1) = "T" Then
-		      UninstNames.Add(UninstallItems.CellTextAt(I, 0))
-		      UninstDesktops.Add(UninstallItems.CellTextAt(I, 2))
-		    End If
-		  Next I
-		  
-		  ' Run UninstallLauncher.sh --silent for each checked item
-		  Dim Sh As New Shell
-		  Sh.TimeOut = -1
-		  
-		  For I = 0 To UninstallItems.RowCount - 1
-		    If UninstallItems.CellTextAt(I, 1) = "T" Then
-		      Dim DesktopFile As String = UninstallItems.CellTextAt(I, 2)
-		      If DesktopFile <> "" Then
-		        Sh.Execute("bash /LastOS/Tools/UninstallLauncher.sh " + Chr(34) + DesktopFile + Chr(34) + " --silent")
-		      End If
-		    End If
-		  Next I
-		  
-		  ' Walk backwards removing rows whose .desktop file is gone.
-		  ' Keep SavedRow and SavedScroll in sync as rows vanish above them.
-		  Dim Row As Integer
-		  For Row = UninstallItems.RowCount - 1 DownTo 0
-		    Dim DF As String = UninstallItems.CellTextAt(Row, 2)
-		    If DF <> "" Then
-		      Dim F As FolderItem = GetFolderItem(DF, FolderItem.PathTypeNative)
-		      If F = Nil Or Not F.Exists Then
-		        UninstallItems.RemoveRowAt(Row)
-		        If Row < SavedRow    Then SavedRow    = SavedRow    - 1
-		        If Row < SavedScroll Then SavedScroll = SavedScroll - 1
-		      End If
-		    End If
-		  Next Row
-		  
-		  ' Write one UNINSTALLED log entry for each item whose .desktop file is now gone.
-		  ' We match against the snapshot taken before the shell ran, so the list is accurate
-		  ' even if the UI has already removed the row.
-		  Dim UI As Integer
-		  For UI = 0 To UninstNames.Count - 1
-		    Dim CheckDF As FolderItem = GetFolderItem(UninstDesktops(UI), FolderItem.PathTypeNative)
-		    If CheckDF = Nil Or Not CheckDF.Exists Then
-		      LogUninstallEntry(UninstNames(UI), UninstDesktops(UI), UninstStartDT)
-		    End If
-		  Next UI
-		  
-		  If UninstallItems.RowCount > 0 Then
-		    If SavedRow    >= UninstallItems.RowCount Then SavedRow    = UninstallItems.RowCount - 1
-		    If SavedRow    < 0 Then SavedRow    = 0
-		    If SavedScroll < 0 Then SavedScroll = 0
-		    
-		    ' Find the next unchecked item from SavedRow downwards
-		    Dim TargetRow As Integer = SavedRow
-		    Dim R As Integer
-		    For R = SavedRow To UninstallItems.RowCount - 1
-		      If UninstallItems.CellTextAt(R, 1) <> "T" Then
-		        TargetRow = R
-		        Exit
-		      End If
-		    Next R
-		    
-		    ' Estimate visible row count from pixel height
-		    Dim RowH As Integer = UninstallItems.RowHeight
-		    If RowH <= 0 Then RowH = 22
-		    Dim VisibleRows As Integer = UninstallItems.Height \ RowH
-		    
-		    ' Restore the viewport to where it was — items just disappear in place
-		    UninstallItems.ScrollPosition = SavedScroll
-		    
-		    ' Only nudge if TargetRow drifted outside the now-restored visible window
-		    If TargetRow < SavedScroll Then
-		      UninstallItems.ScrollPosition = TargetRow
-		    ElseIf TargetRow >= SavedScroll + VisibleRows Then
-		      UninstallItems.ScrollPosition = TargetRow - VisibleRows + 1
-		    End If
-		    
-		    UninstallItems.SelectedRowIndex = TargetRow
-		  End If
-		  
-		  UninstallItems.Refresh
+		  ' Fire Timer2 after 100ms — by then the OS will have hidden the windows
+		  Timer2.Period  = 100
+		  Timer2.RunMode = Timer.RunModes.Single
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -416,6 +448,15 @@ End
 		    UninstallItems.CellTextAt(I, 1) = "T"
 		  Next I
 		  UninstallItems.Refresh
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events RefreshButton
+	#tag Event
+		Sub Pressed()
+		  UninstallItems.RemoveAllRows
+		  PopulateInstalledItems
+		  PopulateWineItems
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -438,13 +479,26 @@ End
 		  If row >= UninstallItems.RowCount Then Return True
 		  
 		  ' --- Row background (dark theme) ---
+		  Dim IsWineRow As Boolean = (UninstallItems.RowCount > 0 And row < UninstallItems.RowCount And UninstallItems.CellTextAt(row, 3) = "wine")
 		  If UninstallItems.RowSelectedAt(row) Then
-		    g.DrawingColor = &c1E3A5F  ' Dark blue for selected row
-		  Else
-		    If (row Mod 2) = 0 Then
-		      g.DrawingColor = &c1A1A1A  ' Slightly lighter alternate row
+		    If IsWineRow Then
+		      g.DrawingColor = &c5A1E2F  ' Dark wine-red for selected Wine row
 		    Else
-		      g.DrawingColor = &c111111  ' Near-black base row
+		      g.DrawingColor = &c1E3A5F  ' Dark blue for selected LLStore row
+		    End If
+		  Else
+		    If IsWineRow Then
+		      If (row Mod 2) = 0 Then
+		        g.DrawingColor = &c2A1018  ' Slightly lighter wine-red alternate row
+		      Else
+		        g.DrawingColor = &c1E0A10  ' Dark wine-red base row
+		      End If
+		    Else
+		      If (row Mod 2) = 0 Then
+		        g.DrawingColor = &c1A1A1A  ' Slightly lighter alternate row
+		      Else
+		        g.DrawingColor = &c111111  ' Near-black base row
+		      End If
 		    End If
 		  End If
 		  g.FillRectangle(0, 0, g.Width, g.Height)
@@ -545,8 +599,162 @@ End
 #tag Events Timer1
 	#tag Event
 		Sub Action()
-		  ' Populate list from installed .desktop files
+		  ' Populate LLStore items then Wine registry items
 		  PopulateInstalledItems
+		  PopulateWineItems
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events Timer2
+	#tag Event
+		Sub Action()
+		  Var UninstStartDT As DateTime = DateTime.Now
+		  Dim SavedRow    As Integer = UninstallItems.SelectedRowIndex
+		  Dim SavedScroll As Integer = UninstallItems.ScrollPosition
+		  
+		  ' Snapshot checked items
+		  Dim UninstNames()    As String
+		  Dim UninstDesktops() As String
+		  Dim UninstTypes()    As String
+		  Dim I As Integer
+		  For I = 0 To UninstallItems.RowCount - 1
+		    If UninstallItems.CellTextAt(I, 1) = "T" Then
+		      UninstNames.Add(UninstallItems.CellTextAt(I, 0))
+		      UninstDesktops.Add(UninstallItems.CellTextAt(I, 2))
+		      UninstTypes.Add(UninstallItems.CellTextAt(I, 3))
+		    End If
+		  Next I
+		  
+		  ' === Wine items ===
+		  Dim WineUninstCount As Integer = 0
+		  Dim WineLogPath As String = Slash(HomePath) + "LLStore.log"
+		  For I = 0 To UninstallItems.RowCount - 1
+		    If UninstallItems.CellTextAt(I, 1) = "T" And UninstallItems.CellTextAt(I, 3) = "wine" Then
+		      Dim US As String = UninstallItems.CellTextAt(I, 2)
+		      If US <> "" Then
+		        Dim WineExeCmd As String
+		        If US.Lowercase.IndexOf("msiexec") >= 0 Then
+		          WineExeCmd = "wine " + US.ReplaceAll("/I{", "/X{").ReplaceAll("/i{", "/X{") + " /qn /norestart"
+		        Else
+		          If US.Left(1) = Chr(34) Then
+		            WineExeCmd = "wine " + US
+		          Else
+		            WineExeCmd = "wine " + Chr(34) + US + Chr(34)
+		          End If
+		        End If
+		        
+		        Dim WineScriptPath As String = "/tmp/llstore_wine_uninst_" + I.ToString + ".sh"
+		        Dim WS As String
+		        WS = "#!/bin/bash" + Chr(10)
+		        WS = WS + "[ -f /etc/profile ] && source /etc/profile" + Chr(10)
+		        WS = WS + "[ -f " + Chr(34) + "$HOME/.profile" + Chr(34) + " ] && source " + Chr(34) + "$HOME/.profile" + Chr(34) + Chr(10)
+		        WS = WS + "export WINEPREFIX=" + Chr(34) + NoSlash(HomePath) + "/.wine" + Chr(34) + Chr(10)
+		        WS = WS + "setsid " + WineExeCmd + " &" + Chr(10)
+		        WS = WS + "disown" + Chr(10)
+		        SaveDataToFile(WS, WineScriptPath)
+		        Dim ChmodSh As New Shell
+		        ChmodSh.Execute("chmod +x " + Chr(34) + WineScriptPath + Chr(34))
+		        
+		        Dim NL As String = EndOfLine
+		        Dim WineLogBlock As String = NL
+		        WineLogBlock = WineLogBlock + "══════════════════════════════════════════════════════════════" + NL
+		        WineLogBlock = WineLogBlock + " WINE UNINSTALL  ·  " + DateTime.Now.SQLDateTime + NL
+		        WineLogBlock = WineLogBlock + "──────────────────────────────────────────────────────────────" + NL
+		        WineLogBlock = WineLogBlock + "   Item          :  " + UninstallItems.CellTextAt(I, 0) + NL
+		        WineLogBlock = WineLogBlock + "   Command       :  " + WineExeCmd + NL
+		        WineLogBlock = WineLogBlock + "   Script        :  " + WineScriptPath + NL
+		        WineLogBlock = WineLogBlock + "   WINEPREFIX    :  " + NoSlash(HomePath) + "/.wine" + NL
+		        WineLogBlock = WineLogBlock + "══════════════════════════════════════════════════════════════" + NL
+		        Try
+		          Dim WineLogFI As FolderItem = GetFolderItem(WineLogPath, FolderItem.PathTypeNative)
+		          Dim WineBS As BinaryStream
+		          If WineLogFI.Exists Then
+		            WineBS = BinaryStream.Open(WineLogFI, True)
+		            WineBS.Position = WineBS.Length
+		          Else
+		            WineBS = BinaryStream.Create(WineLogFI, True)
+		          End If
+		          If WineBS <> Nil Then
+		            WineBS.Write(WineLogBlock)
+		            WineBS.Close
+		          End If
+		        Catch
+		        End Try
+		        
+		        Dim ShWait As New Shell
+		        ShWait.TimeOut = -1
+		        ShWait.Execute(WineScriptPath)
+		        Dim Success As String = ShWait.Result
+		        Dim DelSh3 As New Shell
+		        DelSh3.Execute("rm -f " + Chr(34) + WineScriptPath + Chr(34))
+		        WineUninstCount = WineUninstCount + 1
+		      End If
+		    End If
+		  Next I
+		  
+		  ' === LLStore items ===
+		  Dim Sh As New Shell
+		  Sh.TimeOut = -1
+		  For I = 0 To UninstallItems.RowCount - 1
+		    If UninstallItems.CellTextAt(I, 1) = "T" And UninstallItems.CellTextAt(I, 3) <> "wine" Then
+		      Dim DesktopFile As String = UninstallItems.CellTextAt(I, 2)
+		      If DesktopFile <> "" Then
+		        Sh.Execute("bash /LastOS/Tools/UninstallLauncher.sh " + Chr(34) + DesktopFile + Chr(34) + " --silent")
+		      End If
+		    End If
+		  Next I
+		  
+		  ' Walk backwards: wine rows get desktop cleanup, LLStore rows check .desktop gone
+		  Dim Row As Integer
+		  For Row = UninstallItems.RowCount - 1 DownTo 0
+		    If UninstallItems.CellTextAt(Row, 3) = "wine" Then
+		      ' Delete the .desktop file Wine leaves in ~/.local/share/applications/wine/
+		      Dim WineName As String = UninstallItems.CellTextAt(Row, 0)
+		      If WineName.Right(7) = " [Wine]" Then WineName = WineName.Left(WineName.Length - 7)
+		      Dim WineAppsDir As String = Slash(HomePath) + ".local/share/applications/wine/Programs/"
+		      Dim DesktopGlob As New Shell
+		      DesktopGlob.Execute("find " + Chr(34) + WineAppsDir + Chr(34) + " -iname " + Chr(34) + WineName + ".desktop" + Chr(34) + " 2>/dev/null")
+		      Dim FoundDesktop As String = DesktopGlob.Result.Trim
+		      If FoundDesktop <> "" Then
+		        Dim WineDF As FolderItem = GetFolderItem(FoundDesktop, FolderItem.PathTypeNative)
+		        If WineDF <> Nil And WineDF.Exists Then
+		          WineDF.Delete
+		          LogUninstallEntry(UninstallItems.CellTextAt(Row, 0), FoundDesktop, UninstStartDT)
+		        End If
+		      End If
+		      UninstallItems.RemoveRowAt(Row)
+		      Continue
+		    End If
+		    Dim DF As String = UninstallItems.CellTextAt(Row, 2)
+		    If DF <> "" Then
+		      Dim F As FolderItem = GetFolderItem(DF, FolderItem.PathTypeNative)
+		      If F = Nil Or Not F.Exists Then
+		        UninstallItems.RemoveRowAt(Row)
+		        If Row < SavedRow    Then SavedRow    = SavedRow    - 1
+		        If Row < SavedScroll Then SavedScroll = SavedScroll - 1
+		      End If
+		    End If
+		  Next Row
+		  
+		  ' Log LLStore removals
+		  Dim UI As Integer
+		  For UI = 0 To UninstNames.Count - 1
+		    If UI < UninstTypes.Count And UninstTypes(UI) = "wine" Then Continue
+		    Dim CheckDF As FolderItem = GetFolderItem(UninstDesktops(UI), FolderItem.PathTypeNative)
+		    If CheckDF = Nil Or Not CheckDF.Exists Then
+		      LogUninstallEntry(UninstNames(UI), UninstDesktops(UI), UninstStartDT)
+		    End If
+		  Next UI
+		  
+		  ' Restore Uninstaller position and show it again (Main is handled by Closing)
+		  Uninstaller.Left = PendingUninstLeft
+		  Uninstaller.Top  = PendingUninstTop
+		  Uninstaller.Visible = True
+		  
+		  ' Repopulate the list
+		  UninstallItems.RemoveAllRows
+		  PopulateInstalledItems
+		  PopulateWineItems
 		End Sub
 	#tag EndEvent
 #tag EndEvents

@@ -6262,30 +6262,37 @@ End
 		            'If Exist(BTF+"LLScript_Sudo.sh" ) Then ShellFast.Execute ("cd " + Chr(34) + BTF + Chr(34) + " && " + "tar -uf " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + "LLScript_Sudo.sh"  + Chr(34) )
 		            
 		          Else 'Linux or mac
-		            'Remove Existing Files from inside the .tar
-		            ShellFast.Execute("tar --delete -f " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + INIFile + Chr(34)) 'FileINI is the name of the .tar, IniFile is the name of the .ini file only
-		            ShellFast.Execute("tar --delete -f " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BT+".jpg" + Chr(34))
-		            ShellFast.Execute("tar --delete -f " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BT+".png" + Chr(34))
-		            ShellFast.Execute("tar --delete -f " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BT+".ico" + Chr(34))
-		            ShellFast.Execute("tar --delete -f " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BT+".svg" + Chr(34))
-		            ShellFast.Execute("tar --delete -f " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BT+".mp4" + Chr(34))
-		            ShellFast.Execute("tar --delete -f " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + "LLScript.sh" + Chr(34))
-		            ShellFast.Execute("tar --delete -f " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + "LLScript_Sudo.sh" + Chr(34)) 
-		            'Add files back to the .tar, if they exist
-		            ShellFast.Execute ("cd " + Chr(34) + BTF + Chr(34) + " && " + "tar -uf " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + INIFile + Chr(34) )
-		            
-		            If Debugging Then Debug(ShellFast.ReadAll)
-		            
-		            'MsgBox INIFile
-		            
-		            If Exist(BTF+INIFile) Then ShellFast.Execute ("cd " + Chr(34) + BTF + Chr(34) + " && " + "tar -uf " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + INIFile + Chr(34) ) 'Put updated ini file into the tar
-		            If Exist(BTF+BT+".jpg" ) Then ShellFast.Execute ("cd " + Chr(34) + BTF + Chr(34) + " && " + "tar -uf " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BT+".jpg"  + Chr(34) )
-		            If Exist(BTF+BT+".png" ) Then ShellFast.Execute ("cd " + Chr(34) + BTF + Chr(34) + " && " + "tar -uf " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BT+".png"  + Chr(34) )
-		            If Exist(BTF+BT+".ico" ) Then ShellFast.Execute ("cd " + Chr(34) + BTF + Chr(34) + " && " + "tar -uf " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BT+".ico"  + Chr(34) )
-		            If Exist(BTF+BT+".svg" ) Then ShellFast.Execute ("cd " + Chr(34) + BTF + Chr(34) + " && " + "tar -uf " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BT+".svg"  + Chr(34) )
-		            If Exist(BTF+BT+".mp4" ) Then ShellFast.Execute ("cd " + Chr(34) + BTF + Chr(34) + " && " + "tar -uf " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + BT+".mp4"  + Chr(34) )
-		            If Exist(BTF+"LLScript.sh" ) Then ShellFast.Execute ("cd " + Chr(34) + BTF + Chr(34) + " && " + "tar -uf " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + "LLScript.sh"  + Chr(34) )
-		            If Exist(BTF+"LLScript_Sudo.sh" ) Then ShellFast.Execute ("cd " + Chr(34) + BTF + Chr(34) + " && " + "tar -uf " + Chr(34) + ItemLLItem.FileINI + Chr(34) + " " + Chr(34) + "LLScript_Sudo.sh"  + Chr(34) )
+		            'All tar operations in a single script so they run sequentially in one process.
+		            'This prevents ShellFast from killing a previous tar mid-write (would corrupt the archive).
+		            Dim TarScript As String
+		            Dim TarScriptPath As String = TmpPath + "tar_save_" + Randomiser.InRange(10000,20000).ToString + ".sh"
+		            Dim Q As String = Chr(34)
+		            TarScript = "#!/usr/bin/env bash" + Chr(10)
+		            'Remove existing entries (errors suppressed — member may not exist in archive)
+		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + INIFile + Q + " 2>/dev/null" + Chr(10)
+		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".jpg" + Q + " 2>/dev/null" + Chr(10)
+		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".png" + Q + " 2>/dev/null" + Chr(10)
+		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".ico" + Q + " 2>/dev/null" + Chr(10)
+		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".svg" + Q + " 2>/dev/null" + Chr(10)
+		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".mp4" + Q + " 2>/dev/null" + Chr(10)
+		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " LLScript.sh 2>/dev/null" + Chr(10)
+		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " LLScript_Sudo.sh 2>/dev/null" + Chr(10)
+		            'Add files back if they exist
+		            TarScript = TarScript + "cd " + Q + BTF + Q + Chr(10)
+		            If Exist(BTF+INIFile) Then TarScript = TarScript + "tar -uf " + Q + ItemLLItem.FileINI + Q + " " + Q + INIFile + Q + Chr(10)
+		            If Exist(BTF+BT+".jpg" ) Then TarScript = TarScript + "tar -uf " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".jpg" + Q + Chr(10)
+		            If Exist(BTF+BT+".png" ) Then TarScript = TarScript + "tar -uf " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".png" + Q + Chr(10)
+		            If Exist(BTF+BT+".ico" ) Then TarScript = TarScript + "tar -uf " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".ico" + Q + Chr(10)
+		            If Exist(BTF+BT+".svg" ) Then TarScript = TarScript + "tar -uf " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".svg" + Q + Chr(10)
+		            If Exist(BTF+BT+".mp4" ) Then TarScript = TarScript + "tar -uf " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".mp4" + Q + Chr(10)
+		            If Exist(BTF+"LLScript.sh" ) Then TarScript = TarScript + "tar -uf " + Q + ItemLLItem.FileINI + Q + " LLScript.sh" + Chr(10)
+		            If Exist(BTF+"LLScript_Sudo.sh" ) Then TarScript = TarScript + "tar -uf " + Q + ItemLLItem.FileINI + Q + " LLScript_Sudo.sh" + Chr(10)
+		            TarScript = TarScript + "rm -f " + Q + TarScriptPath + Q + Chr(10)
+		            SaveDataToFile(TarScript, TarScriptPath)
+		            Dim TarSh As New Shell
+		            TarSh.TimeOut = -1
+		            TarSh.Execute("bash " + Chr(34) + TarScriptPath + Chr(34))
+		            If Debugging Then Debug(TarSh.ReadAll)
 		          End If
 		        Case Else '7zip not tar
 		          If TargetWindows Then

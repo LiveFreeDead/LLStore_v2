@@ -4352,6 +4352,16 @@ End
 		  'Get Consts
 		  If TargetLinux Then
 		    SysDesktopEnvironment = System.EnvironmentVariable("XDG_SESSION_DESKTOP").Lowercase
+		    If SysDesktopEnvironment = "" Then
+		      'XDG_SESSION_DESKTOP not set — try XDG_CURRENT_DESKTOP (may be multi-value e.g. "KDE:KDE", take first segment)
+		      Dim XCDRaw As String = System.EnvironmentVariable("XDG_CURRENT_DESKTOP").Lowercase
+		      Dim XCDParts() As String = Split(XCDRaw, ":")
+		      SysDesktopEnvironment = XCDParts(0).Trim
+		    End If
+		    'Normalise Wayland session variant: "plasmawayland" -> "plasma", "gnome-wayland" -> "gnome"
+		    SysDesktopEnvironment = SysDesktopEnvironment.ReplaceAll("plasmawayland", "plasma")
+		    SysDesktopEnvironment = SysDesktopEnvironment.ReplaceAll("gnome-wayland", "gnome")
+		    SysDesktopEnvironment = SysDesktopEnvironment.ReplaceAll("gnome-xorg", "gnome")
 		    If System.EnvironmentVariable("XDG_SESSION_TYPE").Lowercase.Trim = "wayland" Then Wayland = True
 		    SysPackageManager = ""
 		    SysTerminal = ""
@@ -4747,6 +4757,10 @@ End
 		        StoreMode = 4
 		        InstallStore = True
 		        
+		      Case "-uninstaller", "-u"
+		        StoreMode = 5
+		        UninstallerOnly = True
+		        
 		      Case "-keepsudo", "-ks"
 		        KeepSudo = True
 		        
@@ -5060,6 +5074,14 @@ End
 		  End If
 		  
 		  'Show Loading Screen here if the Store Mode is 0
+		  If OriginalStoreMode = 5 Then
+		    Loading.Hide
+		    Uninstaller.Left = (Screen(0).AvailableWidth / 2) - (Uninstaller.Width / 2)
+		    Uninstaller.Top  = (Screen(0).AvailableHeight / 2) - (Uninstaller.Height / 2)
+		    Uninstaller.Show
+		    Return
+		  End If
+		  
 		  If OriginalStoreMode = 0 Then 
 		    If SortMenuStyle = False Then
 		      Loading.Visible = True 'Show the loading form here
@@ -5147,7 +5169,7 @@ End
 	#tag Event
 		Sub Action()
 		  If ForceQuit = True Then
-		    If EditorOnly Then 
+		    If EditorOnly Or UninstallerOnly Then
 		      PreQuitApp
 		      QuitApp
 		    End If

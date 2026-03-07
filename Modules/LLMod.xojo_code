@@ -2790,6 +2790,7 @@ Protected Module LLMod
 		    KDE = "[Desktop Entry]"+NL
 		    KDE = KDE+"Type=Service"+NL
 		    KDE = KDE+"ServiceTypes=KonqPopupMenu/Plugin"+NL
+		    KDE = KDE+"X-KDE-ServiceTypes=KonqPopupMenu/Plugin"+NL
 		    KDE = KDE+"MimeType=application/x-llfile;application/x-tar;inode/directory;application/octet-stream;"+NL
 		    KDE = KDE+"X-KDE-Submenu=LLFile"+NL
 		    KDE = KDE+"Actions=llf_install;llf_edit;llf_compress;llf_build"+NL+NL
@@ -4951,7 +4952,7 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub MakeFileType(APP As String, EXT As String, COMMENT As String, EXECU As String, PathIn As String, LOGO As String, Args As String = "", SystemWide As Boolean = False)
+		Sub MakeFileType(APP As String, EXT As String, COMMENT As String, EXECU As String, PathIn As String, LOGO As String, Args As String = "", SystemWide As Boolean = False, DesktopFileHint As String = "")
 		  If Debugging Then Debug("--- Starting Make Associations ---")
 		  Dim OrigAppName As String
 		  Dim FileOut As String
@@ -4995,8 +4996,11 @@ Protected Module LLMod
 		    CurrentIconTheme = Shelly.Result
 		    CurrentIconTheme = CurrentIconTheme.ReplaceAll ("'", "") 
 		    'ShellFast.Execute ("cp "+Chr(34)+LOGO+Chr(34)+" "+BaseDir+"/icon.png") 
-		    ShellFast.Execute ("bash -c 'xdg-icon-resource install --context mimetypes --size 256 --theme " + CurrentIconTheme + " " + Chr(34) +LOGO + Chr(34) + " application-x-" + APP + " > /dev/null 2>&1 &'") 'Backgrounded: rebuilds icon cache, does not need to block
-		    ShellFast.Execute ("bash -c 'xdg-icon-resource install --context mimetypes --size 256 " + Chr(34) +LOGO + Chr(34) + " application-x-" + APP + " > /dev/null 2>&1 &'") 'Backgrounded: rebuilds icon cache, does not need to block
+		    'Only install to named theme when we actually know which one is active (gsettings returns empty on non-GNOME DEs)
+		    If CurrentIconTheme <> "" Then
+		      ShellFast.Execute ("bash -c 'xdg-icon-resource install --context mimetypes --size 256 --theme " + CurrentIconTheme + " " + Chr(34) +LOGO + Chr(34) + " application-x-" + APP + " > /dev/null 2>&1 &'") 'Backgrounded: rebuilds icon cache, does not need to block
+		    End If
+		    ShellFast.Execute ("bash -c 'xdg-icon-resource install --context mimetypes --size 256 " + Chr(34) +LOGO + Chr(34) + " application-x-" + APP + " > /dev/null 2>&1 &'") 'Backgrounded: installs to hicolor (universal fallback), does not need to block
 		    
 		    If  SystemWide = True Then
 		      'System wide doesn't need per theme, it's system wide
@@ -5023,16 +5027,33 @@ Protected Module LLMod
 		    'FileContent = FileContent + "        <glob pattern=" + Chr(34) + "*." + EXT + Chr(34) + "/>" + Chr(10)  
 		    FileContent = FileContent + "    </mime-type>" + Chr(10)
 		    FileContent = FileContent + "</mime-info>" + Chr(10)
+		    'Merge globs from already-installed MIME XML so all extensions accumulate (avoids overwriting on repeated calls)
+		    Dim MimePkgPath As String = Slash(HomePath)+".local/share/mime/packages/"+APP+"-mime.xml"
+		    If Exist(MimePkgPath) Then
+		      Dim ExistXML As String = LoadDataFromFile(MimePkgPath)
+		      Dim ExXMLLines() As String = Split(ExistXML, Chr(10))
+		      Dim ExtraGlobs As String = ""
+		      Dim XLIdx As Integer
+		      For XLIdx = 0 To ExXMLLines.Count - 1
+		        Dim XLine As String = ExXMLLines(XLIdx).Trim
+		        If XLine.Left(6) = "<glob " And InStr(FileContent, XLine) = 0 Then
+		          ExtraGlobs = ExtraGlobs + "        " + XLine + Chr(10)
+		        End If
+		      Next XLIdx
+		      If ExtraGlobs <> "" Then
+		        FileContent = FileContent.ReplaceAll("    </mime-type>", ExtraGlobs + "    </mime-type>")
+		      End If
+		    End If
 		    SaveDataToFile(FileContent, FileOut)
-		    ShellFast.Execute ("bash -c 'xdg-mime install " + FileOut + " > /dev/null 2>&1 && rm " + FileOut + " &'") 'Backgrounded: install then clean up temp file
-		    
-		    ShellFast.Execute ("bash -c 'update-mime-database $HOME/.local/share/mime > /dev/null 2>&1 &'") 'Backgrounded: cache refresh only
-		    
-		    'I could add sudo above to install system wide then update mime database below with update-mime-database /usr/share/mime/ 'But not sure I want this yet
+		    'SystemWide install runs BEFORE the backgrounded user install so FileOut (the XML) is not yet deleted
 		    If  SystemWide = True Then
 		      RunSudo ("xdg-mime install " + FileOut)
 		      RunSudo ("update-mime-database /usr/share/mime/ &") 'Backgrounded: very slow, cache refresh only
 		    End If
+		    ShellFast.Execute ("bash -c 'xdg-mime install " + FileOut + " > /dev/null 2>&1 && rm " + FileOut + " &'") 'Backgrounded: install then clean up temp file
+		    
+		    ShellFast.Execute ("bash -c 'update-mime-database $HOME/.local/share/mime > /dev/null 2>&1 &'") 'Backgrounded: cache refresh only
+		    
 		    
 		    'I can make each added type the default, but that seems extreme
 		    'ShellFast.Execute ("xdg-mime default "+APP+"_filetype.desktop application/x-"+APP)
@@ -5040,50 +5061,104 @@ Protected Module LLMod
 		    
 		    
 		    
-		    If EXECU.Left(5) = "wine " Then
-		      'I use the 2nd one below to make it more system compatible, but may change to installing the python requirements and script to make it perfect on every OS?
-		      ''EXECU = "python3 "+Slash(ToolPath)+"wine-launcher.py " + Chr(34) + Right(EXECU, Len(EXECU) - 5) + Chr(34) + " %f" 'Works Perfect But requirtes external and Pythos on the OS, will test more
-		      EXECU = "wine " + Chr(34) + Right(EXECU, Len(EXECU) - 5) + Chr(34) 'Works ok
-		    Else 'Linux one
-		      EXECU = EXECU + " %U"
+		    'Register the default handler using the caller-supplied .desktop name (the main link .desktop).
+		    '_filetype.desktop is NOT created — it appeared as a duplicate in Nemo's Open With dialog
+		    'because NoDisplay=true is ignored by Open With. The link .desktop carries MimeType= instead.
+		    If DesktopFileHint <> "" Then
+		      If  SystemWide = True Then
+		        RunSudo ("update-desktop-database /usr/share/applications &") 'Backgrounded: cache refresh only
+		        RunSudo ("xdg-mime default " + DesktopFileHint + " application/x-" + APP)
+		      End If
+		      ShellFast.Execute ("bash -c 'update-desktop-database $HOME/.local/share/applications > /dev/null 2>&1 &'")
+		      ShellFast.Execute ("bash -c 'xdg-mime default " + DesktopFileHint + " application/x-" + APP + " > /dev/null 2>&1 &'")
+		      ShellFast.Execute ("bash -c 'command -v update-icon-caches >/dev/null 2>&1 && update-icon-caches $HOME/.local/share/icons/* > /dev/null 2>&1 &'") 'Backgrounded: guard against missing tool
 		    End If
-		    
-		    PathIn = NoSlash(PathIn) 'Remove Slash
-		    
-		    'Desktop Association
-		    FileOut = Slash(TmpPath) + APP + "_filetype.desktop"
-		    FileContent = "[Desktop Entry]" + Chr(10)
-		    FileContent = FileContent + "Name=" + OrigAppName + Chr(10)
-		    FileContent = FileContent + "Exec=" + EXECU + Chr(10)
-		    FileContent = FileContent + "Path=" + PathIn + Chr(10)
-		    FileContent = FileContent + "MimeType=application/x-" + APP + Chr(10)
-		    FileContent = FileContent + "Icon=application-x-" + APP + Chr(10)
-		    FileContent = FileContent + "Terminal=false" + Chr(10)
-		    FileContent = FileContent + "NoDisplay=true" + Chr(10)
-		    FileContent = FileContent + "Type=Application" + Chr(10)
-		    FileContent = FileContent + "Categories=" + Chr(10)
-		    FileContent = FileContent + "Comment=" + COMMENT + Chr(10)
-		    SaveDataToFile(FileContent, FileOut)
-		    ShellFast.Execute ("chmod 775 "+Chr(34)+FileOut+Chr(34)) 'Change Read/Write/Execute to defaults
-		    
-		    'Msgbox (FileOut)
-		    
-		    'Can move this to end of Mini Installer and run once (for speed increase), just set a Task Flag
-		    If  SystemWide = True Then
-		      RunSudo ("desktop-file-install --dir=/usr/share/applications " + FileOut)
-		      'MsgBox ("sudo desktop-file-install --dir=/usr/share/applications " + FileOut)
-		      RunSudo ("update-desktop-database /usr/share/applications &") 'Backgrounded: cache refresh only
-		      RunSudo ("xdg-mime default " + APP + ".desktop application/x-" + APP)
-		      'RunSudo ("sudo update-icon-caches /usr/share/icons/*") 'This is WAY too slow to do all the time, disabled!!!!
-		    End If
-		    
-		    ShellFast.Execute ("bash -c 'desktop-file-install --dir=$HOME/.local/share/applications " + FileOut + " > /dev/null 2>&1 && rm " + FileOut + " &'") 'Backgrounded: install then clean up temp file
-		    ShellFast.Execute ("bash -c 'update-desktop-database $HOME/.local/share/applications > /dev/null 2>&1 &'") 'Backgrounded: cache refresh only
-		    ShellFast.Execute ("bash -c 'xdg-mime default " + APP + ".desktop application/x-" + APP + " > /dev/null 2>&1 &'")
-		    ShellFast.Execute ("bash -c 'update-icon-caches $HOME/.local/share/icons/* > /dev/null 2>&1 &'") 'Backgrounded: cache refresh only
-		    
-		    ShellFast.Execute ("chmod 775 "+Chr(34)+"$HOME/.local/share/applications/"+ APP + "_filetype.desktop"+Chr(34)) 'Change Read/Write/Execute to defaults
 		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub ConsolidateWineExtensions(AppTitle As String, MainDesktopPath As String, CleanupOnly As Boolean = False)
+		  'Harvest MimeType= from wine-extension-*.desktop files that Wine's winemenubuilder
+		  'created for this app and merge them directly into the main app .desktop,
+		  'inserted before Actions= so they stay correctly inside [Desktop Entry].
+		  'Name= matching is a prefix grep: "^Name=AIMP" matches "AIMP" and "AIMP 64-bit"
+		  'without case folding or string stripping. exe and msi are always skipped.
+		  If Not TargetLinux Then Return
+		  If AppTitle.Trim = "" Or MainDesktopPath.Trim = "" Then Return
+		  
+		  Dim AppDir As String = Slash(HomePath)+".local/share/applications/"
+		  Dim ScriptPath As String = TmpPath + "cwe_" + AppTitle.Trim.ReplaceAll(" ", "_") + ".sh"
+		  
+		  'Write the consolidation script to a temp file — avoids shell quoting issues
+		  Dim S As String
+		  S = "#!/usr/bin/env bash" + Chr(10)
+		  S = S + "APPDIR=" + Chr(34) + AppDir + Chr(34) + Chr(10)
+		  S = S + "MAINDESK=" + Chr(34) + MainDesktopPath + Chr(34) + Chr(10)
+		  S = S + "APPNAME=" + Chr(34) + AppTitle.Trim + Chr(34) + Chr(10)
+		  S = S + Chr(10)
+		  'Step 1: find wine-extension files where Name= matches APPNAME
+		  'Single grep -l call — no ls, no pipes, no xargs — much faster with many files
+		  S = S + "MATCHES=$(grep -rl " + Chr(34) + "^Name=${APPNAME}" + Chr(34) + " \" + Chr(10)
+		  S = S + "  --include=" + Chr(34) + "wine-extension-*.desktop" + Chr(34) + " \" + Chr(10)
+		  S = S + "  --exclude=" + Chr(34) + "wine-extension-exe.desktop" + Chr(34) + " \" + Chr(10)
+		  S = S + "  --exclude=" + Chr(34) + "wine-extension-msi.desktop" + Chr(34) + " \" + Chr(10)
+		  S = S + "  " + Chr(34) + "${APPDIR}" + Chr(34) + " 2>/dev/null)" + Chr(10)
+		  S = S + "[ -z " + Chr(34) + "$MATCHES" + Chr(34) + " ] && exit 0" + Chr(10)
+		  S = S + Chr(10)
+		  If Not CleanupOnly And Not WineExtCleanupOnly Then
+		    'Step 2: harvest unique non-empty MIME types from matching files
+		    S = S + "MIMES=$(echo " + Chr(34) + "$MATCHES" + Chr(34) + " | xargs grep -h " + Chr(34) + "^MimeType=" + Chr(34) + " 2>/dev/null \" + Chr(10)
+		    S = S + "  | cut -d= -f2- | tr " + Chr(34) + ";" + Chr(34) + " " + Chr(34) + "\n" + Chr(34) + " \" + Chr(10)
+		    S = S + "  | sort -u | grep -v " + Chr(34) + "^$" + Chr(34) + " \" + Chr(10)
+		    S = S + "  | paste -sd " + Chr(34) + ";" + Chr(34) + ")" + Chr(10)
+		    S = S + Chr(10)
+		    'Step 3: merge into main .desktop (only when MIMES were found)
+		    'If MimeType= already exists (LLApp with Associations set), append new entries to it.
+		    'Otherwise insert a new MimeType= line before Actions= (stays in [Desktop Entry]).
+		    S = S + "if [ -n " + Chr(34) + "$MIMES" + Chr(34) + " ]; then" + Chr(10)
+		    S = S + "  MIMES=" + Chr(34) + "${MIMES};" + Chr(34) + Chr(10)
+		    S = S + "  if grep -q " + Chr(34) + "^MimeType=" + Chr(34) + " " + Chr(34) + "$MAINDESK" + Chr(34) + "; then" + Chr(10)
+		    S = S + "    EXISTING=$(grep " + Chr(34) + "^MimeType=" + Chr(34) + " " + Chr(34) + "$MAINDESK" + Chr(34) + " | cut -d= -f2-)" + Chr(10)
+		    S = S + "    ALL=$(printf " + Chr(34) + "%s;%s" + Chr(34) + " " + Chr(34) + "$EXISTING" + Chr(34) + " " + Chr(34) + "$MIMES" + Chr(34) + " \" + Chr(10)
+		    S = S + "      | tr " + Chr(34) + ";" + Chr(34) + " " + Chr(34) + "\n" + Chr(34) + " | sort -u | grep -v " + Chr(34) + "^$" + Chr(34) + " | paste -sd " + Chr(34) + ";" + Chr(34) + ")" + Chr(10)
+		    S = S + "    ALL=" + Chr(34) + "${ALL};" + Chr(34) + Chr(10)
+		    S = S + "    sed -i " + Chr(34) + "s|^MimeType=.*|MimeType=${ALL}|" + Chr(34) + " " + Chr(34) + "$MAINDESK" + Chr(34) + Chr(10)
+		    S = S + "  else" + Chr(10)
+		    S = S + "    sed -i " + Chr(34) + "/^Actions=/i MimeType=${MIMES}" + Chr(34) + " " + Chr(34) + "$MAINDESK" + Chr(34) + Chr(10)
+		    S = S + "  fi" + Chr(10)
+		    'Step 3b: wrap Exec= with winepath so Open With passes Windows-style paths to Wine
+		    'Uses ENVIRON in awk to pass the new line safely — avoids sed backslash/dollar issues.
+		    'Handles %f/%F/%u/%U variants when stripping the file arg placeholder.
+		    S = S + "  if grep -q " + Chr(34) + "^Exec=wine " + Chr(34) + " " + Chr(34) + "$MAINDESK" + Chr(34) + "; then" + Chr(10)
+		    S = S + "    WINE_CMD=$(grep " + Chr(34) + "^Exec=wine " + Chr(34) + " " + Chr(34) + "$MAINDESK" + Chr(34) + " | head -1 | sed 's/^Exec=wine //;s/ %[fFuU]$//')" + Chr(10)
+		    S = S + "    NEW_EXEC_LINE=" + Chr(34) + "Exec=bash -c 'wine ${WINE_CMD} " + "\" + Chr(34) + "\$(winepath -w " + "\" + Chr(34) + "\$1" + "\" + Chr(34) + " 2>/dev/null || echo " + "\" + Chr(34) + "\$1" + "\" + Chr(34) + ")" + "\" + Chr(34) + "' -- %f" + Chr(34) + Chr(10)
+		    S = S + "    export NEW_EXEC_LINE" + Chr(10)
+		    S = S + "    awk 'BEGIN{nl=ENVIRON[" + Chr(34) + "NEW_EXEC_LINE" + Chr(34) + "]} /^Exec=wine /{print nl; next} {print}' " + Chr(34) + "$MAINDESK" + Chr(34) + " > " + Chr(34) + "${MAINDESK}.tmp" + Chr(34) + " && mv " + Chr(34) + "${MAINDESK}.tmp" + Chr(34) + " " + Chr(34) + "$MAINDESK" + Chr(34) + Chr(10)
+		    S = S + "  fi" + Chr(10)
+		    S = S + "fi" + Chr(10)
+		    S = S + Chr(10)
+		  End If
+		  'Step 4: delete the now-redundant per-format wine-extension files
+		  'Always runs regardless of CleanupOnly — that is the whole point of the fast path.
+		  S = S + "echo " + Chr(34) + "$MATCHES" + Chr(34) + " | xargs -r rm -f" + Chr(10)
+		  'Only refresh the DB per-app during full consolidation — during regen the single
+		  'update-desktop-database call in RegenerateItems covers everything at the end.
+		  If Not CleanupOnly And Not WineExtCleanupOnly Then
+		    S = S + "update-desktop-database " + Chr(34) + "$APPDIR" + Chr(34) + " > /dev/null 2>&1 &" + Chr(10)
+		  End If
+		  'Clean up the temp script
+		  S = S + "rm -f " + Chr(34) + ScriptPath + Chr(34) + Chr(10)
+		  
+		  SaveDataToFile(S, ScriptPath)
+		  'Use a dedicated local Shell — completely independent of ShellFast so nothing in MakeLinks
+		  'can kill or race against it. Synchronous on its own thread; blocks only this local Sh.
+		  Dim CWESh As New Shell
+		  CWESh.TimeOut = -1
+		  CWESh.Execute("bash " + Chr(34) + ScriptPath + Chr(34))
+		  If Debugging Then Debug("ConsolidateWineExtensions result: " + CWESh.ReadAll)
+		  
+		  If Debugging Then Debug("ConsolidateWineExtensions: done for " + AppTitle.Trim)
 		End Sub
 	#tag EndMethod
 
@@ -5201,6 +5276,7 @@ Protected Module LLMod
 		  Dim FoundNewCat As Boolean
 		  
 		  Dim FixedCat As String
+		  Dim CWEProcessed() As String 'Tracks app titles already processed by ConsolidateWineExtensions this run
 		  
 		  Dim Sh As New Shell
 		  Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
@@ -5294,6 +5370,7 @@ Protected Module LLMod
 		      Next L
 		    End If
 		  End If
+		  
 		  
 		  
 		  'For All
@@ -5418,7 +5495,10 @@ Protected Module LLMod
 		        If ItemLLItem.BuildType = "LLApp" Or ItemLLItem.BuildType = "LLGame" Or ItemLnk(I).LinuxLink Then
 		          DesktopContent = DesktopContent + "Exec=" + ExecName + Chr(10) 'LinuxLink .desktop items are native executables, no Wine prefix
 		        Else
-		          DesktopContent = DesktopContent + "Exec=" + "wine " + ExecName + Chr(10) 'Quotes are checked for above, so only added once
+		          'Add %f so the DE knows this app can open files — required for Open With to list it
+		          Dim WineExecArgs As String = " %f"
+		          If ExecName.IndexOf("%f") >= 0 Or ExecName.IndexOf("%F") >= 0 Or ExecName.IndexOf("%u") >= 0 Or ExecName.IndexOf("%U") >= 0 Then WineExecArgs = "" 'Already has a file arg
+		          DesktopContent = DesktopContent + "Exec=" + "wine " + ExecName + WineExecArgs + Chr(10) 'Quotes are checked for above, so only added once
 		        End If
 		        
 		        If ItemLLItem.BuildType = "ssApp" Then
@@ -5445,6 +5525,15 @@ Protected Module LLMod
 		        DesktopContent = DesktopContent + "Categories=" + ItemLnk(I).Categories + Chr(10)
 		        DesktopContent = DesktopContent + "Terminal=" + Str(ItemLnk(I).Terminal) + Chr(10)
 		        
+		        'Linux Associations — MimeType= must be in [Desktop Entry], written BEFORE the action sections
+		        If ItemLnk(I).Associations.Trim <> "" Then
+		          'Compute normalised APP name (same transform as MakeFileType)
+		          Dim LinkAPP As String = ItemLnk(I).Title
+		          LinkAPP = LinkAPP.ReplaceAll(" (Linux)", "").ReplaceAll("(", "").ReplaceAll(")", "")
+		          LinkAPP = LinkAPP.Lowercase.Trim.ReplaceAll(" ", ".")
+		          DesktopContent = DesktopContent + "MimeType=application/x-" + LinkAPP + ";" + Chr(10)
+		        End If
+		        
 		        ' Tag as LastOS-managed and add right-click Uninstall action
 		        DesktopContent = DesktopContent + "X-LastOS-App=true" + Chr(10)
 		        DesktopContent = DesktopContent + "Actions=Uninstall;" + Chr(10)
@@ -5453,14 +5542,13 @@ Protected Module LLMod
 		        DesktopContent = DesktopContent + "Name=Uninstall LLStore Item" + Chr(10)
 		        DesktopContent = DesktopContent + "Exec=bash /LastOS/Tools/UninstallLauncher.sh %k" + Chr(10)
 		        
-		        'Linux Associations
+		        'MakeFileType — LLApps only, registers MIME XML and sets default handler
 		        If ItemLnk(I).Associations.Trim <> "" Then
-		          'System Wide (LLApps only)
 		          If BT = "LLApp" Then
-		            If ItemLnk(I).Link.WorkingDirectory.IndexOf(HomePath) = -1 Then 'If item isn't inside the users path then it is system wide
-		              MakeFileType(ItemLnk(I).Title, ItemLnk(I).Associations, ItemLnk(I).Link.Description, ExecName, ExpPath(ItemLnk(I).Link.WorkingDirectory), ItemLnk(I).Link.IconLocation, "", True) '"" is Args and True makes it copy to System Wide Mime Types
+		            If ItemLnk(I).Link.WorkingDirectory.IndexOf(HomePath) = -1 Then 'system wide
+		              MakeFileType(ItemLnk(I).Title, ItemLnk(I).Associations, ItemLnk(I).Link.Description, ExecName, ExpPath(ItemLnk(I).Link.WorkingDirectory), ItemLnk(I).Link.IconLocation, "", True, DesktopFile)
 		            Else
-		              MakeFileType(ItemLnk(I).Title, ItemLnk(I).Associations, ItemLnk(I).Link.Description, ExecName, ExpPath(ItemLnk(I).Link.WorkingDirectory), ItemLnk(I).Link.IconLocation)
+		              MakeFileType(ItemLnk(I).Title, ItemLnk(I).Associations, ItemLnk(I).Link.Description, ExecName, ExpPath(ItemLnk(I).Link.WorkingDirectory), ItemLnk(I).Link.IconLocation, "", False, DesktopFile)
 		            End If
 		          End If
 		        End If
@@ -5469,6 +5557,17 @@ Protected Module LLMod
 		        MakeFolder(DesktopOutPath)
 		        SaveDataToFile(DesktopContent, DesktopOutPath+DesktopFile)
 		        ShellFast.Execute ("chmod 775 "+Chr(34)+DesktopOutPath+DesktopFile+Chr(34)) 'Change Read/Write/Execute to defaults
+		        
+		        'Wine ppApp/ssApp/ppGame: consolidate any wine-extension-*.desktop files into this .desktop.
+		        'Runs after the file is written so sed can do an in-place insert before Actions=.
+		        'Deduplicated: only run once per unique app title — LnkCount loop can have many links
+		        'per app (main + utilities etc.) but the wine-extension files only need one pass.
+		        If BT = "ppApp" Or BT = "ssApp" Or BT = "ppGame" Then
+		          If CWEProcessed.IndexOf(ItemLnk(I).Title.Trim) < 0 Then
+		            CWEProcessed.Add(ItemLnk(I).Title.Trim)
+		            ConsolidateWineExtensions(ItemLnk(I).Title, DesktopOutPath+DesktopFile)
+		          End If
+		        End If
 		        
 		        'System Wide (LLApps only)
 		        If BT = "LLApp" Then
@@ -5497,9 +5596,11 @@ Protected Module LLMod
 		          End If
 		        End If
 		        
-		        'Favorites Menu
+		        'Favorites Menu — Cinnamon only (org.cinnamon schema not present on KDE/GNOME/XFCE)
 		        If ItemLnk(I).Favorite = True Then
-		          ShellFast.Execute("gsettings set org.cinnamon favorite-apps "+Chr(34)+"$(gsettings get org.cinnamon favorite-apps | sed s/.$//), '"+DesktopFile+"']"+Chr(34)+" > /dev/null 2>&1 &") 'Backgrounded: favorites update, no need to block
+		          If SysDesktopEnvironment = "cinnamon" Or SysDesktopEnvironment = "x-cinnamon" Then
+		            ShellFast.Execute("gsettings set org.cinnamon favorite-apps "+Chr(34)+"$(gsettings get org.cinnamon favorite-apps | sed s/.$//), '"+DesktopFile+"']"+Chr(34)+" > /dev/null 2>&1 &") 'Backgrounded: favorites update, no need to block
+		          End If
 		        End If
 		        
 		        ' KDE: rebuild the service cache so the new entry appears in the launcher immediately.
@@ -8078,6 +8179,12 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		'False = full consolidation (MimeType harvested + merged + wine-extension files deleted) — Open With works
+		'True  = fast cleanup only (wine-extension files deleted, no MimeType merging) — faster but no Open With
+		WineExtCleanupOnly As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		DebugOutput As TextOutputStream
 	#tag EndProperty
 
@@ -8115,6 +8222,10 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		EditorOnly As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		UninstallerOnly As Boolean = False
 	#tag EndProperty
 
 	#tag Property, Flags = &h0

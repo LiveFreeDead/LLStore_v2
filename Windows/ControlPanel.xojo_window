@@ -1378,6 +1378,11 @@ End
 		    
 		    If Debugging Then Debug ("Found "+TotalItems.ToString+" items to regenerate")
 		    
+		    'Use fast cleanup-only mode for CWE during regen — wine-extension files are
+		    'already consolidated at install time, so we only need to delete any strays.
+		    'update-desktop-database runs once at the end rather than once per app.
+		    WineExtCleanupOnly = True
+		    
 		    'Initialise combined Wine bat - Scripts and Registry from all items are accumulated
 		    'into a single .bat then Wine is launched once at the end instead of once per item.
 		    CombinedWineBat = "@echo off" + Chr(13) + Chr(10)
@@ -1448,6 +1453,9 @@ End
 		        App.DoEvents(1) 'Keep UI responsive between items
 		      End If
 		    Next I
+		    
+		    'Regen is done — restore full CWE mode now that the loop is finished
+		    WineExtCleanupOnly = False
 		    
 		    'All items processed - now run Wine once with the combined bat
 		    BuildingCombinedBat = False

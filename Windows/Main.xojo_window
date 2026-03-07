@@ -1266,6 +1266,9 @@ End
 		    M.Checked =  HideUnsetFlags
 		    base.Item(MC).Append M
 		    
+		    base.Append New MenuItem(MenuItem.TextSeparator) 'Sep (after Hide submenu)
+		    MC = MC + 1
+		    
 		    'Presets
 		    base.Append New MenuItem("Load From Preset") '0
 		    MC = MC + 1
@@ -1274,20 +1277,7 @@ End
 		    MC = MC + 1
 		    base.Item(MC).Shortcut  = "S"
 		    
-		    base.Append New MenuItem(MenuItem.TextSeparator) 'Sep (before log viewer)
-		    MC = MC + 1
-		    
-		    base.Append New MenuItem("View Install Log") 'Store mode only — opens $HOME/LLStore.log
-		    MC = MC + 1
-		    base.Item(MC).Shortcut  = "G"
-		    
-		    
-		    
 		  End If
-		  
-		  base.Append New MenuItem("Save Current &List") '0
-		  MC = MC + 1
-		  base.Item(MC).Shortcut  = "L"
 		  
 		  base.Append New MenuItem(MenuItem.TextSeparator) 'Sep
 		  MC = MC + 1
@@ -1305,6 +1295,17 @@ End
 		  MC = MC + 1
 		  base.Item(MC).Shortcut  = "F7"
 		  
+		  base.Append New MenuItem("Tools") 'Tools submenu
+		  MC = MC + 1
+		  base.Item(MC).Append New MenuItem("View Install Log")
+		  base.Item(MC).Append New MenuItem("Debug")
+		  base.Item(MC).Append New MenuItem("Update Sizes In Items")
+		  base.Item(MC).Append New MenuItem("Save Current &List")
+		  If TargetLinux Then
+		    base.Item(MC).Append New MenuItem("Uninstaller")
+		    base.Item(MC).Append New MenuItem("Make SFX")
+		  End If
+		  
 		  base.Append New MenuItem(MenuItem.TextSeparator) 'Sep
 		  MC = MC + 1
 		  
@@ -1313,19 +1314,11 @@ End
 		  MC = MC + 1
 		  base.Item(MC).Shortcut  = "F8"
 		  
-		  'Debug
-		  base.Append New MenuItem("&Debug") '0
-		  MC = MC + 1
-		  base.Item(MC).Shortcut  = "F9"
 		  
 		  'Edit Item
 		  base.Append New MenuItem("&Edit In LLEditor") '0
 		  MC = MC + 1
 		  base.Item(MC).Shortcut  = "F10"
-		  
-		  'Batch update installed sizes for all selected local items (no full recompression)
-		  base.Append New MenuItem("Update Sizes In Items") '0
-		  MC = MC + 1
 		  
 		  'Full Screen
 		  base.Append New MenuItem("Toggle Fullscreen") '0
@@ -1346,15 +1339,6 @@ End
 		  base.Append New MenuItem("Open Item Location") '0
 		  MC = MC + 1 
 		  
-		  If TargetLinux Then
-		    base.Append New MenuItem("Uninstaller") '0
-		    MC = MC + 1
-		    base.Item(MC).Shortcut  = "U"
-		    
-		    base.Append New MenuItem("Make SFX") '0
-		    MC = MC + 1
-		    base.Item(MC).Shortcut  = "X"
-		  End If
 		  
 		  '-------------------------------------------------------------------- Do Actions Below ----------------------------------------------------------------------
 		  
@@ -1390,10 +1374,12 @@ End
 		      Uninstaller.Show
 		    End If
 		  Case "Make SF"
-		    Try
-		      MakeSFX(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("FileINI")).ReplaceAll("\","/"))
-		    Catch
-		    End Try
+		    If TargetLinux Then
+		      Try
+		        MakeSFX(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("FileINI")).ReplaceAll("\","/"))
+		      Catch
+		      End Try
+		    End If
 		  Case "Save Cu" 'Save Current List
 		    SaveCurrentList()
 		  Case "Open It"
