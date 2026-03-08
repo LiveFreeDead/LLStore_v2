@@ -149,6 +149,33 @@ _remove_wine_shortcuts() {
 	rmdir "$wine_prog_dir"          2>/dev/null
 }
 
+# For ssApp installs the Windows uninstaller removes its own files but leaves
+# behind LLStore metadata (ssApp.*, LLScript.sh, cover art etc.).
+# Detect by checking for ssApp.* in $dir; remove known files, rmdir if empty.
+# Falls back to rm -rf only for non-ssApp folders (ppApp/ppGame/LLGame etc.).
+_remove_app_dir() {
+	local d="$1"
+	[ -d "$d" ] || return
+	if ls "$d"/ssApp.* "$d"/LLScript.sh >/dev/null 2>&1; then
+		rm -f "$d"/ssApp.cmd \
+		      "$d"/ssApp.app \
+		      "$d"/ssApp.ppg \
+		      "$d"/ssApp.reg \
+		      "$d"/ssApp.lla \
+		      "$d"/ssApp.llg \
+		      "$d"/ssApp.ico \
+		      "$d"/ssApp.png \
+		      "$d"/ssApp.jpg \
+		      "$d"/ssApp.svg \
+		      "$d"/ssApp.mp4 \
+		      "$d"/LLScript.sh \
+		      "$d"/uninstall.sh 2>/dev/null
+		rmdir "$d" 2>/dev/null
+	else
+		rm -rf "$d"
+	fi
+}
+
 # Localization
 if (locale | grep -e 'ru_RU' >/dev/null); then
 	title="Удаление"
@@ -177,7 +204,7 @@ if command -v zenity >/dev/null; then
 		_remove_extra_shortcuts "$main_path"
 		_remove_wine_shortcuts "$main_path"
 		cd "$dir"/.. || exit
-		rm -rf "$dir" | zenity --progress --title="$title $app" \
+		_remove_app_dir "$dir" | zenity --progress --title="$title $app" \
 --text="$msg2 $app..." --width=300 --pulsate --no-cancel --auto-close \
 >/dev/null 2>&1
 	else
@@ -193,7 +220,7 @@ elif command -v kdialog >/dev/null; then
 		_remove_extra_shortcuts "$main_path"
 		_remove_wine_shortcuts "$main_path"
 		cd "$dir"/.. || exit
-		rm -rf "$dir"
+		_remove_app_dir "$dir"
 	else
 		exit
 	fi
@@ -210,7 +237,7 @@ else
 			_remove_extra_shortcuts "$main_path"
 			_remove_wine_shortcuts "$main_path"
 			cd "$dir"/.. || exit
-			rm -rf "$dir"
+			_remove_app_dir "$dir"
 			printf "\n%s${green}$msg3${reset}\n\n"
 			;;
 		*)

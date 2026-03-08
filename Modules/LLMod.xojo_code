@@ -3850,6 +3850,33 @@ Protected Module LLMod
 		    InstallScript = InstallScript + "    fi" + Chr(10)
 		    InstallScript = InstallScript + "fi" + Chr(10)
 		    InstallScript = InstallScript + "TARGETS=()" + Chr(10)
+		    InstallScript = InstallScript + "# Validate that a path is a safe app subfolder before any rm runs." + Chr(10)
+		    InstallScript = InstallScript + "# Must be a direct child of one of the known install bases — never the base itself." + Chr(10)
+		    InstallScript = InstallScript + "# This stops a bad desktop file pointing Path= at /drive_c/, /Program Files/, $HOME etc." + Chr(10)
+		    InstallScript = InstallScript + "_is_safe_target() {" + Chr(10)
+		    InstallScript = InstallScript + "    local p=" + Chr(34) + "${1%/}" + Chr(34) + "  # strip trailing slash for clean comparison" + Chr(10)
+		    InstallScript = InstallScript + "    [ -z " + Chr(34) + "$p" + Chr(34) + " ] && return 1" + Chr(10)
+		    InstallScript = InstallScript + "    case " + Chr(34) + "$p" + Chr(34) + " in" + Chr(10)
+		    InstallScript = InstallScript + "        " + Chr(34) + "$HOME/LLApps/" + Chr(34) + "?*)            return 0 ;;" + Chr(10)
+		    InstallScript = InstallScript + "        " + Chr(34) + "$HOME/LLGames/" + Chr(34) + "?*)           return 0 ;;" + Chr(10)
+		    InstallScript = InstallScript + "        " + Chr(34) + "$HOME/.wine/drive_c/ppApps/" + Chr(34) + "?*)  return 0 ;;" + Chr(10)
+		    InstallScript = InstallScript + "        " + Chr(34) + "$HOME/.wine/drive_c/ppGames/" + Chr(34) + "?*) return 0 ;;" + Chr(10)
+		    InstallScript = InstallScript + "        " + Chr(34) + "$HOME/.wine/drive_c/Program Files/" + Chr(34) + "?*)     return 0 ;;" + Chr(10)
+		    InstallScript = InstallScript + "        " + Chr(34) + "$HOME/.wine/drive_c/Program Files (x86)/" + Chr(34) + "?*) return 0 ;;" + Chr(10)
+		    InstallScript = InstallScript + "    esac" + Chr(10)
+		    InstallScript = InstallScript + "    # Allow other immediate children of drive_c (e.g. drive_c/MyApp)" + Chr(10)
+		    InstallScript = InstallScript + "    # but block drive_c itself and known shared Windows dirs" + Chr(10)
+		    InstallScript = InstallScript + "    case " + Chr(34) + "$p" + Chr(34) + " in" + Chr(10)
+		    InstallScript = InstallScript + "        " + Chr(34) + "$HOME/.wine/drive_c/Program Files" + Chr(34) + ")     return 1 ;;" + Chr(10)
+		    InstallScript = InstallScript + "        " + Chr(34) + "$HOME/.wine/drive_c/Program Files (x86)" + Chr(34) + ") return 1 ;;" + Chr(10)
+		    InstallScript = InstallScript + "        " + Chr(34) + "$HOME/.wine/drive_c/Windows" + Chr(34) + "*)  return 1 ;;" + Chr(10)
+		    InstallScript = InstallScript + "        " + Chr(34) + "$HOME/.wine/drive_c/windows" + Chr(34) + "*)  return 1 ;;" + Chr(10)
+		    InstallScript = InstallScript + "        " + Chr(34) + "$HOME/.wine/drive_c/users" + Chr(34) + "*)    return 1 ;;" + Chr(10)
+		    InstallScript = InstallScript + "        " + Chr(34) + "$HOME/.wine/drive_c/ProgramData" + Chr(34) + "*) return 1 ;;" + Chr(10)
+		    InstallScript = InstallScript + "        " + Chr(34) + "$HOME/.wine/drive_c/" + Chr(34) + "?*)        return 0 ;;" + Chr(10)
+		    InstallScript = InstallScript + "    esac" + Chr(10)
+		    InstallScript = InstallScript + "    return 1" + Chr(10)
+		    InstallScript = InstallScript + "}" + Chr(10)
 		    InstallScript = InstallScript + "if [ -n " + Chr(34) + "$DESKPATH" + Chr(34) + " ] && [ -d " + Chr(34) + "$DESKPATH" + Chr(34) + " ]; then" + Chr(10)
 		    InstallScript = InstallScript + "    TARGETS+=(" + Chr(34) + "$DESKPATH" + Chr(34) + ")" + Chr(10)
 		    InstallScript = InstallScript + "fi" + Chr(10)
@@ -3881,9 +3908,36 @@ Protected Module LLMod
 		    InstallScript = InstallScript + "log " + Chr(34) + Chr(34) + Chr(10)
 		    InstallScript = InstallScript + "log " + Chr(34) + "Removing app folders..." + Chr(34) + Chr(10)
 		    InstallScript = InstallScript + "for T in " + Chr(34) + "${TARGETS[@]}" + Chr(34) + "; do" + Chr(10)
-		    InstallScript = InstallScript + "    log " + Chr(34) + "  $T" + Chr(34) + Chr(10)
-		    InstallScript = InstallScript + "    rm -rf " + Chr(34) + "$T" + Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "    if _is_safe_target " + Chr(34) + "$T" + Chr(34) + "; then" + Chr(10)
+		    InstallScript = InstallScript + "        log " + Chr(34) + "  $T" + Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "        rm -rf " + Chr(34) + "$T" + Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "    else" + Chr(10)
+		    InstallScript = InstallScript + "        log " + Chr(34) + "  SKIPPED (protected path): $T" + Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "    fi" + Chr(10)
 		    InstallScript = InstallScript + "done" + Chr(10)
+		    InstallScript = InstallScript + "# For ssApp installs the Windows uninstaller removes its own files but leaves" + Chr(10)
+		    InstallScript = InstallScript + "# behind LLStore metadata files (ssApp.*, LLScript.sh, cover art etc.)." + Chr(10)
+		    InstallScript = InstallScript + "# Explicitly clean those up and remove the folder if it is then empty." + Chr(10)
+		    InstallScript = InstallScript + "if [ " + Chr(34) + "$IS_WINE" + Chr(34) + " = true ] && [ -n " + Chr(34) + "$DESKPATH" + Chr(34) + " ]; then" + Chr(10)
+		    InstallScript = InstallScript + "    CLEANPATH=" + Chr(34) + "${DESKPATH%/}" + Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "    if [ -d " + Chr(34) + "$CLEANPATH" + Chr(34) + " ] && _is_safe_target " + Chr(34) + "$CLEANPATH" + Chr(34) + "; then" + Chr(10)
+		    InstallScript = InstallScript + "        log " + Chr(34) + "  Cleaning LLStore metadata from: $CLEANPATH" + Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "        rm -f " + Chr(34) + "$CLEANPATH" + Chr(34) + "/ssApp.cmd \" + Chr(10)
+		    InstallScript = InstallScript + "              " + Chr(34) + "$CLEANPATH" + Chr(34) + "/ssApp.app \" + Chr(10)
+		    InstallScript = InstallScript + "              " + Chr(34) + "$CLEANPATH" + Chr(34) + "/ssApp.ppg \" + Chr(10)
+		    InstallScript = InstallScript + "              " + Chr(34) + "$CLEANPATH" + Chr(34) + "/ssApp.reg \" + Chr(10)
+		    InstallScript = InstallScript + "              " + Chr(34) + "$CLEANPATH" + Chr(34) + "/ssApp.lla \" + Chr(10)
+		    InstallScript = InstallScript + "              " + Chr(34) + "$CLEANPATH" + Chr(34) + "/ssApp.llg \" + Chr(10)
+		    InstallScript = InstallScript + "              " + Chr(34) + "$CLEANPATH" + Chr(34) + "/ssApp.ico \" + Chr(10)
+		    InstallScript = InstallScript + "              " + Chr(34) + "$CLEANPATH" + Chr(34) + "/ssApp.png \" + Chr(10)
+		    InstallScript = InstallScript + "              " + Chr(34) + "$CLEANPATH" + Chr(34) + "/ssApp.jpg \" + Chr(10)
+		    InstallScript = InstallScript + "              " + Chr(34) + "$CLEANPATH" + Chr(34) + "/ssApp.svg \" + Chr(10)
+		    InstallScript = InstallScript + "              " + Chr(34) + "$CLEANPATH" + Chr(34) + "/ssApp.mp4 \" + Chr(10)
+		    InstallScript = InstallScript + "              " + Chr(34) + "$CLEANPATH" + Chr(34) + "/LLScript.sh \" + Chr(10)
+		    InstallScript = InstallScript + "              " + Chr(34) + "$CLEANPATH" + Chr(34) + "/uninstall.sh 2>/dev/null" + Chr(10)
+		    InstallScript = InstallScript + "        rmdir " + Chr(34) + "$CLEANPATH" + Chr(34) + " 2>/dev/null && log " + Chr(34) + "  Removed now-empty dir: $CLEANPATH" + Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "    fi" + Chr(10)
+		    InstallScript = InstallScript + "fi" + Chr(10)
 		    InstallScript = InstallScript + "log " + Chr(34) + Chr(34) + Chr(10)
 		    InstallScript = InstallScript + "log " + Chr(34) + "Removing menu entries..." + Chr(34) + Chr(10)
 		    InstallScript = InstallScript + "if [ -f " + Chr(34) + "$DESKTOP" + Chr(34) + " ]; then" + Chr(10)
@@ -5138,7 +5192,7 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub ConsolidateWineExtensions(AppTitle As String, MainDesktopPath As String, CleanupOnly As Boolean = False, IsWineInstaller As Boolean = False)
+		Sub ConsolidateWineExtensions(AppTitle As String, MainDesktopPath As String, CleanupOnly As Boolean = False, IsWineInstaller As Boolean = False, IsOpenWith As Boolean = False)
 		  'Harvest MimeType= from wine-extension-*.desktop files that Wine's winemenubuilder
 		  'created for this app and merge them directly into the main app .desktop,
 		  'inserted before Actions= so they stay correctly inside [Desktop Entry].
@@ -5192,14 +5246,17 @@ Protected Module LLMod
 		    S = S + "    sed -i " + Chr(34) + "/^Actions=/i MimeType=${MIMES}" + Chr(34) + " " + Chr(34) + "$MAINDESK" + Chr(34) + Chr(10)
 		    S = S + "  fi" + Chr(10)
 		    'Step 3b: wrap Exec= with winepath so Open With passes Windows-style paths to Wine
+		    'Only for ssApp/ppApp (IsOpenWith=True) — ppGame/LLGame must not have their Exec= rewritten
 		    'Uses ENVIRON in awk to pass the new line safely — avoids sed backslash/dollar issues.
 		    'Handles %f/%F/%u/%U variants when stripping the file arg placeholder.
-		    S = S + "  if grep -q " + Chr(34) + "^Exec=wine " + Chr(34) + " " + Chr(34) + "$MAINDESK" + Chr(34) + "; then" + Chr(10)
-		    S = S + "    WINE_CMD=$(grep " + Chr(34) + "^Exec=wine " + Chr(34) + " " + Chr(34) + "$MAINDESK" + Chr(34) + " | head -1 | sed 's/^Exec=wine //;s/ %[fFuU]$//')" + Chr(10)
-		    S = S + "    NEW_EXEC_LINE=" + Chr(34) + "Exec=bash -c 'wine ${WINE_CMD} " + "\" + Chr(34) + "\$(winepath -w " + "\" + Chr(34) + "\$1" + "\" + Chr(34) + " 2>/dev/null || echo " + "\" + Chr(34) + "\$1" + "\" + Chr(34) + ")" + "\" + Chr(34) + "' -- %f" + Chr(34) + Chr(10)
-		    S = S + "    export NEW_EXEC_LINE" + Chr(10)
-		    S = S + "    awk 'BEGIN{nl=ENVIRON[" + Chr(34) + "NEW_EXEC_LINE" + Chr(34) + "]} /^Exec=wine /{print nl; next} {print}' " + Chr(34) + "$MAINDESK" + Chr(34) + " > " + Chr(34) + "${MAINDESK}.tmp" + Chr(34) + " && mv " + Chr(34) + "${MAINDESK}.tmp" + Chr(34) + " " + Chr(34) + "$MAINDESK" + Chr(34) + Chr(10)
-		    S = S + "  fi" + Chr(10)
+		    If IsOpenWith Then
+		      S = S + "  if grep -q " + Chr(34) + "^Exec=wine " + Chr(34) + " " + Chr(34) + "$MAINDESK" + Chr(34) + "; then" + Chr(10)
+		      S = S + "    WINE_CMD=$(grep " + Chr(34) + "^Exec=wine " + Chr(34) + " " + Chr(34) + "$MAINDESK" + Chr(34) + " | head -1 | sed 's/^Exec=wine //;s/ %[fFuU]$//')" + Chr(10)
+		      S = S + "    NEW_EXEC_LINE=" + Chr(34) + "Exec=bash -c 'wine ${WINE_CMD} " + "\" + Chr(34) + "\$(winepath -w " + "\" + Chr(34) + "\$1" + "\" + Chr(34) + " 2>/dev/null || echo " + "\" + Chr(34) + "\$1" + "\" + Chr(34) + ")" + "\" + Chr(34) + "' -- %f" + Chr(34) + Chr(10)
+		      S = S + "    export NEW_EXEC_LINE" + Chr(10)
+		      S = S + "    awk 'BEGIN{nl=ENVIRON[" + Chr(34) + "NEW_EXEC_LINE" + Chr(34) + "]} /^Exec=wine /{print nl; next} {print}' " + Chr(34) + "$MAINDESK" + Chr(34) + " > " + Chr(34) + "${MAINDESK}.tmp" + Chr(34) + " && mv " + Chr(34) + "${MAINDESK}.tmp" + Chr(34) + " " + Chr(34) + "$MAINDESK" + Chr(34) + Chr(10)
+		      S = S + "  fi" + Chr(10)
+		    End If
 		    S = S + "fi" + Chr(10)
 		    S = S + Chr(10)
 		  End If
@@ -5559,9 +5616,12 @@ Protected Module LLMod
 		        If ItemLLItem.BuildType = "LLApp" Or ItemLLItem.BuildType = "LLGame" Or ItemLnk(I).LinuxLink Then
 		          DesktopContent = DesktopContent + "Exec=" + ExecName + Chr(10) 'LinuxLink .desktop items are native executables, no Wine prefix
 		        Else
-		          'Add %f so the DE knows this app can open files — required for Open With to list it
-		          Dim WineExecArgs As String = " %f"
-		          If ExecName.IndexOf("%f") >= 0 Or ExecName.IndexOf("%F") >= 0 Or ExecName.IndexOf("%u") >= 0 Or ExecName.IndexOf("%U") >= 0 Then WineExecArgs = "" 'Already has a file arg
+		          'Add %f only for ssApp/ppApp so the DE knows they can open files (Open With) — ppGame/LLGame must not get %f
+		          Dim WineExecArgs As String = ""
+		          If BT = "ssApp" Or BT = "ppApp" Then
+		            WineExecArgs = " %f"
+		            If ExecName.IndexOf("%f") >= 0 Or ExecName.IndexOf("%F") >= 0 Or ExecName.IndexOf("%u") >= 0 Or ExecName.IndexOf("%U") >= 0 Then WineExecArgs = "" 'Already has a file arg
+		          End If
 		          DesktopContent = DesktopContent + "Exec=" + "wine " + ExecName + WineExecArgs + Chr(10) 'Quotes are checked for above, so only added once
 		        End If
 		        
@@ -5629,7 +5689,7 @@ Protected Module LLMod
 		        If BT = "ppApp" Or BT = "ssApp" Or BT = "ppGame" Then
 		          If CWEProcessed.IndexOf(ItemLnk(I).Title.Trim) < 0 Then
 		            CWEProcessed.Add(ItemLnk(I).Title.Trim)
-		            ConsolidateWineExtensions(ItemLnk(I).Title, DesktopOutPath+DesktopFile, False, BT = "ssApp")
+		            ConsolidateWineExtensions(ItemLnk(I).Title, DesktopOutPath+DesktopFile, False, BT = "ssApp", BT = "ssApp" Or BT = "ppApp")
 		          End If
 		        End If
 		        

@@ -527,9 +527,20 @@ _build_xdg_categories() {
 # ---------------------------------------------------------------------------
 create_desktop_entry() {
     local title="$1" exec_cmd="$2" work_dir="$3" icon="$4"
-    local categories="$5" terminal="${6:-false}" comment="${7:-}"
+    local categories="$5" terminal="${6:-false}" comment="${7:-}" open_with="${8:-false}"
     local safe="${title// /.}"
     local dfile="$INSTALL_TMP/${safe}.desktop"
+
+    # For Open With support: append %f so the DE lists this app as a file handler.
+    # Only for ssApp / ppApp / LLApp — ppGame and LLGame must NOT get %f or they
+    # will appear in Open With dialogs which is wrong for game launchers.
+    if [ "$open_with" = "true" ]; then
+        case "$exec_cmd" in
+            *%f*|*%F*|*%u*|*%U*) ;;   # already has a file placeholder — leave it
+            *) exec_cmd="$exec_cmd %f" ;;
+        esac
+    fi
+
     log "Creating .desktop: $title"
     cat > "$dfile" <<EOF
 [Desktop Entry]
@@ -568,9 +579,11 @@ parse_desktop_sections() {
                 _cats="$(_build_xdg_categories "${CATEGORIES:-}" "${BUILD_TYPE:-}")"
                 [ -n "$_cats" ] && log "  (auto-categories from LLFile: $_cats)"
             fi
+            local _open_with_d="false"
+            case "${BUILD_TYPE:-}" in ssApp|ppApp|LLApp) _open_with_d="true" ;; esac
             create_desktop_entry \
                 "$d_title" "$(expand_path "$d_exec" "$ap")" "$(expand_path "$d_path" "$ap")" \
-                "$(expand_path "$d_icon" "$ap")" "$_cats" "$d_term" "$d_cmt"
+                "$(expand_path "$d_icon" "$ap")" "$_cats" "$d_term" "$d_cmt" "$_open_with_d"
         fi
         d_title=""; d_exec=""; d_path=""; d_icon=""; d_cats=""; d_term="false"; d_cmt=""; in_d=0
     }
@@ -666,16 +679,42 @@ _install_lnk() {
         linux_icon="${linux_icon:-$ap/ppGame.png}"
     fi
 
-    # Write a small launcher script so the exec line stays simple
+    # Write a small launcher script so the exec line stays simple.
+    # For ssApp / ppApp: convert the first file argument (passed by the DE when
+    # opened via Open With / %f) from a Linux path to a Windows path so Wine
+    # receives a path it understands.  For LLApp (native binary) and ppGame /
+    # LLGame (no Open With) the plain "$@" passthrough is sufficient.
     local launcher="$ap/${safe}.sh"
     {
         echo "#!/bin/bash"
         echo "cd '${linux_wd}'"
-        if [ -n "$args" ]; then
-            echo "exec wine '${linux_target}' ${args} \"\$@\""
-        else
-            echo "exec wine '${linux_target}' \"\$@\""
-        fi
+        case "$BUILD_TYPE" in
+            ssApp|ppApp)
+                # Winepath-convert the first arg when one is supplied (%f from DE)
+                echo 'if [ $# -gt 0 ]; then'
+                echo '    FILE_ARG="$(winepath -w "$1" 2>/dev/null || echo "$1")"'
+                if [ -n "$args" ]; then
+                    echo "    exec wine '${linux_target}' ${args} "\$FILE_ARG""
+                else
+                    echo "    exec wine '${linux_target}' "\$FILE_ARG""
+                fi
+                echo 'else'
+                if [ -n "$args" ]; then
+                    echo "    exec wine '${linux_target}' ${args}"
+                else
+                    echo "    exec wine '${linux_target}'"
+                fi
+                echo 'fi'
+                ;;
+            *)
+                # LLApp (native) / ppGame / LLGame — plain passthrough
+                if [ -n "$args" ]; then
+                    echo "exec wine '${linux_target}' ${args} \"\$@\""
+                else
+                    echo "exec wine '${linux_target}' \"\$@\""
+                fi
+                ;;
+        esac
     } > "$launcher"
     chmod +x "$launcher"
     log "  Created launcher: $launcher"
@@ -687,8 +726,11 @@ _install_lnk() {
         _lnk_cats="$(_build_xdg_categories "${CATEGORIES:-}" "${BUILD_TYPE:-}")"
         [ -n "$_lnk_cats" ] && log "  (auto-categories from LLFile: $_lnk_cats)"
     fi
+    # ssApp / ppApp / LLApp get Open With support (%f in Exec=); games do not.
+    local _open_with="false"
+    case "$BUILD_TYPE" in ssApp|ppApp|LLApp) _open_with="true" ;; esac
     create_desktop_entry "$title" "bash '$launcher'" "$linux_wd" "$linux_icon" \
-        "$_lnk_cats" "false" "$desc"
+        "$_lnk_cats" "false" "$desc" "$_open_with"
 
     # Optionally create the real .lnk in the wine prefix via wscript + VBScript
     if command -v wine &>/dev/null; then
