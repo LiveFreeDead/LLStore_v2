@@ -611,12 +611,10 @@ End
 		    
 		    If Asc(Key) = 84 Or Asc(Key) = 116 Or Asc(Key) = 20 Then Tools.Show 'Ctrl + T or t '20 is T in Windows
 		    
-		    If TargetLinux Then
-		      If Asc(Key) = 85 Or Asc(Key) = 117 Or Asc(Key) = 21 Then  'Ctrl + U or u '21 is U in Windows
-		        Uninstaller.Left = (Screen(0).AvailableWidth/2) - (Uninstaller.Width/2)
-		        Uninstaller.Top = (Screen(0).AvailableHeight/2) - (Uninstaller.Height/2)
-		        Uninstaller.Show
-		      End If
+		    If Asc(Key) = 85 Or Asc(Key) = 117 Or Asc(Key) = 21 Then  'Ctrl + U or u '21 is U in Windows
+		      Uninstaller.Left = (Screen(0).AvailableWidth/2) - (Uninstaller.Width/2)
+		      Uninstaller.Top = (Screen(0).AvailableHeight/2) - (Uninstaller.Height/2)
+		      Uninstaller.Show
 		    End If
 		    
 		    If Asc(Key) = 80 Or Asc(Key) = 112 Or Asc(Key) = 16 Then ControlPanel.Show 'Ctrl + P or p '20 is T in Windows
@@ -1310,8 +1308,8 @@ End
 		  base.Item(MC).Append New MenuItem("Debug")
 		  base.Item(MC).Append New MenuItem("Update Sizes In Items")
 		  base.Item(MC).Append New MenuItem("Save Current &List")
+		  base.Item(MC).Append New MenuItem("Uninstaller")
 		  If TargetLinux Then
-		    base.Item(MC).Append New MenuItem("Uninstaller")
 		    base.Item(MC).Append New MenuItem("Make SFX")
 		  End If
 		  
@@ -1382,12 +1380,10 @@ End
 		    MakeDesktopShortcut()
 		  Case "Build I"
 		    BuildToDesktop()
-		  Case "Uninsta" ' Uninstaller (Linux only)
-		    If TargetLinux Then
-		      Uninstaller.Left = (Screen(0).AvailableWidth/2) - (Uninstaller.Width/2)
-		      Uninstaller.Top = (Screen(0).AvailableHeight/2) - (Uninstaller.Height/2)
-		      Uninstaller.Show
-		    End If
+		  Case "Uninsta" ' Uninstaller
+		    Uninstaller.Left = (Screen(0).AvailableWidth/2) - (Uninstaller.Width/2)
+		    Uninstaller.Top = (Screen(0).AvailableHeight/2) - (Uninstaller.Height/2)
+		    Uninstaller.Show
 		  Case "Make SF"
 		    If TargetLinux Then
 		      Try
