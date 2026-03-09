@@ -94,6 +94,7 @@ Protected Module LLMod_Items
 		  ArchCompatible As String * 32
 		  InternetRequired As Boolean
 		ForceDERefresh As Boolean
+		Startup As Boolean
 	#tag EndStructure
 
 	#tag Structure, Name = LLLnk, Flags = &h0

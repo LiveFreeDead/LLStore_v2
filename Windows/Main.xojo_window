@@ -488,7 +488,7 @@ Begin DesktopWindow Main
    Begin Timer MenuHoverTimer
       Index           =   -2147483648
       LockedInPosition=   False
-      Period          =   350
+      Period          =   700
       RunMode         =   0
       Scope           =   0
       TabPanelIndex   =   0
@@ -1305,10 +1305,13 @@ End
 		  base.Append New MenuItem("Tools") 'Tools submenu
 		  MC = MC + 1
 		  base.Item(MC).Append New MenuItem("View Install Log")
-		  base.Item(MC).Append New MenuItem("Debug")
+		  base.Item(MC).Append New MenuItem("&Debug")
+		  base.Item(MC).Child("&Debug").Shortcut = "F9"
 		  base.Item(MC).Append New MenuItem("Update Sizes In Items")
 		  base.Item(MC).Append New MenuItem("Save Current &List")
-		  base.Item(MC).Append New MenuItem("Uninstaller")
+		  base.Item(MC).Child("Save Current &List").Shortcut = "L"
+		  base.Item(MC).Append New MenuItem("&Uninstaller")
+		  base.Item(MC).Child("&Uninstaller").Shortcut = "U"
 		  If TargetLinux Then
 		    base.Item(MC).Append New MenuItem("Make SFX")
 		  End If
@@ -1380,7 +1383,7 @@ End
 		    MakeDesktopShortcut()
 		  Case "Build I"
 		    BuildToDesktop()
-		  Case "Uninsta" ' Uninstaller
+		  Case "&Uninst" ' Uninstaller
 		    Uninstaller.Left = (Screen(0).AvailableWidth/2) - (Uninstaller.Width/2)
 		    Uninstaller.Top = (Screen(0).AvailableHeight/2) - (Uninstaller.Height/2)
 		    Uninstaller.Show
@@ -1594,6 +1597,7 @@ End
 		  Dim ColBuildType     As Integer = Data.GetDBHeader("BuildType")
 		  Dim ColHidden        As Integer = Data.GetDBHeader("Hidden")
 		  Dim ColHiddenAlways  As Integer = Data.GetDBHeader("HiddenAlways")
+		  Dim ColShowSetupOnly As Integer = Data.GetDBHeader("ShowSetupOnly")
 		  Dim ColSelected      As Integer = Data.GetDBHeader("Selected")
 		  Dim ColTitleName     As Integer = Data.GetDBHeader("TitleName")
 		  Dim ColCategories    As Integer = Data.GetDBHeader("Categories")
@@ -1620,6 +1624,13 @@ End
 		    If IsTrue(Data.Items.CellTextAt(I, ColHiddenAlways)) Then
 		      Data.Items.CellTextAt(I, ColSelected) = "F" 'Unselect now hidden items
 		      Continue 'Skip Hidden items
+		    End If
+		    'ShowSetupOnly: only visible in Installer mode (StoreMode=0), hidden in Launcher and all other modes
+		    If ColShowSetupOnly >= 0 Then
+		      If IsTrue(Data.Items.CellTextAt(I, ColShowSetupOnly)) And StoreMode <> 0 Then
+		        Data.Items.CellTextAt(I, ColSelected) = "F"
+		        Continue
+		      End If
 		    End If
 		    
 		    ItemToAdd = Data.Items.CellTextAt(I, ColTitleName)
@@ -2399,6 +2410,7 @@ End
 		      OutText = OutText + Items.CellTextAt(I,0)+Chr(10)
 		    Next 
 		    SaveDataToFile(OutText, Slash(SpecialFolder.Desktop.NativePath)+"LLStore_CurrentList.txt")
+		    Notify("Saved Items List To Desktop", "LLStore_CurrentList.txt", "", 3000)
 		  End If
 		End Sub
 	#tag EndMethod
@@ -2843,6 +2855,70 @@ End
 		End Sub
 	#tag EndMethod
 
+	#tag Method, Flags = &h0
+		Function HandleCtrlKeyDown(key As String) As Boolean
+		  ' Returns True if a Ctrl+letter shortcut is recognised so the caller can
+		  ' return True from KeyDown, preventing the listbox acting on the keypress.
+		  ' On Windows KeyDown fires with the control-char value (Ctrl+A=1 … Ctrl+U=21);
+		  ' on Linux/Mac it fires with the lowercase letter value (a=97 … u=117). Check both.
+		  If Not Keyboard.ControlKey Then Return False
+		  Dim kc As Integer = Asc(Key)
+		  If kc=1  Or kc=97  Or kc=2  Or kc=98  Or kc=4  Or kc=100 Or kc=6  Or kc=102 Or _
+		     kc=9  Or kc=105 Or kc=12 Or kc=108 Or kc=14 Or kc=110 Or kc=15 Or kc=111 Or _
+		     kc=16 Or kc=112 Or kc=18 Or kc=114 Or kc=19 Or kc=115 Or kc=20 Or kc=116 Or _
+		     kc=21 Or kc=117 Then Return True
+		  Return False
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub HandleCtrlKeyUp(key As String)
+		  ' Shared Ctrl+letter handler — called from both Items.KeyUp and Categories.KeyUp.
+		  If Not Keyboard.ControlKey Then Return
+		  Dim Successed As Boolean
+		  Select Case Asc(Key)
+		  Case 45 ' Ctrl + -
+		    Items.FontSize = Items.FontSize - 1
+		    If Items.FontSize <= 4 Then Items.FontSize = 4
+		    Categories.FontSize = Items.FontSize
+		    Description.FontSize = Items.FontSize
+		  Case 61 ' Ctrl + +
+		    Items.FontSize = Items.FontSize + 1
+		    If Items.FontSize >= 32 Then Items.FontSize = 32
+		    Categories.FontSize = Items.FontSize
+		    Description.FontSize = Items.FontSize
+		  Case 1, 97 ' Ctrl+A
+		    SelectItems("Select All")
+		  Case 2, 98 ' Ctrl+B
+		    If StoreMode = 1 Then BuildToDesktop()
+		  Case 4, 100 ' Ctrl+D
+		    MakeDesktopShortcut()
+		  Case 6, 102 ' Ctrl+F
+		    If StoreMode = 1 Then AddFavorite()
+		  Case 9, 105 ' Ctrl+I
+		    SelectItems("Select Invert")
+		  Case 12, 108 ' Ctrl+L
+		    SaveCurrentList()
+		  Case 14, 110 ' Ctrl+N
+		    SelectItems("Select None")
+		  Case 15, 111 ' Ctrl+O
+		    Successed = LoadFromPreset()
+		  Case 16, 112 ' Ctrl+P
+		    ControlPanel.Show
+		  Case 18, 114 ' Ctrl+R
+		    If StoreMode = 1 Then RemoveFavorite()
+		  Case 19, 115 ' Ctrl+S
+		    If StoreMode = 0 Then SaveToPreset()
+		  Case 20, 116 ' Ctrl+T
+		    Tools.Show
+		  Case 21, 117 ' Ctrl+U
+		    Uninstaller.Left = (Screen(0).AvailableWidth/2) - (Uninstaller.Width/2)
+		    Uninstaller.Top  = (Screen(0).AvailableHeight/2) - (Uninstaller.Height/2)
+		    Uninstaller.Show
+		  End Select
+		End Sub
+	#tag EndMethod
+
 
 	#tag Property, Flags = &h0
 		CurrentCat As String
@@ -3155,60 +3231,14 @@ End
 		    StartButton.SetFocus
 		    Return True
 		  End If
+		  If HandleCtrlKeyDown(Key) Then Return True
 		  Return False
 		End Function
 	#tag EndEvent
 	#tag Event
 		Sub KeyUp(key As String)
-		  Dim Successed As Boolean
-		  If Keyboard.ControlKey Then
-		    'MsgBox Str(asc(Key))
-		    Select Case Asc(Key)
-		    Case 45 '-
-		      Items.FontSize = Items.FontSize - 1
-		      If Items.FontSize <= 4 Then Items.FontSize = 4
-		      Categories.FontSize = Items.FontSize
-		      Description.FontSize = Items.FontSize
-		    Case 61 '+
-		      Items.FontSize = Items.FontSize + 1
-		      If Items.FontSize >= 32 Then Items.FontSize = 32
-		      Categories.FontSize = Items.FontSize
-		      Description.FontSize = Items.FontSize
-		      'Case 70
-		    Case 97
-		      SelectItems("Select All")
-		      
-		    Case 98 'Ctrl + B - Build to Desktop
-		      If StoreMode = 1 Then BuildToDesktop()
-		      
-		    Case 100  'Ctrl + D 'Add Desktop Shortcut
-		      MakeDesktopShortcut()
-		    Case 102
-		      If StoreMode = 1 Then AddFavorite() 'Ctrl + F or f
-		    Case 114 
-		      If StoreMode = 1 Then RemoveFavorite() 'Ctrl + R or r
-		    Case 110
-		      SelectItems("Select None")
-		    Case 105
-		      SelectItems("Select Invert")
-		    Case 111
-		      Successed = LoadFromPreset()
-		    Case 115
-		      If StoreMode = 0 Then SaveToPreset()
-		    Case 108
-		      SaveCurrentList()
-		    Case 116
-		      Tools.Show
-		    Case 112
-		      ControlPanel.Show
-		    Case 117 'Ctrl + U - Uninstaller (Linux only)
-		      If TargetLinux Then
-		        Uninstaller.Left = (Screen(0).AvailableWidth/2) - (Uninstaller.Width/2)
-		        Uninstaller.Top = (Screen(0).AvailableHeight/2) - (Uninstaller.Height/2)
-		        Uninstaller.Show
-		      End If
-		    End Select
-		  End If
+		  HandleCtrlKeyUp(Key)
+		  If Keyboard.ControlKey Then Return 'All Ctrl actions handled — don't update selection
 		  
 		  #Pragma BreakOnExceptions False
 		  Try 
@@ -3352,12 +3382,15 @@ End
 		    Items.SetFocus
 		    Return True
 		  End If
+		  If HandleCtrlKeyDown(Key) Then Return True
 		  Return False
 		End Function
 	#tag EndEvent
 	#tag Event
 		Sub KeyUp(key As String)
 		  If Asc(Key) = 9 Then Return 'If tabbed in, don't do update
+		  HandleCtrlKeyUp(Key)
+		  If Keyboard.ControlKey Then Return 'All Ctrl actions handled — don't update category
 		  Try 
 		    CurrentCatID = Categories.CellTagAt (Categories.SelectedRowIndex, 0)
 		    CurrentCat = Categories.CellTextAt (Categories.SelectedRowIndex, 0)
@@ -3414,7 +3447,6 @@ End
 		  ItemsLabel.Visible = False
 		  SearchText.SetFocus
 		  SearchText.SelectionStart = 999 'Move cursor to end
-		  SearchNow.RunMode = Timer.RunModes.Single
 		  'Only start auto-hide timer if there is no active search text
 		  If SearchText.Text = "" Then
 		    SearchHideTimer.Period = 5000

@@ -546,7 +546,7 @@ Protected Module LLMod
 		          'lnkObj.TargetPath = scTarget.NativePath
 		          lnkObj.TargetPath = Target 'Target may also have some Arguments, so use text not folder item.
 		          If Args <> "" Then lnkObj.Arguments = Args 'Target may also have some Arguments, so use text not folder item.
-		          lnkObj.WorkingDirectory = Slash(FixPath(scWorkingDir.NativePath))
+		          If scWorkingDir <> Nil Then lnkObj.WorkingDirectory = Slash(FixPath(scWorkingDir.NativePath))
 		          'IconFile = "D:\Documents\Desktop\ppGame.ico"
 		          If IconFile.IndexOf(".png") >=1 Then
 		            If Exist(IconFile.ReplaceAll(".png",".ico")) Then
@@ -3946,6 +3946,12 @@ Protected Module LLMod
 		    InstallScript = InstallScript + "else" + Chr(10)
 		    InstallScript = InstallScript + "    log " + Chr(34) + "  Main desktop already gone: $DESKTOP" + Chr(34) + Chr(10)
 		    InstallScript = InstallScript + "fi" + Chr(10)
+		    InstallScript = InstallScript + "# Remove XDG autostart entry if present (installed with startup flag)" + Chr(10)
+		    InstallScript = InstallScript + "AUTOSTART_ENTRY=${XDG_CONFIG_HOME:-$HOME/.config}/autostart/$(basename " + Chr(34) + "$DESKTOP" + Chr(34) + ")" + Chr(10)
+		    InstallScript = InstallScript + "if [ -f " + Chr(34) + "$AUTOSTART_ENTRY" + Chr(34) + " ]; then" + Chr(10)
+		    InstallScript = InstallScript + "    log " + Chr(34) + "  Removing autostart entry: $AUTOSTART_ENTRY" + Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "    rm -f " + Chr(34) + "$AUTOSTART_ENTRY" + Chr(34) + Chr(10)
+		    InstallScript = InstallScript + "fi" + Chr(10)
 		    InstallScript = InstallScript + "if [ -n " + Chr(34) + "$DESKPATH" + Chr(34) + " ]; then" + Chr(10)
 		    InstallScript = InstallScript + "    while IFS= read -r -d '' df; do" + Chr(10)
 		    InstallScript = InstallScript + "        p=$(grep -m1 " + Chr(34) + "^Path=" + Chr(34) + " " + Chr(34) + "$df" + Chr(34) + " | cut -d= -f2- | tr -d '\r')" + Chr(10)
@@ -4521,6 +4527,7 @@ Protected Module LLMod
 		    ItemLLItem.SendTo = False
 		    ItemLLItem.InternetRequired = False
 		    ItemLLItem.ForceDERefresh = False
+		    ItemLLItem.Startup = False
 		    For I = 1 To Sp().Count -1
 		      Lin = Sp(I).Trim
 		      OrigLine = Lin
@@ -4621,6 +4628,7 @@ Protected Module LLMod
 		            ItemLLItem.ForceDERefresh = True
 		            ForceDERefresh = True
 		          End If
+		          If ItemLLItem.Flags.IndexOf("startup") >= 0 Then ItemLLItem.Startup = True
 		          Continue 'Once used Data no need to process the rest, The other lines will cause the lower things to be tested per line
 		        Case "priority"
 		          ItemLLItem.Priority = Val(LineData)
@@ -5415,7 +5423,7 @@ Protected Module LLMod
 		    If ItemLLItem.Flags.IndexOf("sendto") >=0 Then SendTo = True'Do SendTo (Not done yet)
 		    If ItemLLItem.Flags.IndexOf("root") >=0 Then Root = True
 		    If ItemLLItem.Flags.IndexOf("programs") >=0 Then Root = True
-		    If ItemLLItem.Flags.IndexOf("startup") >=0 Then Startup = True
+		    If ItemLLItem.Startup Then Startup = True
 		    
 		    'Clean up Done in MoveLinks
 		  End If
@@ -5732,6 +5740,37 @@ Protected Module LLMod
 		        ' the full KDE application list. Non-destructive — no plasmashell restart needed.
 		        If SysDesktopEnvironment = "kde" Or SysDesktopEnvironment = "plasma" Then
 		          ShellFast.Execute("bash -c 'timeout 15 kbuildsycoca6 --noincremental 2>/dev/null || timeout 15 kbuildsycoca5 --noincremental 2>/dev/null || true &'")
+		        End If
+		        
+		        ' Panel Link — GNOME / Ubuntu / Zorin / Budgie dash pinning.
+		        ' Cinnamon panel (grouped-window-list JSON) is handled in the block above.
+		        ' GNOME and its derivatives use org.gnome.shell favorite-apps via gsettings.
+		        ' We only do this when the .desktop entry has just been written (I loop).
+		        If ItemLnk(I).Panel = True Then
+		          Dim DELow As String = SysDesktopEnvironment.Trim.Lowercase
+		          If DELow = "gnome" Or DELow = "unity" Or DELow = "ubuntu" Or DELow = "budgie" Or DELow = "budgie-desktop" Or DELow = "zorin" Or DELow = "zorin:gnome" Then
+		            Dim GScript As String = "/tmp/llstore_gnomefav_" + DesktopFile.ReplaceAll(".desktop", "") + ".sh"
+		            Dim GS As String = "#!/bin/bash" + Chr(10)
+		            GS = GS + "DF=" + Chr(34) + DesktopFile + Chr(34) + Chr(10)
+		            GS = GS + "FAVS=$(gsettings get org.gnome.shell favorite-apps 2>/dev/null)" + Chr(10)
+		            GS = GS + "echo " + Chr(34) + "$FAVS" + Chr(34) + " | grep -qF " + Chr(34) + "$DF" + Chr(34) + " && exit 0" + Chr(10)
+		            GS = GS + "NEWFAVS=$(echo " + Chr(34) + "$FAVS" + Chr(34) + " | sed " + Chr(34) + "s/]$/," + Chr(39) + "$DF" + Chr(39) + "]/g" + Chr(34) + ")" + Chr(10)
+		            GS = GS + "gsettings set org.gnome.shell favorite-apps " + Chr(34) + "$NEWFAVS" + Chr(34) + " >/dev/null 2>&1" + Chr(10)
+		            SaveDataToFile(GS, GScript)
+		            ShellFast.Execute("bash -c 'chmod +x " + Chr(34) + GScript + Chr(34) + " && bash " + Chr(34) + GScript + Chr(34) + " >/dev/null 2>&1 &'")
+		          End If
+		        End If
+		        
+		        ' Startup — XDG autostart: copy the .desktop to ~/.config/autostart/ so the
+		        ' application launches at login. This is the universal cross-distro mechanism
+		        ' supported by GNOME, KDE Plasma, XFCE, Cinnamon, MATE, LXQt, LXDE, Budgie
+		        ' and every other XDG-compliant desktop (XDG Base Directory Specification).
+		        ' Only done for the first link (I=1) to avoid duplicate autostart entries.
+		        If ItemLLItem.Startup And I = 1 Then
+		          Dim AutostartDir As String = Slash(HomePath) + ".config/autostart/"
+		          MakeFolder(AutostartDir)
+		          SaveDataToFile(DesktopContent, AutostartDir + DesktopFile)
+		          ShellFast.Execute("chmod 755 " + Chr(34) + AutostartDir + DesktopFile + Chr(34))
 		        End If
 		        
 		      Next I
@@ -6123,19 +6162,58 @@ Protected Module LLMod
 		  End If
 		  
 		  'Startup
-		  If ItemLLItem.Flags.IndexOf ("startup") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
+		  If ItemLLItem.Startup Then 'Item-level flag — applies to all shortcuts for this item
 		    CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(Slash(FixPath(StartPath))+"Startup"))
 		  End If
-		  If ItemLnk(I).Flags.IndexOf ("startup") >=0 Then 'Per Item
+		  If ItemLnk(I).Flags.IndexOf ("startup") >=0 Then 'Per-link override
 		    CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(Slash(FixPath(StartPath))+"Startup"))
 		  End If
 		  
-		  'QuickLaunch
-		  If ItemLLItem.Flags.IndexOf ("quicklaunch") >=0 Then 'Trying to do it for all of the Windows items, if it's set, then assume there is only one shortcut
-		    CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Internet Explorer/Quick Launch/")
+		  'QuickLaunch / Taskbar pinning
+		  ' On Windows 10/11 the only reliable way to have a shortcut appear in the taskbar
+		  ' is to write it to the User Pinned\TaskBar folder.  The legacy IE Quick Launch
+		  ' path is kept as a commented fallback for XP/Vista/7 with Quick Launch re-enabled.
+		  ' After writing the .lnk we attempt a dynamic pin via PowerShell using the
+		  ' Shell.Application "taskbarpin" verb.  This works on Win7/8 and on Win10 builds
+		  ' older than 1703; on newer Win10/11 builds the verb is blocked by design, so the
+		  ' file-copy fallback ensures the shortcut is there on the next login / taskbar refresh.
+		  If ItemLLItem.Flags.IndexOf ("quicklaunch") >=0 Then 'Item-level flag — all shortcuts
+		    Dim QuickLaunchPath1 As String = Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Internet Explorer/Quick Launch/"
+		    MakeFolder(QuickLaunchPath1) ' Ensure folder exists — CreateShortcut silently fails if it doesn't
+		    CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), QuickLaunchPath1) 'Legacy Quick Launch toolbar (XP/7/10 with re-enabled Quick Launch)
+		    Dim TaskBarPath1 As String = Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Internet Explorer/Quick Launch/User Pinned/TaskBar/"
+		    MakeFolder(TaskBarPath1) ' Ensure folder exists — CreateShortcut silently fails if it doesn't
+		    CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), TaskBarPath1)
+		    ' Attempt dynamic pin via PowerShell taskbarpin verb (gracefully no-ops on Win10 1703+)
+		    Dim LnkFile1 As String = TaskBarPath1 + ItemLnk(I).Title + ".lnk"
+		    LnkFile1 = LnkFile1.ReplaceAll("/", "\")
+		    Dim PinCmd1 As String = "powershell -WindowStyle Hidden -NonInteractive -Command " + Chr(34) + _
+		      "try{$sa=New-Object -ComObject Shell.Application;" + _
+		      "$fi=$sa.Namespace(0).ParseName('" + LnkFile1 + "');" + _
+		      "if($fi){$fi.InvokeVerb('taskbarpin')}}catch{}" + Chr(34)
+		    ShellFast.Execute(PinCmd1)
+		    ' Notify the shell so the taskbar refreshes without requiring re-login
+		    Declare Sub SHChangeNotify1 Lib "shell32.dll" Alias "SHChangeNotify" (wEventId As Integer, uFlags As Integer, dwItem1 As Ptr, dwItem2 As Ptr)
+		    SHChangeNotify1(&h8000000, &h1000, Nil, Nil)
 		  End If
-		  If ItemLnk(I).Flags.IndexOf ("quicklaunch") >=0 Then 'Per Item
-		    CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Internet Explorer/Quick Launch/")
+		  If ItemLnk(I).Flags.IndexOf ("quicklaunch") >=0 Or ItemLnk(I).Panel = True Then 'Per-link flag — panel ShowOn also maps to Quick Launch on Windows
+		    Dim QuickLaunchPath2 As String = Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Internet Explorer/Quick Launch/"
+		    MakeFolder(QuickLaunchPath2) ' Ensure folder exists — CreateShortcut silently fails if it doesn't
+		    CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), QuickLaunchPath2) 'Legacy Quick Launch toolbar (XP/7/10 with re-enabled Quick Launch)
+		    Dim TaskBarPath2 As String = Slash(FixPath(SpecialFolder.ApplicationData.NativePath))+"Microsoft/Internet Explorer/Quick Launch/User Pinned/TaskBar/"
+		    MakeFolder(TaskBarPath2) ' Ensure folder exists — CreateShortcut silently fails if it doesn't
+		    CreateShortcut(ItemLnk(I).Title, Target, Slash(ItemLnk(I).Link.WorkingDirectory), TaskBarPath2)
+		    ' Attempt dynamic pin via PowerShell taskbarpin verb (gracefully no-ops on Win10 1703+)
+		    Dim LnkFile2 As String = TaskBarPath2 + ItemLnk(I).Title + ".lnk"
+		    LnkFile2 = LnkFile2.ReplaceAll("/", "\")
+		    Dim PinCmd2 As String = "powershell -WindowStyle Hidden -NonInteractive -Command " + Chr(34) + _
+		      "try{$sa=New-Object -ComObject Shell.Application;" + _
+		      "$fi=$sa.Namespace(0).ParseName('" + LnkFile2 + "');" + _
+		      "if($fi){$fi.InvokeVerb('taskbarpin')}}catch{}" + Chr(34)
+		    ShellFast.Execute(PinCmd2)
+		    ' Notify the shell so the taskbar refreshes without requiring re-login
+		    Declare Sub SHChangeNotify2 Lib "shell32.dll" Alias "SHChangeNotify" (wEventId As Integer, uFlags As Integer, dwItem1 As Ptr, dwItem2 As Ptr)
+		    SHChangeNotify2(&h8000000, &h1000, Nil, Nil)
 		  End If
 		  
 		  ' Release the reused WScript.Shell COM object now all shortcuts for this item are done
@@ -8346,6 +8424,14 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		EditorOnly As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		EditorSavedLeft As Integer = -1
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		EditorSavedTop As Integer = -1
 	#tag EndProperty
 
 	#tag Property, Flags = &h0

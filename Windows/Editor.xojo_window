@@ -6177,6 +6177,7 @@ End
 		    If ItemLLItem.KeepAll = True Then  FlagsOut = FlagsOut + "keepall "
 		    If ItemLLItem.KeepInFolder = True Then  FlagsOut = FlagsOut + "keepinfolder "
 		    If ItemLLItem.ForceDERefresh = True Then  FlagsOut = FlagsOut + "forcederefresh "
+		    If ItemLLItem.Startup = True Then  FlagsOut = FlagsOut + "startup "
 		    ItemLLItem.Flags = FlagsOut.Trim
 		    
 		    'Only update the item choice here, not each time it's changed
@@ -6682,6 +6683,10 @@ End
 		  ' Hiding the Editor AFTER means the notification is already painted before the
 		  ' Editor disappears — Windows won't silently send focus elsewhere mid-show.
 		  PrepareToBuild()
+		  
+		  ' Save position before hiding so we can restore it after build
+		  EditorSavedLeft = Editor.Left
+		  EditorSavedTop = Editor.Top
 		  
 		  ' Now hide the GUI windows
 		  Editor.Hide
@@ -7880,6 +7885,7 @@ End
 		  AdvancedLink.TextDE.Text = ItemLnk(EditingLnk).LnkDECompatible
 		  AdvancedLink.TextPM.Text = ItemLnk(EditingLnk).LnkPMCompatible
 		  AdvancedLink.ComboArch.Text = ItemLnk(EditingLnk).LnkArchCompatible
+		  AdvancedLink.CheckBoxStartup.Value = ItemLLItem.Startup
 		  
 		  AdvancedLink.Show
 		End Sub

@@ -11,7 +11,7 @@ Begin DesktopWindow AdvancedLink
    HasMaximizeButton=   False
    HasMinimizeButton=   False
    HasTitleBar     =   True
-   Height          =   128
+   Height          =   160
    ImplicitInstance=   True
    MacProcID       =   0
    MaximumHeight   =   32000
@@ -393,6 +393,35 @@ Begin DesktopWindow AdvancedLink
       Visible         =   True
       Width           =   28
    End
+   Begin DesktopCheckBox CheckBoxStartup
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Caption         =   "Launch at Startup / Autostart"
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   24
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   51
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      Scope           =   0
+      TabIndex        =   8
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "Linux: copies .desktop to ~/.config/autostart/ on every DE. Windows: places shortcut in Start Menu Startup folder."
+      Top             =   112
+      Transparent     =   False
+      Underline       =   False
+      Value           =   False
+      Visible         =   True
+      Width           =   490
+   End
 End
 #tag EndDesktopWindow
 
@@ -489,6 +518,13 @@ End
 	#tag Event
 		Sub TextChanged()
 		  ItemLnk(EditingLnk).LnkArchCompatible = ComboArch.Text
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events CheckBoxStartup
+	#tag Event
+		Sub ValueChanged()
+		  ItemLLItem.Startup = Me.Value
 		End Sub
 	#tag EndEvent
 #tag EndEvents

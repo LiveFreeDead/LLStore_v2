@@ -80,6 +80,7 @@ unset _pd
 desklauncher=$XDG_DESKTOP_DIR/$appdesktop.desktop
 menudir=$XDG_DATA_HOME/applications
 menulauncher=$menudir/$appdesktop.desktop
+autostartlauncher=${XDG_CONFIG_HOME:-$HOME/.config}/autostart/$appdesktop.desktop
 
 # Capture Path= from the main menu launcher before we delete it
 main_path=""
@@ -200,7 +201,7 @@ reset="\033[0m"
 if command -v zenity >/dev/null; then
 	if zenity --question --title="$title $app" --text="$msg $app?" \
 --no-wrap >/dev/null 2>&1; then
-		rm -f "$desklauncher" "$menulauncher"
+		rm -f "$desklauncher" "$menulauncher" "$autostartlauncher"
 		_remove_extra_shortcuts "$main_path"
 		_remove_wine_shortcuts "$main_path"
 		cd "$dir"/.. || exit
@@ -216,7 +217,7 @@ if command -v zenity >/dev/null; then
 elif command -v kdialog >/dev/null; then
 	if kdialog --yesno "$msg $app?" --title="$title $app" >/dev/null \
 2>&1; then
-		rm -f "$desklauncher" "$menulauncher"
+		rm -f "$desklauncher" "$menulauncher" "$autostartlauncher"
 		_remove_extra_shortcuts "$main_path"
 		_remove_wine_shortcuts "$main_path"
 		cd "$dir"/.. || exit
@@ -233,7 +234,7 @@ else
 	case "$answer" in
 		[y])
 			printf "\n%s$msg2 $app...\n"
-			rm -f "$desklauncher" "$menulauncher"
+			rm -f "$desklauncher" "$menulauncher" "$autostartlauncher"
 			_remove_extra_shortcuts "$main_path"
 			_remove_wine_shortcuts "$main_path"
 			cd "$dir"/.. || exit

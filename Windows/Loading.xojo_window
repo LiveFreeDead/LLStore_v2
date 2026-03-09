@@ -5028,16 +5028,26 @@ End
 		    'MsgBox "Loading: " + CommandLineFile
 		    #Pragma BreakOnExceptions Off
 		    If CommandLineFile = "" Then
-		      Editor.Left = (Screen(0).AvailableWidth/2) - (Editor.Width /2) 'Centered
-		      Editor.Top = (Screen(0).AvailableHeight/2) - (Editor.Height /2)
+		      If EditorSavedLeft >= 0 And EditorSavedTop >= 0 Then
+		        Editor.Left = EditorSavedLeft
+		        Editor.Top = EditorSavedTop
+		      Else
+		        Editor.Left = (Screen(0).AvailableWidth/2) - (Editor.Width /2) 'Centered
+		        Editor.Top = (Screen(0).AvailableHeight/2) - (Editor.Height /2)
+		      End If
 		      Editor.PopulateData
 		      Editor.Show
 		    Else
 		      Success = LoadLLFile(CommandLineFile) ', "", True) 'The true means it extracts all the file contents, we'll just update existing ones if open then saving instead of Extracting the big ones
 		      If Success Then 
 		        If Build = False Then
-		          Editor.Left = (Screen(0).AvailableWidth/2) - (Editor.Width /2) 'Centered
-		          Editor.Top = (Screen(0).AvailableHeight/2) - (Editor.Height /2)
+		          If EditorSavedLeft >= 0 And EditorSavedTop >= 0 Then
+		            Editor.Left = EditorSavedLeft
+		            Editor.Top = EditorSavedTop
+		          Else
+		            Editor.Left = (Screen(0).AvailableWidth/2) - (Editor.Width /2) 'Centered
+		            Editor.Top = (Screen(0).AvailableHeight/2) - (Editor.Height /2)
+		          End If
 		          Editor.PopulateData
 		          Editor.Show
 		        Else ' Just Build It
@@ -5057,8 +5067,13 @@ End
 		          Return ' Yield to message loop — BuildTimer.Action handles the rest
 		        End If
 		      Else 'Failed to load item, Show Editor
-		        Editor.Left = (Screen(0).AvailableWidth/2) - (Editor.Width /2) 'Centered
-		        Editor.Top = (Screen(0).AvailableHeight/2) - (Editor.Height /2)
+		        If EditorSavedLeft >= 0 And EditorSavedTop >= 0 Then
+		          Editor.Left = EditorSavedLeft
+		          Editor.Top = EditorSavedTop
+		        Else
+		          Editor.Left = (Screen(0).AvailableWidth/2) - (Editor.Width /2) 'Centered
+		          Editor.Top = (Screen(0).AvailableHeight/2) - (Editor.Height /2)
+		        End If
 		        Editor.PopulateData
 		        Editor.Show
 		      End If
@@ -5285,6 +5300,13 @@ End
 		    QuitApp
 		  ElseIf EditorOnly Then
 		    ' Opened via context menu — keep app running, put the Editor back
+		    If EditorSavedLeft >= 0 And EditorSavedTop >= 0 Then
+		      Editor.Left = EditorSavedLeft
+		      Editor.Top = EditorSavedTop
+		    Else
+		      Editor.Left = (Screen(0).AvailableWidth/2) - (Editor.Width /2)
+		      Editor.Top = (Screen(0).AvailableHeight/2) - (Editor.Height /2)
+		    End If
 		    Editor.Show
 		  Else
 		    ' Normal GUI flow — Editor and Main were hidden for the build; restore Main
