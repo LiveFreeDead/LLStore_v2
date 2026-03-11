@@ -825,6 +825,36 @@ Begin DesktopWindow Settings
       VisualState     =   1
       Width           =   149
    End
+   Begin DesktopCheckBox SetToldOnceImmutable
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Caption         =   "Immutable Shown"
+      Enabled         =   True
+      FontName        =   "Arial"
+      FontSize        =   12.0
+      FontUnit        =   0
+      Height          =   27
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   311
+      LockBottom      =   False
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   True
+      Scope           =   0
+      TabIndex        =   30
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "Uncheck to show the Immutable OS reboot reminder again after the next install"
+      Top             =   167
+      Transparent     =   False
+      Underline       =   False
+      Value           =   False
+      Visible         =   True
+      VisualState     =   1
+      Width           =   149
+   End
    Begin DesktopCheckBox SetNoUpdateDBOnStart
       AllowAutoDeactivate=   True
       Bold            =   False
@@ -1157,6 +1187,14 @@ End
 		    End If
 		    'MsgBox Slash(AppPath)+"Themes/Theme.ini" + " Theme: "+ LastTheme
 		  End If
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events SetToldOnceImmutable
+	#tag Event
+		Sub ValueChanged()
+		  ToldOnceImmutable = Me.Value
+		  SettingsChanged = True
 		End Sub
 	#tag EndEvent
 #tag EndEvents

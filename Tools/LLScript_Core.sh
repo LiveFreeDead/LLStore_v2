@@ -70,6 +70,15 @@ done
 # Detect OS
 . /etc/os-release
 
+# Detect Immutable OS (Bazzite, Silverblue, etc.)
+IMMUTABLE_OS=false
+case "${ID:-}" in
+    bazzite|silverblue|kinoite|sericea|onyx|aurora|bluefin|nixos|endless|vanillaos)
+        IMMUTABLE_OS=true ;;
+    *)
+        command -v rpm-ostree &>/dev/null && IMMUTABLE_OS=true ;;
+esac
+
 #---------- Write LLDesktopEnv.ini ----------
 # Saves the current desktop environment variables so that sudo-level scripts
 # can read them back (sudo strips XDG_* from the environment on most distros).
@@ -103,3 +112,6 @@ echo -e "\033[1;4m            System Details            \033[0m"
 echo "Terminal Used:   ${OSTERM:-"None found"}"
 echo "Desktop:         ${XDG_SESSION_DESKTOP:-"Not detected"}"
 echo "OS ID:           $ID"
+if $IMMUTABLE_OS; then
+    echo "Immutable OS:    Yes (${ID}) — package installs via rpm-ostree"
+fi

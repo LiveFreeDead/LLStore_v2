@@ -149,6 +149,37 @@ Begin DesktopWindow Uninstaller
       Visible         =   True
       Width           =   130
    End
+   Begin DesktopButton DeleteDesktopButton
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Cancel          =   False
+      Caption         =   "Delete .desktop"
+      Default         =   False
+      Enabled         =   True
+      FontName        =   "System"
+      FontSize        =   0.0
+      FontUnit        =   0
+      Height          =   26
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   133
+      LockBottom      =   True
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   False
+      MacButtonStyle  =   0
+      Scope           =   0
+      TabIndex        =   5
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   "Removes the .desktop file"
+      Top             =   527
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   130
+   End
    Begin DesktopListBox UninstallItems
       AllowAutoDeactivate=   True
       AllowAutoHideScrollbars=   False
@@ -805,6 +836,7 @@ End
 		  SelectAllButton.Enabled  = Not Active
 		  SelectNoneButton.Enabled = Not Active
 		  RefreshButton.Enabled    = Not Active
+		  DeleteDesktopButton.Enabled = Not Active
 		  UninstallItems.Enabled   = Not Active
 		  If Active Then
 		    Uninstaller.Title = "Uninstaller  —  Working..."
@@ -1130,6 +1162,61 @@ End
 		End Sub
 	#tag EndEvent
 #tag EndEvents
+#tag Events DeleteDesktopButton
+	#tag Event
+		Sub Pressed()
+		  ' Delete the .desktop file(s) for checked llstore-type rows without running the full uninstaller.
+		  ' Tooltip / tip text: "Removes the .desktop file"
+		  If Not TargetLinux Then Return
+		  
+		  Dim CheckedCount As Integer = 0
+		  Dim I As Integer
+		  For I = 0 To UninstallItems.RowCount - 1
+		    If UninstallItems.CellTextAt(I, 1) = "T" And UninstallItems.CellTextAt(I, 3) = "llstore" Then
+		      CheckedCount = CheckedCount + 1
+		    End If
+		  Next I
+		  
+		  If CheckedCount = 0 Then
+		    MsgBox "No LLStore items are selected. Select one or more items to delete their .desktop file."
+		    Return
+		  End If
+		  
+		  Dim ItemWord As String = "items"
+		  If CheckedCount = 1 Then ItemWord = "item"
+		  
+		  Dim Dlg As New MessageDialog
+		  Dlg.IconType = MessageDialog.IconTypes.Caution
+		  Dlg.Message = "Delete the .desktop file for " + CheckedCount.ToString + " selected " + ItemWord + "?" + Chr(10) + Chr(10) + "This removes the launcher entry only — the installed app files are NOT deleted."
+		  Dlg.ActionButton.Caption = "Cancel"
+		  Dlg.AlternateActionButton.Caption = "Delete .desktop"
+		  Dlg.AlternateActionButton.Visible = True
+		  
+		  Dim DlgResult As MessageDialogButton = Dlg.ShowModal(Self)
+		  If DlgResult <> Dlg.AlternateActionButton Then Return
+		  
+		  ' Walk backwards so row removal doesn't shift indices
+		  For I = UninstallItems.RowCount - 1 DownTo 0
+		    If UninstallItems.CellTextAt(I, 1) = "T" And UninstallItems.CellTextAt(I, 3) = "llstore" Then
+		      Dim DF As String = UninstallItems.CellTextAt(I, 2)
+		      If DF <> "" Then
+		        Dim F As FolderItem = GetFolderItem(DF, FolderItem.PathTypeNative)
+		        If F <> Nil And F.Exists Then
+		          F.Delete
+		        End If
+		      End If
+		      UninstallItems.RemoveRowAt(I)
+		    End If
+		  Next I
+		  
+		  ' Refresh user desktop database after deletions
+		  Dim DbSh As New Shell
+		  DbSh.Execute("bash -c 'update-desktop-database ~/.local/share/applications > /dev/null 2>&1 &'")
+		  
+		  UninstallItems.Refresh
+		End Sub
+	#tag EndEvent
+#tag EndEvents
 #tag Events UninstallItems
 	#tag Event
 		Function PaintCellBackground(g As Graphics, row As Integer, column As Integer) As Boolean
@@ -1421,7 +1508,7 @@ End
 		      HighlightUninstallRow(I)
 		      Dim DesktopFile As String = UninstallItems.CellTextAt(I, 2)
 		      If DesktopFile <> "" Then
-		        Sh.Execute("bash /LastOS/Tools/UninstallLauncher.sh " + Chr(34) + DesktopFile + Chr(34) + " --silent")
+		        Sh.Execute("bash /opt/LastOS/Tools/UninstallLauncher.sh " + Chr(34) + DesktopFile + Chr(34) + " --silent")
 		        App.DoEvents(50)  ' Let the row highlight repaint after the shell returns
 		      End If
 		    End If

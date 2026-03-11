@@ -5,11 +5,19 @@
 # Runs a SINGLE sudo call that covers everything requiring root:
 #   - terminal install (if needed)
 #   - lastos-users group creation and user membership
-#   - /LastOS/Tools creation, ownership, permissions
+#   - migration of /LastOS → /opt/LastOS with backward-compat symlink
+#   - /opt/LastOS/Tools creation, ownership, permissions
 #   - Uninstall.sh and UninstallLauncher.sh written and secured
 # Then launches llstore -setup via 'sg lastos-users' so the new group is
 # active in the session immediately — no re-login, no second run needed.
 # =============================================================================
+
+# Clear the variable that often auto-resets the title
+unset PROMPT_COMMAND
+printf '\033]0;LLStore Installer\007'
+
+echo "Initializing Sudo-Level Script..."
+echo
 
 # =============================================================================
 # Terminal self-spawn
@@ -184,22 +192,74 @@ fi
 
 # ── lastos-users group + user membership ────────────────────────────────────
 if [[ -f "$TOOLS/setup_lastos_group.sh" ]]; then
-    bash "$TOOLS/setup_lastos_group.sh" /LastOS
+    bash "$TOOLS/setup_lastos_group.sh" /opt/LastOS
 else
     groupadd --system lastos-users 2>/dev/null || true
     usermod -aG lastos-users "$REAL_USER" 2>/dev/null || true
-    mkdir -p /LastOS
-    chown -R root:lastos-users /LastOS
-    chmod -R 775 /LastOS
+    mkdir -p /opt/LastOS
+    chown -R root:lastos-users /opt/LastOS
+    chmod -R 775 /opt/LastOS
 fi
 
-# ── /LastOS/Tools directory ──────────────────────────────────────────────────
-mkdir -p /LastOS/Tools
-chown root:lastos-users /LastOS /LastOS/Tools
-chmod 775 /LastOS /LastOS/Tools
+# ── Migrate /LastOS → /opt/LastOS (if needed) and create symlink ─────────────
+# On immutable distros (Bazzite etc.) / may not be writable - that's fine,
+# the symlink step is optional; /opt/LastOS is always the true install path.
+migrate_lastos() {
+    local OLD="/LastOS"
+    local NEW="/opt/LastOS"
+
+    if [ -L "$OLD" ]; then
+        echo "Migration: $OLD is already a symlink — skipping move."
+        return 0
+    fi
+
+    if [ -d "$OLD" ]; then
+        echo "Migration: Moving existing $OLD → $NEW..."
+        mkdir -p "$NEW"
+        # Prefer rsync; fall back to manual copy loop.
+        if command -v rsync >/dev/null 2>&1; then
+            rsync -a "$OLD/" "$NEW/"
+            MIGRATE_OK=$?
+        else
+            MIGRATE_OK=0
+            for _item in "$OLD"/.[!.]* "$OLD"/*; do
+                [ -e "$_item" ] || continue
+                cp -a "$_item" "$NEW/" 2>/dev/null || MIGRATE_OK=1
+            done
+        fi
+
+        if [ "$MIGRATE_OK" -eq 0 ]; then
+            echo "Migration: Move complete. Removing old $OLD..."
+            rm -rf "$OLD"
+            echo "Migration: Creating symlink $OLD → $NEW"
+            if ln -sf "$NEW" "$OLD" 2>/dev/null; then
+                echo "Migration: Symlink created successfully."
+            else
+                echo "Migration: Could not create symlink (immutable filesystem?) — continuing without it."
+            fi
+        else
+            echo "Migration WARNING: Transfer had errors; leaving $OLD in place."
+        fi
+        return 0
+    fi
+
+    # /LastOS doesn't exist at all — just try to make the symlink.
+    echo "Migration: $OLD does not exist. Creating symlink $OLD → $NEW..."
+    if ln -sf "$NEW" "$OLD" 2>/dev/null; then
+        echo "Migration: Symlink created."
+    else
+        echo "Migration: Could not create symlink (immutable filesystem?) — continuing without it."
+    fi
+}
+migrate_lastos
+
+# ── /opt/LastOS/Tools directory ──────────────────────────────────────────────
+mkdir -p /opt/LastOS/Tools
+chown root:lastos-users /opt/LastOS /opt/LastOS/Tools 2>/dev/null || true
+chmod 775 /opt/LastOS /opt/LastOS/Tools
 
 # ── Uninstall.sh ─────────────────────────────────────────────────────────────
-cat << 'UNINSTALL_EOF' > /LastOS/Tools/Uninstall.sh
+cat << 'UNINSTALL_EOF' > /opt/LastOS/Tools/Uninstall.sh
 #!/usr/bin/env bash
 
 DESKTOP="$1"
@@ -310,41 +370,41 @@ if [ "$SILENT" = false ]; then
 fi
 UNINSTALL_EOF
 
-chmod 775 /LastOS/Tools/Uninstall.sh
-chown root:lastos-users /LastOS/Tools/Uninstall.sh
+chmod 775 /opt/LastOS/Tools/Uninstall.sh
+chown root:lastos-users /opt/LastOS/Tools/Uninstall.sh
 
 # ── UninstallLauncher.sh ──────────────────────────────────────────────────────
-cat << 'LAUNCHER_EOF' > /LastOS/Tools/UninstallLauncher.sh
+cat << 'LAUNCHER_EOF' > /opt/LastOS/Tools/UninstallLauncher.sh
 #!/usr/bin/env bash
 DESKTOP="$1"
 SILENT="$2"
 
 if [ "$SILENT" = "--silent" ]; then
-    bash /LastOS/Tools/Uninstall.sh "$DESKTOP" --silent
+    bash /opt/LastOS/Tools/Uninstall.sh "$DESKTOP" --silent
     exit 0
 fi
 
 if   command -v konsole             >/dev/null 2>&1; then
-    konsole -e bash /LastOS/Tools/Uninstall.sh "$DESKTOP"
+    konsole -e bash /opt/LastOS/Tools/Uninstall.sh "$DESKTOP"
 elif command -v gnome-terminal      >/dev/null 2>&1; then
-    gnome-terminal --title="LastOS Uninstall" -- bash /LastOS/Tools/Uninstall.sh "$DESKTOP"
+    gnome-terminal --title="LastOS Uninstall" -- bash /opt/LastOS/Tools/Uninstall.sh "$DESKTOP"
 elif command -v xfce4-terminal      >/dev/null 2>&1; then
-    xfce4-terminal -e "bash /LastOS/Tools/Uninstall.sh '$DESKTOP'"
+    xfce4-terminal -e "bash /opt/LastOS/Tools/Uninstall.sh '$DESKTOP'"
 elif command -v mate-terminal       >/dev/null 2>&1; then
-    mate-terminal -e "bash /LastOS/Tools/Uninstall.sh '$DESKTOP'"
+    mate-terminal -e "bash /opt/LastOS/Tools/Uninstall.sh '$DESKTOP'"
 elif command -v lxterminal          >/dev/null 2>&1; then
-    lxterminal -e "bash /LastOS/Tools/Uninstall.sh '$DESKTOP'"
+    lxterminal -e "bash /opt/LastOS/Tools/Uninstall.sh '$DESKTOP'"
 elif command -v x-terminal-emulator >/dev/null 2>&1; then
-    x-terminal-emulator -e "bash /LastOS/Tools/Uninstall.sh '$DESKTOP'"
+    x-terminal-emulator -e "bash /opt/LastOS/Tools/Uninstall.sh '$DESKTOP'"
 elif command -v xterm               >/dev/null 2>&1; then
-    xterm -e "bash /LastOS/Tools/Uninstall.sh '$DESKTOP'"
+    xterm -e "bash /opt/LastOS/Tools/Uninstall.sh '$DESKTOP'"
 else
     exit 1
 fi
 LAUNCHER_EOF
 
-chmod 775 /LastOS/Tools/UninstallLauncher.sh
-chown root:lastos-users /LastOS/Tools/UninstallLauncher.sh
+chmod 775 /opt/LastOS/Tools/UninstallLauncher.sh
+chown root:lastos-users /opt/LastOS/Tools/UninstallLauncher.sh
 
 echo "Elevated setup complete."
 SUDO_BODY
@@ -399,7 +459,7 @@ else
 fi
 
 # Use sg to activate the lastos-users GID for this process so llstore -setup
-# can write to /LastOS/Tools without needing sudo again.
+# can write to /opt/LastOS/Tools without needing sudo again.
 # sg fails with a confusing "user does not exist" message when either:
 #   (a) the group itself doesn't exist, or
 #   (b) the current user is not yet a member of it

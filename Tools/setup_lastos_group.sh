@@ -3,8 +3,16 @@
 # setup_lastos_group.sh  -  LastOS security-hardened folder permissions
 # =============================================================================
 
+# Clear the variable that often auto-resets the title
+unset PROMPT_COMMAND
+printf '\033]0;LLStore Sudo Installer Script\007'
+
+echo "Initializing Sudo-Level Script..."
+echo
+
+
 GROUP="lastos-users"
-TARGET_DIR="${1:-/LastOS}"
+TARGET_DIR="${1:-/opt/LastOS}"
 
 # --------------------------------------------------------------------------
 # Detect the real user (even under sudo/pkexec)

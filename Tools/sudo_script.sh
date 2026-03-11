@@ -4,6 +4,13 @@
 # This script attempts to run a command with elevated privileges
 # using various methods available on different Linux distributions
 
+# Clear the variable that often auto-resets the title
+unset PROMPT_COMMAND
+printf '\033]0;LLStore Sudo Installer Script\007'
+
+echo "Initializing Sudo-Level Script..."
+echo
+
 # Function to display usage
 usage() {
     echo "Usage: $0 <command> [arguments...]"

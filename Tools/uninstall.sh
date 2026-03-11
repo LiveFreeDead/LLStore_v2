@@ -54,6 +54,7 @@ PROTECTED_DIRS=(
     "/etc"
     "/home"
     "/LastOS"
+    "/opt/LastOS"
     "/opt"
     "/proc"
     "/srv"

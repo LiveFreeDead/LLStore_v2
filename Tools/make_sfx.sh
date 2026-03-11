@@ -265,7 +265,7 @@ find "$DEST_TOOLS" -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
 #
 # Why inline rather than bundle loose files?
 # • SFX installers run on systems that have NO LLStore installation.
-# • Sourcing from /LastOS/LLStore/Tools/ is not reliable in that context.
+# • Sourcing from /opt/LastOS/LLStore/Tools/ is not reliable in that context.
 # • Bundling loose core files + a runtime search chain is fragile spaghetti.
 # • Inlining is deterministic: the script is always self-contained.
 #

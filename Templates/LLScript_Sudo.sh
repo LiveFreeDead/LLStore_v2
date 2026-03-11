@@ -27,7 +27,7 @@ trap 'kill "$SUDO_KEEPALIVE_PID" 2>/dev/null' EXIT INT TERM
 # Source shared core: inst, flatinst, terminal/PM/DE detection, system details.
 # Tries the installed path first so manual script runs always get a core.
 # Falls back to %ToolPath%/ (USB/portable path, replaced at install time by LLStore).
-if [ -f "%ToolPath%/LLScript_Sudo_Core.sh" ]; then source "%ToolPath%/LLScript_Sudo_Core.sh"; elif [ -f "/LastOS/LLStore/Tools/LLScript_Sudo_Core.sh" ]; then source "/LastOS/LLStore/Tools/LLScript_Sudo_Core.sh"; fi #LLCore
+if [ -f "%ToolPath%/LLScript_Sudo_Core.sh" ]; then source "%ToolPath%/LLScript_Sudo_Core.sh"; elif [ -f "/opt/LastOS/LLStore/Tools/LLScript_Sudo_Core.sh" ]; then source "/opt/LastOS/LLStore/Tools/LLScript_Sudo_Core.sh"; fi #LLCore
 
 ################################################################################
 #                                                                              #
@@ -120,6 +120,12 @@ case "$ID" in
         ;;
 
     zorin)
+        ;;
+
+    bazzite|silverblue|kinoite|sericea|aurora|bluefin)
+        # Immutable/atomic OS — $IMMUTABLE_OS is true, /usr is read-only.
+        # Use rpm-ostree via inst() for packages; they require a reboot to activate.
+        # Avoid writing to /usr/share/ — use $HOME/.local/share/ instead.
         ;;
 
     *)

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#LLStore Sudo Core v1.00 - Sudo Level
+#LLStore Sudo Core v1.01 - Sudo Level
 # Sourced by LLScript_Sudo.sh at install time.
 # DO NOT add app-specific install logic here.
 
@@ -51,6 +51,26 @@ inst () {
             apk)
                 apk info "$PKG" &>/dev/null && AVAILABLE=true
                 ;;
+            rpm-ostree)
+                # rpm-ostree search (added in v2023.6) can check availability
+                # without a slow failed-install attempt. Parse version once per
+                # package: "Version: '2023.8'" → year=2023 rel=8.
+                # Older builds fall back to assuming available (previous behaviour).
+                local _ro_ver _ro_year _ro_rel
+                _ro_ver=$(rpm-ostree --version 2>/dev/null \
+                    | awk '/Version:/ { gsub(/[^0-9.]/,"",$2); print $2 }')
+                _ro_year=${_ro_ver%%.*}
+                _ro_rel=${_ro_ver##*.}
+                if [[ "${_ro_year:-0}" -gt 2023 ]] || \
+                   { [[ "${_ro_year:-0}" -eq 2023 ]] && [[ "${_ro_rel:-0}" -ge 6 ]]; }; then
+                    # Output format: "pkgname : short description"
+                    # Grep for exact name match at start of line.
+                    rpm-ostree search "$PKG" 2>/dev/null \
+                        | grep -qE "^${PKG} :" && AVAILABLE=true
+                else
+                    AVAILABLE=true  # Older rpm-ostree: let install fail naturally
+                fi
+                ;;
             *)
                 AVAILABLE=true
                 ;;
@@ -80,6 +100,9 @@ inst () {
                 ;;
             emerge)
                 equery list "$PKG" &>/dev/null && INSTALLED=true
+                ;;
+            rpm-ostree)
+                rpm-ostree status --json 2>/dev/null | grep -q "\"$PKG\"" && INSTALLED=true
                 ;;
         esac
         if $INSTALLED; then
@@ -143,6 +166,13 @@ inst () {
                 else
                     sudo "$PM_CMD" add "$PKG" &>/dev/null && OK=true
                 fi
+                ;;
+            rpm-ostree)
+                # rpm-ostree layers packages; reinstall = uninstall then install
+                if $FORCE_REINSTALL && $INSTALLED; then
+                    sudo "$PM_CMD" uninstall -y "$PKG" &>/dev/null || true
+                fi
+                sudo "$PM_CMD" install -y "$PKG" &>/dev/null && OK=true
                 ;;
             *)
                 sudo "$PM_CMD" install "$PKG" &>/dev/null && OK=true
@@ -211,16 +241,30 @@ done
 # Detect Package Manager
 PM=""
 PM_CMD=""
-if PM_CMD=$(command -v pamac 2>/dev/null);  then PM="pamac"
-elif PM_CMD=$(command -v dnf 2>/dev/null);  then PM="dnf"
-elif PM_CMD=$(command -v apt 2>/dev/null);  then PM="apt"
-elif PM_CMD=$(command -v pacman 2>/dev/null); then PM="pacman"
-elif PM_CMD=$(command -v zypper 2>/dev/null); then PM="zypper"
-elif PM_CMD=$(command -v yum 2>/dev/null);  then PM="yum"
-elif PM_CMD=$(command -v emerge 2>/dev/null); then PM="emerge"
-elif PM_CMD=$(command -v eopkg 2>/dev/null); then PM="eopkg"
-elif PM_CMD=$(command -v apk 2>/dev/null);  then PM="apk"
+if PM_CMD=$(command -v pamac 2>/dev/null);       then PM="pamac"
+elif PM_CMD=$(command -v rpm-ostree 2>/dev/null); then PM="rpm-ostree"
+elif PM_CMD=$(command -v dnf 2>/dev/null);        then PM="dnf"
+elif PM_CMD=$(command -v apt 2>/dev/null);        then PM="apt"
+elif PM_CMD=$(command -v pacman 2>/dev/null);     then PM="pacman"
+elif PM_CMD=$(command -v zypper 2>/dev/null);     then PM="zypper"
+elif PM_CMD=$(command -v yum 2>/dev/null);        then PM="yum"
+elif PM_CMD=$(command -v emerge 2>/dev/null);     then PM="emerge"
+elif PM_CMD=$(command -v eopkg 2>/dev/null);      then PM="eopkg"
+elif PM_CMD=$(command -v apk 2>/dev/null);        then PM="apk"
 fi
+
+# Detect Immutable / Atomic OS (read-only root — package layering only)
+IMMUTABLE_OS=false
+_OSID=""
+[ -f /etc/os-release ] && _OSID=$(. /etc/os-release 2>/dev/null && echo "${ID:-}" | tr '[:upper:]' '[:lower:]')
+case "$_OSID" in
+    bazzite|silverblue|kinoite|sericea|onyx|aurora|bluefin|nixos|endless|vanillaos)
+        IMMUTABLE_OS=true ;;
+    *)
+        # Fallback: if rpm-ostree is present we treat the system as immutable
+        command -v rpm-ostree &>/dev/null && IMMUTABLE_OS=true ;;
+esac
+unset _OSID
 
 # Detect OS
 . /etc/os-release
@@ -231,7 +275,7 @@ fi
 DE=""
 DE_ENV_FILE="$HOME/zLastOSRepository/LLDesktopEnv.ini"
 if [[ -f "$DE_ENV_FILE" ]]; then
-    echo "Loading data from ~/zLastOSRepository/LLDesktopEnv.ini"
+    echo "Loading data from LLDesktopEnv.ini"
     while IFS='=' read -r key value; do
         case "$key" in
             XDG_SESSION_DESKTOP) DE="$value" ; export XDG_SESSION_DESKTOP="$value" ;;
@@ -263,8 +307,15 @@ echo "Package Manager: ${PM:-"None found"} (${PM_CMD:-"N/A"})"
 echo "Terminal Used:   ${OSTERM:-"None found"}"
 echo "Desktop:         ${DE:-"Not detected"}"
 echo "OS ID:           $ID"
+if $IMMUTABLE_OS; then
+    echo "Immutable OS:    Yes (read-only root — packages layered via rpm-ostree)"
+fi
 
 # Refresh package manager cache if missing or older than 24 hours
+# Immutable/Atomic systems (rpm-ostree) do not have a traditional cache to refresh
+if $IMMUTABLE_OS; then
+    echo "Skipping package cache update (immutable OS — packages layered via rpm-ostree)."
+else
 case "$PM" in
     pamac|pacman)
         if ! find /var/lib/pacman/sync -name "*.db" -mmin -1440 -print -quit 2>/dev/null | grep -q .; then
@@ -315,3 +366,4 @@ case "$PM" in
         fi
         ;;
 esac
+fi

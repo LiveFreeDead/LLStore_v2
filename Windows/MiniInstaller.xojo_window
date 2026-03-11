@@ -903,7 +903,26 @@ End
 		      Main.Height = PosHeight
 		    End If
 		    QuitInstaller = False
-		    Exit'Don't Continue this Sub after Quitting
+		    
+		    ' Show one-time reboot hint on immutable OS after a GUI install
+		    If ImmutableOS And Not ToldOnceImmutable And StoreMode = 0 Then
+		      ToldOnceImmutable = True
+		      Settings.SetToldOnceImmutable.Value = True
+		      SettingsChanged = True
+		      Loading.SaveSettings
+		      Var d As New MessageDialog
+		      Var b As MessageDialogButton
+		      
+		      d.IconType = MessageDialog.IconTypes.Caution // This sets the triangle icon
+		      d.ActionButton.Caption = "I Understand"
+		      d.Message = "Immutable OS Detected"
+		      d.Explanation = "This is an Immutable OS and it will require a reboot before many installed items will be available to use."
+		      
+		      b = d.ShowModal
+		      
+		    End If
+		    
+		    Exit 'Don't Continue this Sub after Quitting
 		    
 		  End If
 		  
