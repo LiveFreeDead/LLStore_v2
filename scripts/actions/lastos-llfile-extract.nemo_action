@@ -1,0 +1,9 @@
+[Nemo Action]
+Active=true
+Name=Extract APZ TAR PGZ Items
+Comment=Extracts then deletes LLStore Items
+Quote=double
+Exec=<action_scripts/llextract.sh %F>
+Icon-Name=LLFileBuild
+Selection=notnone
+Extensions=tar;apz;pgz;

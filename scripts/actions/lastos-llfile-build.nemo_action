@@ -2,8 +2,8 @@
 Active=true
 Name=Build as LLFile
 Comment=Build folder as LLFile
-Quote=double
-Exec=llfile -b '%F'
+#Quote=double
+Exec=<action_scripts/llbuild.sh %F>
 Icon-Name=LLFileBuild
-Selection=S
+Selection=any
 Extensions=dir;lla;llg;app;ppg

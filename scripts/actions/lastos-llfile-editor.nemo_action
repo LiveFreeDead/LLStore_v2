@@ -2,8 +2,8 @@
 Active=true
 Name=Edit in LLFile Editor
 Comment=Edit a LLFile
-Quote=double
-Exec=llfile -e '%F'
+#Quote=double
+Exec=<action_scripts/lleditor.sh %F>
 Icon-Name=LLFileEditor
-Selection=S
-Extensions=dir;lla;llg;tar;apz;pgz;app;ppg
+Selection=any
+Extensions=lla;llg;tar;apz;pgz;app;ppg

@@ -2,8 +2,8 @@
 Active=true
 Name=Install with LLFile
 Comment=Installs a LLFile
-Quote=double
-Exec=llfile '%F'
+#Quote=double
+Exec=<action_scripts/llinstall.sh %F>
 Icon-Name=application-x-llapp
-Selection=S
-Extensions=dir;lla;llg;tar;apz;pgz;app;ppg
+Selection=any
+Extensions=lla;llg;tar;apz;pgz;app;ppg
