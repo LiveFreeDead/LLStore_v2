@@ -26,6 +26,7 @@ Begin DesktopWindow Loading
    Visible         =   False
    Width           =   440
    Begin Timer FirstRunTime
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -66,6 +67,7 @@ Begin DesktopWindow Loading
       Width           =   427
    End
    Begin Timer DownloadTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   50
@@ -74,6 +76,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer VeryFirstRunTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1
@@ -82,6 +85,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer QuitCheckTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   1000
@@ -90,6 +94,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer DownloadScreenAndIcon
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   100
@@ -98,6 +103,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer InstallTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   120
@@ -106,6 +112,7 @@ Begin DesktopWindow Loading
       TabPanelIndex   =   0
    End
    Begin Timer BuildTimer
+      Enabled         =   True
       Index           =   -2147483648
       LockedInPosition=   False
       Period          =   120
@@ -3161,7 +3168,7 @@ End
 		    lines.Add("#!/usr/bin/env bash")
 		  End If
 		  
-		    ' Only include migration when /LastOS was not already a symlink at update time.
+		  ' Only include migration when /LastOS was not already a symlink at update time.
 		  ' This prevents asking for sudo just for this step on already-migrated systems.
 		  If migrationNeeded Then
 		    lines.Add("# Migrate /LastOS → /opt/LastOS — /LastOS was not a symlink at update time")
@@ -3538,17 +3545,18 @@ End
 		  chSh.Execute("chmod +x " + Chr(34) + tmpFile.NativePath + Chr(34))
 		  
 		  If needsSudo Or groupNeeded Or migrationNeeded Then
-		    ' Both cases handled: either sudo needed for folders, or group setup needs sudo,
-		    ' or both (group call was already prepended into the script above)
+		    ' The persistent sudo listener was opened before this call (in VeryFirstRunTimer),
+		    ' so RunSudo sends the script through the already-authenticated terminal —
+		    ' no second polkit/sudo prompt is needed.
 		    If Debugging Then
 		      If needsSudo And groupNeeded Then
-		        Debug("SetupUninstallTools: Running via RunSudoOnceDirect (folders + group setup)")
+		        Debug("SetupUninstallTools: Running via RunSudo (folders + group setup)")
 		      ElseIf needsSudo Then
-		        Debug("SetupUninstallTools: Running via RunSudoOnceDirect (folders only)")
+		        Debug("SetupUninstallTools: Running via RunSudo (folders only)")
 		      ElseIf groupNeeded Then
-		        Debug("SetupUninstallTools: Running via RunSudoOnceDirect (group setup only)")
+		        Debug("SetupUninstallTools: Running via RunSudo (group setup only)")
 		      Else
-		        Debug("SetupUninstallTools: Running via RunSudoOnceDirect (migration only)")
+		        Debug("SetupUninstallTools: Running via RunSudo (migration only)")
 		      End If
 		    End If
 		    
@@ -3570,12 +3578,20 @@ End
 		        If sgTmpF <> Nil And sgTmpF.Exists Then sgTmpF.Remove
 		        Return
 		      End If
-		      If Debugging Then Debug("SetupUninstallTools: sg path failed, falling back to RunSudoOnceDirect")
+		      If Debugging Then Debug("SetupUninstallTools: sg path failed, falling back to RunSudo")
 		    End If
 		    
-		    ' If groupNeeded but NOT needsSudo, the script only contains group setup — still uses RunSudoOnceDirect
-		    ' If needsSudo, setup_lastos_group.sh + folder setup all run in one elevated call
-		    RunSudoOnceDirect(tmpFile.NativePath)
+		    ' Read the script content and pass it through the persistent listener
+		    Dim scriptTIS As TextInputStream = TextInputStream.Open(tmpFile)
+		    Dim scriptContent2 As String = scriptTIS.ReadAll
+		    scriptTIS.Close
+		    Dim tmpF As FolderItem = GetFolderItem(tmpFile.NativePath, FolderItem.PathTypeNative)
+		    If tmpF <> Nil And tmpF.Exists Then tmpF.Remove
+		    ' Open the persistent listener now — only prompted here when sudo work is actually needed.
+		    ' If the listener is already running (e.g. -KeepSudo from a prior run), handshake
+		    ' returns immediately with no second prompt.
+		    EnableSudoScript
+		    RunSudo(scriptContent2)
 		    
 		    ' ── Restart via sg if the group was just set up ──────────────────────────
 		    ' setup_lastos_group.sh added the user to lastos-users, but the *running* process
@@ -3596,6 +3612,7 @@ End
 		        Dim rlSh As New Shell
 		        rlSh.TimeOut = -1
 		        rlSh.Execute("nohup sg lastos-users -c " + Chr(34) + "exec " + Chr(34) + Slash(AppPath) + "llstore" + Chr(34) + Chr(34) + " >/dev/null 2>&1 &")
+		        ReleaseSudoListener() ' Close the terminal before we exit — no need to leave it hanging
 		        ForceQuit = True
 		        Quit
 		      End If
@@ -5179,10 +5196,6 @@ End
 		  If Debugging Then Debug("Admin Enabled: " + AdminEnabled.ToString)
 		  
 		  ' ── Startup sudo tasks (group membership + uninstall scripts) ──────
-		  ' Both checks are combined into a single one-shot elevated call so the
-		  ' user sees at most ONE polkit/sudo prompt.  The elevated shell closes
-		  ' when done — SudoShellLoop is never opened for these startup tasks.
-		  ' If neither task is needed the call returns immediately with no prompt.
 		  SetupUninstallTools(InstallStore)  ' ForceRefresh=True when -setup: always rewrite stale scripts
 		  
 		  'Install Store Mode
@@ -5352,7 +5365,7 @@ End
 		    Else ' Linux
 		      Loading.Hide
 		      Notify ("LLStore Installing Menu Style", "Installing Menu Style: Linux", "", -1) 'Mini Installer can't call this and wouldn't want to.
-		      InstallLinuxMenuSorting(False)
+		      InstallLinuxMenuSorting()
 		      QuitNow = True
 		    End If
 		  End If
@@ -5375,6 +5388,11 @@ End
 		    QuitApp 'Done installing, exit app, no need to continue
 		    Return ' Just get out of here once set to show editor
 		  End If
+		  ' Reaching here means we are about to show the main store GUI.
+		  ' The startup sudo tasks are complete — release the listener unless KeepSudo is set.
+		  ' If KeepSudo is True (e.g. called with -KeepSudo) the terminal stays open for
+		  ' subsequent command-line installs that want to reuse it.
+		  If Not TargetWindows Then ReleaseSudoListener()
 		  'Using a timer at the end of Form open allows it to display, many events hold off other processes until the complete
 		  If StoreMode <=1 Then FirstRunTime.RunMode = Timer.RunModes.Single ' Only show the store in Installer or Launcher modes, else just quit?
 		  
@@ -5457,10 +5475,7 @@ End
 		  
 		  ' Post-install housekeeping (mirrors what VeryFirstRunTimer.Action used to do)
 		  If Not TargetWindows Then
-		    If SudoEnabled = True Then
-		      SudoEnabled = False
-		      If KeepSudo = False Then ShellFast.Execute("echo " + Chr(34) + "Unlock" + Chr(34) + " > "+BaseDir+"/LLSudoDone")
-		    End If
+		    ReleaseSudoListener() 'Writes LLSudoDone only if KeepSudo=False and no other instances still busy
 		    
 		    If RunRefreshScript = True Or ForceDERefresh = True Then RunRefresh("cinnamon -r&")
 		    

@@ -186,6 +186,14 @@ Begin DesktopWindow MiniInstaller
       Scope           =   0
       TabPanelIndex   =   0
    End
+   Begin Timer SudoPollTimer
+      Index           =   -2147483648
+      LockedInPosition=   False
+      Period          =   5000
+      RunMode         =   0
+      Scope           =   0
+      TabPanelIndex   =   0
+   End
    Begin DesktopCheckBox SudoRunning
       AllowAutoDeactivate=   True
       Bold            =   False
@@ -241,6 +249,7 @@ End
 		Sub Closing()
 		  Debug("-- MiniInstaller Closed")
 		  If Not ForceQuit Then Main.Items.SetFocus
+		  SudoPollTimer.RunMode = Timer.RunModes.Off ' Stop polling when window closes
 		End Sub
 	#tag EndEvent
 
@@ -248,7 +257,7 @@ End
 		Sub Opening()
 		  If Debugging Then Debug("--- Starting MiniInstaller Opening ---")
 		  If ForceQuit = True Then Return 'Don't bother even opening if set to quit
-		  
+		  If Not TargetWindows Then SudoPollTimer.RunMode = Timer.RunModes.Multiple ' Start polling sudo state
 		End Sub
 	#tag EndEvent
 
@@ -440,10 +449,7 @@ End
 		  
 		  'Make sure Sudo Window is closed
 		  If Not TargetWindows Then 'Only make Sudo in Linux
-		    If SudoEnabled = True Then
-		      SudoEnabled = False
-		      ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > "+BaseDir+"/LLSudoDone") 'Quits Terminal after All items have been installed.
-		    End If
+		    ReleaseSudoListener() 'Writes LLSudoDone only if KeepSudo=False and no other instances still busy
 		  End If
 		  
 		  'Bring back main form, if enabled to
@@ -860,12 +866,9 @@ End
 		    
 		    
 		    
-		    'Make sure Sudo is closed (not added ability to echo to BaseDir+/LLSudo to close it yet, so disabled)
+		    'Make sure Sudo is closed
 		    If Not TargetWindows Then 'Only make Sudo in Linux
-		      If SudoEnabled = True Then
-		        SudoEnabled = False
-		        ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > "+BaseDir+"/LLSudoDone") 'Quits Terminal after All items have been installed.
-		      End If
+		      ReleaseSudoListener() 'Writes LLSudoDone only if KeepSudo=False and no other instances still busy
 		    End If
 		    
 		    'Bring back main form, if enabled to
@@ -931,11 +934,7 @@ End
 		      SudoRunning.Visible = False
 		    Else
 		      SudoRunning.Visible = True
-		      If SudoShellLoop.IsRunning Then
-		        SudoRunning.Value = True
-		      Else
-		        SudoRunning.Value = False
-		      End If
+		      SudoRunning.Value = SudoEnabled ' SudoEnabled is the authoritative flag; SudoShellLoop.IsRunning is always False with nohup+&
 		    End If
 		    
 		    Dim P As Integer
@@ -1082,17 +1081,64 @@ End
 #tag Events SudoRunning
 	#tag Event
 		Sub MouseUp(x As Integer, y As Integer)
-		  If SudoShellLoop.IsRunning Then
-		    SudoRunning.Value = True
+		  If SudoEnabled Then
+		    SudoRunning.Value = True  ' Already running — just reflect current state
 		  Else
-		    EnableSudoScript
+		    EnableSudoScript  ' Not running — request a new sudo terminal (may prompt for password)
+		    SudoRunning.Value = SudoEnabled  ' Reflect whether EnableSudoScript succeeded
 		  End If
+		  ' Start the poll timer so the checkbox stays in sync as the listener comes and goes
+		  If Not TargetWindows Then SudoPollTimer.RunMode = Timer.RunModes.Multiple
 		End Sub
 	#tag EndEvent
 	#tag Event
 		Function MouseDown(x As Integer, y As Integer) As Boolean
 		  Return True
 		End Function
+	#tag EndEvent
+#tag EndEvents
+#tag Events SudoPollTimer
+	#tag Event
+		Sub Action()
+		  ' Fired every 5 seconds while MiniInstaller is visible.
+		  ' Checks whether the sudo listener is still alive via the handshake file,
+		  ' then updates SudoEnabled and the SudoRunning checkbox to match reality.
+		  ' Stops itself when MiniInstaller is hidden or sudo is not in use.
+		  If TargetWindows Or Not MiniInstaller.Visible Then
+		    SudoPollTimer.RunMode = Timer.RunModes.Off
+		    Return
+		  End If
+		  
+		  If Not SudoEnabled Then
+		    ' Already known to be off — update checkbox and keep timer running in case
+		    ' something externally starts a new listener (e.g. an install begins)
+		    SudoRunning.Value = False
+		    Return
+		  End If
+		  
+		  ' Drop a handshake file and give the listener 200ms to delete it.
+		  ' If the file is still there after that, the listener has exited.
+		  Dim hsPath As String = BaseDir + "/LLSudoHandShake"
+		  ShellFast.Execute("echo " + Chr(34) + "poll" + Chr(34) + " > " + Chr(34) + hsPath + Chr(34))
+		  
+		  Dim deadline As Double = System.Microseconds + 200000 ' 0.2s
+		  While System.Microseconds < deadline
+		    App.DoEvents(20)
+		    If Not Exist(hsPath) Then Exit ' Listener deleted it — still alive
+		  Wend
+		  
+		  If Exist(hsPath) Then
+		    ' Listener didn't respond — it has exited
+		    ShellFast.Execute("rm -f " + Chr(34) + hsPath + Chr(34))
+		    SudoEnabled = False
+		    SudoRunning.Value = False
+		    If Debugging Then Debug("SudoPollTimer: listener gone — SudoEnabled cleared")
+		  Else
+		    ' Listener is alive
+		    SudoRunning.Value = True
+		    If Debugging Then Debug("SudoPollTimer: listener confirmed active")
+		  End If
+		End Sub
 	#tag EndEvent
 #tag EndEvents
 #tag ViewBehavior
@@ -1417,6 +1463,14 @@ End
 		Group="Behavior"
 		InitialValue="False"
 		Type="Boolean"
+		EditorType=""
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="SudoPollTimer"
+		Visible=false
+		Group="Behavior"
+		InitialValue=""
+		Type="Timer"
 		EditorType=""
 	#tag EndViewProperty
 #tag EndViewBehavior

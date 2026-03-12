@@ -688,8 +688,20 @@ Protected Module LLMod
 		  
 		  If TargetWindows Then Return 'No Need to be here, shouldn't be
 		  
+		  ' Re-entrancy guard: App.DoEvents inside the wait loops can cause timers to
+		  ' fire and call RunSudo → EnableSudoScript again before the first call has
+		  ' finished. The second call would launch a fresh terminal (second sudo prompt)
+		  ' and race with the first. Block any re-entrant call until we're done.
+		  If EnableSudoScriptRunning Then Return
+		  EnableSudoScriptRunning = True
+		  
 		  Dim F As FolderItem
 		  Dim Test As Boolean
+		  
+		  ' Remove any stale LLSudo launch-marker left by a previous crashed instance.
+		  ' Without this, EnableSudoScript sees the file and falls into the "wait for
+		  ' deletion" branch, times out, and never launches a new terminal.
+		  ShellFast.Execute("rm -f " + BaseDir + "/LLSudo")
 		  
 		  ShellFast.Execute ("echo "+Chr(34)+"HandShake"+Chr(34)+" > "+BaseDir+"/LLSudoHandShake")
 		  
@@ -698,6 +710,8 @@ Protected Module LLMod
 		  
 		  If SudoShellLoop.IsRunning Then 'Can check here if the current sessions one is running, no need to handshake if True
 		    SudoEnabled = True
+		    RegisterSudoBusy
+		    EnableSudoScriptRunning = False
 		    Return
 		  End If
 		  
@@ -706,6 +720,7 @@ Protected Module LLMod
 		    App.DoEvents(20)
 		    If Not Exist(BaseDir+"/LLSudoHandShake") Then 'If deleted by Sudo script it must be running
 		      SudoEnabled = True
+		      RegisterSudoBusy
 		      If Debugging Then Debug ("# Sudo Script Already Active")
 		      Exit 'Quit loop
 		    End If
@@ -713,7 +728,10 @@ Protected Module LLMod
 		  Wend
 		  Deltree(BaseDir+"/LLSudoHandShake") 'Confirm it's gone after timeout
 		  
-		  If SudoEnabled = True Then Return ' It's ready to go
+		  If SudoEnabled = True Then
+		    EnableSudoScriptRunning = False
+		    Return ' It's ready to go
+		  End If
 		  
 		  'Below can't be used remotely, so use above method to check instead
 		  'If Not SudoShellLoop.IsRunning Then 'Just a check
@@ -731,11 +749,6 @@ Protected Module LLMod
 		          ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > "+BaseDir+"/LLSudo")
 		          SaveDataToFile("Unlock", BaseDir+"/LLSudo") 'Do 2 methods to make 100% sure it's made and waits
 		          
-		          'Don't do below line, if the Sudo Script needs a file, it'll have to use the full path, else it's changes out of the Installers Path to run Sudo script.
-		          'Test = ChDirSet(ToolPath) 'Make sure in the right folder to run script etc
-		          
-		          'Added -E to the following to pass Env Variables to the Sudo scripts.
-		          
 		          ' Absolute paths to avoid working-directory issues across terminals
 		          Dim AbsSudoScript As String = ToolPath + "sudo_script.sh"
 		          Dim AbsLLStoreSudo As String = ToolPath + "LLStore_Sudo.sh"
@@ -745,84 +758,86 @@ Protected Module LLMod
 		          '  -- bash -c  : GNOME-family terminals (VTE-based) that use -- to end their own args
 		          '  -e bash -c  : Most traditional terminals that accept -e <program> [args...]
 		          '  direct args : kitty / foot pass the command without any flag
+		          ' All terminals launched with nohup + & so they are fully detached from Xojo's
+		          ' process group. Without this, Xojo's Shell destructor sends SIGHUP to the group
+		          ' on exit, killing the terminal and the sudo listener regardless of KeepSudo.
+		          Dim NohupSuffix As String = " </dev/null >/dev/null 2>&1 &"
 		          If SysTerminal.Trim = "gnome-terminal" Then
 		            ' gnome-terminal needs --wait or it daemonizes and returns immediately
-		            SudoShellLoop.Execute(SysTerminal.Trim + " --wait -- bash -c " + Chr(34) + SudoCommand + Chr(34))
+		            SudoShellLoop.Execute("nohup " + SysTerminal.Trim + " --wait -- bash -c " + Chr(34) + SudoCommand + Chr(34) + NohupSuffix)
 		          ElseIf SysTerminal.Trim = "ptyxis" Then
 		            ' Ptyxis: GNOME default terminal (Ubuntu 24.10+ / Fedora 41+)
-		            SudoShellLoop.Execute(SysTerminal.Trim + " -- bash -c " + Chr(34) + SudoCommand + Chr(34))
+		            SudoShellLoop.Execute("nohup " + SysTerminal.Trim + " -- bash -c " + Chr(34) + SudoCommand + Chr(34) + NohupSuffix)
 		          ElseIf SysTerminal.Trim = "mate-terminal" Then
 		            ' MATE desktop terminal (VTE-based, same family as gnome-terminal)
-		            SudoShellLoop.Execute(SysTerminal.Trim + " -- bash -c " + Chr(34) + SudoCommand + Chr(34))
+		            SudoShellLoop.Execute("nohup " + SysTerminal.Trim + " -- bash -c " + Chr(34) + SudoCommand + Chr(34) + NohupSuffix)
 		          ElseIf SysTerminal.Trim = "tilix" Then
 		            ' Tilix tiling terminal (VTE-based)
-		            SudoShellLoop.Execute(SysTerminal.Trim + " -- bash -c " + Chr(34) + SudoCommand + Chr(34))
+		            SudoShellLoop.Execute("nohup " + SysTerminal.Trim + " -- bash -c " + Chr(34) + SudoCommand + Chr(34) + NohupSuffix)
 		          ElseIf SysTerminal.Trim = "konsole" Then
 		            ' KDE Konsole
-		            SudoShellLoop.Execute(SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34))
+		            SudoShellLoop.Execute("nohup " + SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34) + NohupSuffix)
 		          ElseIf SysTerminal.Trim = "xfce4-terminal" Then
 		            ' XFCE Terminal — -e requires a single string, not separate args
-		            SudoShellLoop.Execute(SysTerminal.Trim + " -e " + Chr(34) + "bash " + Chr(39) + AbsSudoScript + Chr(39) + " " + Chr(39) + AbsLLStoreSudo + Chr(39) + Chr(34))
+		            SudoShellLoop.Execute("nohup " + SysTerminal.Trim + " -e " + Chr(34) + "bash " + Chr(39) + AbsSudoScript + Chr(39) + " " + Chr(39) + AbsLLStoreSudo + Chr(39) + Chr(34) + NohupSuffix)
 		          ElseIf SysTerminal.Trim = "lxterminal" Then
 		            ' LXDE Terminal — same single-string -e requirement as xfce4-terminal
-		            SudoShellLoop.Execute(SysTerminal.Trim + " -e " + Chr(34) + "bash " + Chr(39) + AbsSudoScript + Chr(39) + " " + Chr(39) + AbsLLStoreSudo + Chr(39) + Chr(34))
+		            SudoShellLoop.Execute("nohup " + SysTerminal.Trim + " -e " + Chr(34) + "bash " + Chr(39) + AbsSudoScript + Chr(39) + " " + Chr(39) + AbsLLStoreSudo + Chr(39) + Chr(34) + NohupSuffix)
 		          ElseIf SysTerminal.Trim = "qterminal" Then
 		            ' LXQt Terminal — same single-string -e requirement as xfce4-terminal
-		            SudoShellLoop.Execute(SysTerminal.Trim + " -e " + Chr(34) + "bash " + Chr(39) + AbsSudoScript + Chr(39) + " " + Chr(39) + AbsLLStoreSudo + Chr(39) + Chr(34))
+		            SudoShellLoop.Execute("nohup " + SysTerminal.Trim + " -e " + Chr(34) + "bash " + Chr(39) + AbsSudoScript + Chr(39) + " " + Chr(39) + AbsLLStoreSudo + Chr(39) + Chr(34) + NohupSuffix)
 		          ElseIf SysTerminal.Trim = "terminator" Then
 		            ' Terminator: uses -x (execute and hold window open)
-		            SudoShellLoop.Execute(SysTerminal.Trim + " -x bash -c " + Chr(34) + SudoCommand + Chr(34))
+		            SudoShellLoop.Execute("nohup " + SysTerminal.Trim + " -x bash -c " + Chr(34) + SudoCommand + Chr(34) + NohupSuffix)
 		          ElseIf SysTerminal.Trim = "alacritty" Then
 		            ' Alacritty: GPU-accelerated, uses -- separator (v0.13+ deprecated -e)
-		            SudoShellLoop.Execute(SysTerminal.Trim + " -- bash -c " + Chr(34) + SudoCommand + Chr(34))
+		            SudoShellLoop.Execute("nohup " + SysTerminal.Trim + " -- bash -c " + Chr(34) + SudoCommand + Chr(34) + NohupSuffix)
 		          ElseIf SysTerminal.Trim = "kitty" Then
 		            ' Kitty: GPU-accelerated, passes command directly without flag
-		            SudoShellLoop.Execute(SysTerminal.Trim + " bash -c " + Chr(34) + SudoCommand + Chr(34))
+		            SudoShellLoop.Execute("nohup " + SysTerminal.Trim + " bash -c " + Chr(34) + SudoCommand + Chr(34) + NohupSuffix)
 		          ElseIf SysTerminal.Trim = "foot" Then
 		            ' Foot: Wayland-native, passes command directly without flag
-		            SudoShellLoop.Execute(SysTerminal.Trim + " bash -c " + Chr(34) + SudoCommand + Chr(34))
+		            SudoShellLoop.Execute("nohup " + SysTerminal.Trim + " bash -c " + Chr(34) + SudoCommand + Chr(34) + NohupSuffix)
 		          ElseIf SysTerminal.Trim = "xterm" Then
 		            ' xterm: universal fallback
-		            SudoShellLoop.Execute(SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34))
+		            SudoShellLoop.Execute("nohup " + SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34) + NohupSuffix)
 		          Else
 		            ' x-terminal-emulator (Debian/Ubuntu symlink) and any unknown terminals
-		            SudoShellLoop.Execute(SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34))
+		            SudoShellLoop.Execute("nohup " + SysTerminal.Trim + " -e bash -c " + Chr(34) + SudoCommand + Chr(34) + NohupSuffix)
 		          End If
 		          
-		          TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
-		          While  Exist(BaseDir+"/LLSudo") 'First thing Sudo script does is delete this file, so we know it's ran ok
-		            'if SudoShellLoop.IsRunning = False Then Exit 'MsgBox "Closed Shell?" 'Disabled Line to FORCE it to wait
+		          ' With nohup+& the terminal is fully detached, so SudoShellLoop.IsRunning is
+		          ' always False immediately. Use the handshake file instead: the listener deletes
+		          ' LLSudo as its very first act, so absence = listener is up and running.
+		          ' No timeout — wait indefinitely for the user to enter their password.
+		          While Exist(BaseDir+"/LLSudo")
 		            App.DoEvents(20)
-		            If System.Microseconds >= TimeOut Then Exit 'Timeout after set seconds, Give up after 6 seconds? Testing Glenn
 		          Wend
 		          
-		          if SudoShellLoop.IsRunning = True Then
+		          If Not Exist(BaseDir+"/LLSudo") Then
 		            SudoEnabled = True
+		            RegisterSudoBusy
 		            
 		            If Exist(Slash(ToolPath)+"run-1080p") Then
-		              'If Not Exist("/usr/bin/run-1080p") Then 'Disabled check, just do it every time so I can easily update it.
 		              If ImmutableOS Then
 		                ' /usr/bin is read-only on immutable distros — install to ~/.local/bin instead
 		                ShellFast.Execute("mkdir -p "+Chr(34)+Slash(HomePath)+".local/bin"+Chr(34))
 		                ShellFast.Execute("cp -f "+Chr(34)+Slash(ToolPath)+"run-1080p"+Chr(34)+" "+Chr(34)+Slash(HomePath)+".local/bin/run-1080p"+Chr(34)+" && chmod +x "+Chr(34)+Slash(HomePath)+".local/bin/run-1080p"+Chr(34))
 		              Else
-		                RunSudo("cp -f "+chr(34)+Slash(ToolPath)+"run-1080p"+chr(34)+"  /usr/bin/run-1080p&& chmod +x /usr/bin/run-1080p") 'Make run-1080p available if it's not already
+		                RunSudo("cp -f "+Chr(34)+Slash(ToolPath)+"run-1080p"+Chr(34)+"  /usr/bin/run-1080p && chmod +x /usr/bin/run-1080p")
 		              End If
-		              'End If
 		            End If
 		            
 		            If Debugging Then Debug("Sudo Enabled: " +SudoEnabled.ToString)
 		          Else
 		            SudoEnabled = False
-		            
 		            If Debugging Then Debug("Sudo Enabled: " +SudoEnabled.ToString)
 		          End If
-		        Else 'File Exist, wait for a set time and continue
-		          TimeOut = System.Microseconds + (5 *1000000) 'Set Timeout after 5 seconds
-		          While  Exist(BaseDir+"/LLSudo") 'First thing Sudo script does is delete this file, so we know it's ran ok
-		            if SudoShellLoop.IsRunning = False Then Exit 'MsgBox "Closed Shell?"
+		          
+		        Else 'LLSudo file already exists — stale from a previous launch, wait for it
+		          ' No timeout — wait indefinitely for the user to enter their password.
+		          While Exist(BaseDir+"/LLSudo")
 		            App.DoEvents(20)
-		            If System.Microseconds >= TimeOut Then Exit 'Timeout after set seconds, Give up after 6 seconds? Testing Glenn
 		          Wend
 		          Deltree(BaseDir+"/LLSudo") 'Remove it, it's obviously not gonna work without user input
 		        End If
@@ -832,6 +847,7 @@ Protected Module LLMod
 		    SudoEnabled = False
 		    Deltree(BaseDir+"/LLSudo") 'Remove it, it's obviously not gonna work without user input
 		  End If
+		  EnableSudoScriptRunning = False
 		End Sub
 	#tag EndMethod
 
@@ -3013,7 +3029,7 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub InstallLinuxMenuSorting(KeepSudo2 As Boolean = True)
+		Sub InstallLinuxMenuSorting(ReleaseWhenDone As Boolean = True)
 		  Dim MainPath As String = Slash(AppPath)
 		  
 		  ' Note: EnableSudoScript is intentionally NOT called here.
@@ -3039,8 +3055,8 @@ Protected Module LLMod
 		  End If
 		  
 		  
-		  'Close Sudo Terminal
-		  If KeepSudo2 = False Then ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > "+BaseDir+"/LLSudoDone") 'Quits Terminal after All items have been installed.
+		  'Close Sudo Terminal — only when called standalone, not mid-sequence inside InstallLLStore
+		  If ReleaseWhenDone Then ReleaseSudoListener()
 		  
 		End Sub
 	#tag EndMethod
@@ -3742,6 +3758,8 @@ Protected Module LLMod
 		    Target = InstallPath+"llstore"
 		    App.DoEvents(7)
 		    NotifyStep("Step 1/10: Setting up sudo access...")
+		    ' Listener should already be open (opened in VeryFirstRunTimer before SetupUninstallTools).
+		    ' EnableSudoScript returns immediately via handshake if so — no second prompt.
 		    EnableSudoScript
 		    
 		    MakeFolder(Slash(HomePath)+".local/share/applications")
@@ -3864,7 +3882,7 @@ Protected Module LLMod
 		    InstallLinuxContextMenus 'Install context menus for all detected Linux file managers
 		    
 		    NotifyStep("Step 5/10: Setting up menu sorting...")
-		    InstallLinuxMenuSorting(True) 'This adds my own menu sorting style
+		    InstallLinuxMenuSorting(False) 'This adds my own menu sorting style — InstallLLStore releases sudo itself at Step 10
 		    
 		    Dim Bin As String = " /usr/bin/" 'Make sure to include the space at the start of this as it's used.
 		    
@@ -3998,7 +4016,7 @@ Protected Module LLMod
 		    If TargetLinux And Not ImmutableOS Then RunSudo ("update-desktop-database /usr/share/applications &")
 		    '
 		    'Close Sudo Terminal
-		    If KeepSudo = False Then ShellFast.Execute ("echo "+Chr(34)+"Unlock"+Chr(34)+" > "+BaseDir+"/LLSudoDone") 'Quits Terminal after All items have been installed.
+		    ReleaseSudoListener() 'Writes LLSudoDone only if KeepSudo=False and no other instances still busy
 		  End If
 		  
 		  Notify ("LLStore Installed", "Installed LL Store:-"+Chr(10)+"LL Store v"+App.MajorVersion.ToString+"."+App.MinorVersion.ToString, ThemePath+"Icon.png", 3000) 'Show its finished installing LL Store
@@ -6776,6 +6794,63 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub RegisterSudoBusy()
+		  ' Writes a per-PID busy marker so ReleaseSudoListener knows other instances
+		  ' are still active before deciding whether to write LLSudoDone.
+		  If TargetWindows Then Return
+		  Dim PID As String = Str(App.ProcessID)
+		  SudoBusyFile = BaseDir + "/LLSudoBusy_" + PID
+		  ShellFast.Execute("echo " + Chr(34) + PID + Chr(34) + " > " + Chr(34) + SudoBusyFile + Chr(34))
+		  If Debugging Then Debug("RegisterSudoBusy: wrote " + SudoBusyFile)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub ReleaseSudoListener()
+		  ' Removes this instance's busy marker and writes LLSudoDone only when:
+		  '   (a) KeepSudo is False, AND
+		  '   (b) no other LLStore instances still have a busy marker
+		  ' This prevents one instance from killing a sudo terminal that another is still using.
+		  
+		  If TargetWindows Then Return
+		  If Not SudoEnabled Then Return
+		  
+		  SudoEnabled = False
+		  
+		  ' Remove our own busy marker first.
+		  ' IMPORTANT: must use FolderItem.Remove (synchronous, no shell subprocess) rather
+		  ' than ShellFast.Execute("rm -f ...") here.  ShellFast is asynchronous — if we used
+		  ' it, the CheckShell count below could run before the rm completes, find our own file
+		  ' still present, return BusyCount=1, and skip writing LLSudoDone (leaving the
+		  ' listener terminal open forever).  FolderItem.Remove is immediate.
+		  If SudoBusyFile <> "" Then
+		    Dim BusyFI As FolderItem = GetFolderItem(SudoBusyFile, FolderItem.PathTypeNative)
+		    If BusyFI <> Nil And BusyFI.Exists Then BusyFI.Remove
+		    SudoBusyFile = ""
+		  End If
+		  
+		  If KeepSudo Then Return ' Caller explicitly wants the listener kept alive
+		  
+		  ' Check whether any other instance is still active
+		  Dim CheckShell As New Shell
+		  CheckShell.ExecuteMode = Shell.ExecuteModes.Synchronous
+		  CheckShell.TimeOut = 3
+		  ' Quote the directory portion but NOT the glob — quoting the * prevents shell expansion.
+		  ' bash -c is used so the glob runs in a real shell regardless of how Xojo invokes sh.
+		  CheckShell.Execute("bash -c 'ls " + Chr(34) + BaseDir + Chr(34) + "/LLSudoBusy_* 2>/dev/null | wc -l'")
+		  Dim BusyCount As Integer = Val(CheckShell.Result.Trim)
+		  
+		  If BusyCount = 0 Then
+		    ' Nobody else is using the listener — safe to shut it down
+		    ShellFast.Execute("echo " + Chr(34) + "Unlock" + Chr(34) + " > " + BaseDir + "/LLSudoDone")
+		    If Debugging Then Debug("ReleaseSudoListener: wrote LLSudoDone — listener will exit")
+		  Else
+		    If Debugging Then Debug("ReleaseSudoListener: " + BusyCount.ToString + " other instance(s) still busy — listener kept alive")
+		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub QuitApp()
 		  StoreMode = 99 'Forces it to NOT show Main again
 		  
@@ -7444,11 +7519,11 @@ Protected Module LLMod
 		  
 		  If Not TargetWindows Then
 		    
-		    if SudoShellLoop.IsRunning = False Then 'Can only chekc if Local script is running, so will check sudo is enabled each time
-		      EnableSudoScript 'if SudoShellLoop.IsRunning = True Then
+		    If SudoEnabled = False Then ' With nohup+& SudoShellLoop.IsRunning is always False; use SudoEnabled flag instead
+		      EnableSudoScript
 		    End If
 		    
-		    'if SudoShellLoop.IsRunning = True Then ' Check still running
+		    'if SudoShellLoop.IsRunning = True Then ' Check still running — not used, SudoEnabled is the authority
 		    'SudoEnabled = True
 		    'Else
 		    'SudoEnabled = False
@@ -7522,8 +7597,8 @@ Protected Module LLMod
 		    If Exist(InstallToPath+"LLScript_Sudo.sh") Then
 		      
 		      'Bring it back if it shuts down
-		      if SudoShellLoop.IsRunning = False Then 'Can only check local session, will do handshake each time called
-		        EnableSudoScript 'if SudoShellLoop.IsRunning = True Then
+		      If SudoEnabled = False Then ' With nohup+& SudoShellLoop.IsRunning is always False; use SudoEnabled flag instead
+		        EnableSudoScript
 		      End If
 		      
 		      'if SudoShellLoop.IsRunning = True Then ' Check still running - Not needed as Sudo Check above does this
@@ -8792,6 +8867,14 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		EnableSudoScriptRunning As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		SudoBusyFile As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		SudoShellLoop As Shell
 	#tag EndProperty
 
@@ -10019,6 +10102,14 @@ Protected Module LLMod
 			Group="Behavior"
 			InitialValue="False"
 			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="SudoBusyFile"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
 			EditorType=""
 		#tag EndViewProperty
 		#tag ViewProperty

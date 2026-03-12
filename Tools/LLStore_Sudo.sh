@@ -17,6 +17,7 @@ echo "Sudo Listener Started (Secure Mode)"
 rm -f "$SCRIPT_PATH"
 rm -f "$DONE_FLAG"
 rm -f "$BASE_DIR/LLSudo"
+rm -f "$BASE_DIR"/LLSudoBusy_*   # Clear any busy markers from crashed instances
 
 # Main Loop: Runs until the calling project creates LLSudoDone
 while [ ! -f "$DONE_FLAG" ]

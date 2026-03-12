@@ -1911,7 +1911,7 @@ End
 #tag Events ButtonSetLinuxMenuSorting
 	#tag Event
 		Sub Pressed()
-		  InstallLinuxMenuSorting(False)
+		  InstallLinuxMenuSorting()
 		End Sub
 	#tag EndEvent
 #tag EndEvents
