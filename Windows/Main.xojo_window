@@ -1305,6 +1305,10 @@ End
 		  base.Append New MenuItem("Tools") 'Tools submenu
 		  MC = MC + 1
 		  base.Item(MC).Append New MenuItem("View Install Log")
+		  If TargetLinux Then
+		    base.Item(MC).Append New MenuItem("Edit All Items")
+		    base.Item(MC).Child("Edit All Items").Shortcut = "E"
+		  End If
 		  base.Item(MC).Append New MenuItem("&Debug")
 		  base.Item(MC).Child("&Debug").Shortcut = "F9"
 		  base.Item(MC).Append New MenuItem("Update Sizes In Items")
@@ -1512,7 +1516,11 @@ End
 		      EditingItem = False
 		    End Try
 		    #Pragma BreakOnExceptions On
-		  Case "Update " ' Update Sizes In Items
+		  Case "Edit Al" ' Edit All Items
+		    EditAll.Left  = (Screen(0).AvailableWidth  / 2) - (EditAll.Width  / 2)
+		    EditAll.Top   = (Screen(0).AvailableHeight / 2) - (EditAll.Height / 2)
+		    EditAll.Show
+		  Case "Update " ' Update Sizes In ItemsCase "Update " ' Update Sizes In Items
 		    UpdateSizesInItems()
 		  Case "View In" ' View Install Log — Store mode only
 		    Dim LogPath As String = Slash(HomePath) + "LLStore.log"
