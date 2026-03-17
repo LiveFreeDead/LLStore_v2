@@ -3602,9 +3602,23 @@ End
 		        If Debugging Then Debug("SetupUninstallTools: Relaunching via sg lastos-users to activate group membership in session")
 		        ' Detach a new LLStore in the lastos-users group context, then exit this one.
 		        ' nohup + & ensures the child outlives this process cleanly.
+		        ' Reconstruct any flags that must survive into the relaunched instance.
+		        Dim relaunchArgs As String = ""
+		        If InstallStore Then relaunchArgs = relaunchArgs + " -setup"
+		        If KeepSudo Then relaunchArgs = relaunchArgs + " -keepsudo"
+		        If Debugging Then relaunchArgs = relaunchArgs + " -debug"
+		        If ForceOffline Then relaunchArgs = relaunchArgs + " -offline"
+		        relaunchArgs = relaunchArgs.Trim
+		        Dim rlCmd As String
+		        If relaunchArgs <> "" Then
+		          rlCmd = "nohup sg lastos-users -c " + Chr(34) + Slash(AppPath) + "llstore " + relaunchArgs + Chr(34) + " >/dev/null 2>&1 &"
+		        Else
+		          rlCmd = "nohup sg lastos-users -c " + Chr(34) + Slash(AppPath) + "llstore" + Chr(34) + " >/dev/null 2>&1 &"
+		        End If
+		        If Debugging Then Debug("SetupUninstallTools: Relaunch cmd: " + rlCmd)
 		        Dim rlSh As New Shell
 		        rlSh.TimeOut = -1
-		        rlSh.Execute("nohup sg lastos-users -c " + Chr(34) + "exec " + Chr(34) + Slash(AppPath) + "llstore" + Chr(34) + Chr(34) + " >/dev/null 2>&1 &")
+		        rlSh.Execute(rlCmd)
 		        ReleaseSudoListener() ' Close the terminal before we exit — no need to leave it hanging
 		        ForceQuit = True
 		        Quit
@@ -4751,6 +4765,17 @@ End
 		    MakeFolder (BaseDir)
 		    S = "chmod 700 "+BaseDir
 		    ShellFast.Execute (S)
+		    
+		    ' Prune any stale LLSudoBusy_* markers left by crashed/killed instances or ISO captures.
+		    ' kill -0 is a no-op existence check only — it sends no signal and does not interrupt anything.
+		    ' If the PID no longer exists the marker is deleted; live instances are completely untouched.
+		    Dim pruneCmd As String
+		    pruneCmd = "for f in " + Chr(34) + BaseDir + Chr(34) + "/LLSudoBusy_*"
+		    pruneCmd = pruneCmd + "; do [ -f " + Chr(34) + "$f" + Chr(34) + " ] || continue"
+		    pruneCmd = pruneCmd + "; pid=" + Chr(34) + "${f##*_}" + Chr(34)
+		    pruneCmd = pruneCmd + "; kill -0 " + Chr(34) + "$pid" + Chr(34) + " 2>/dev/null || rm -f " + Chr(34) + "$f" + Chr(34)
+		    pruneCmd = pruneCmd + "; done"
+		    ShellFast.Execute(pruneCmd)
 		  End If
 		  
 		  If TargetWindows Then 'Need to add Windows ppGames and Apps drives here
