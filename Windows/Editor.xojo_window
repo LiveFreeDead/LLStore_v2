@@ -5283,15 +5283,21 @@ End
 		      
 		      Select Case BT
 		      Case"LLApp", "LLGame"
-		        If Exist (Slash(TextBuildToFolder.Text)+"LLApp.tar.gz") = True Or Exist (Slash(TextBuildToFolder.Text)+"LLApp.tar.gz") = True Then
-		          'Do Nothing
+		        ' FIX: set up all path vars BEFORE the existence check so they are always valid
+		        ' (previously they were inside the Else, leaving RootPath/InFolder empty when
+		        '  the archive already existed, which broke the outer .tar step and cleanup).
+		        OutFile = OutFolder+BT+".tar.gz"
+		        InFolder = Slash(TextIncludeFolder.Text)
+		        InFile = InFolder+BT+".tar.gz"
+		        RootPath = Slash(Left(NoSlash(OutFolder), InStrRev(NoSlash(OutFolder), "/") - 1)) 'LLFiles use forward Slash
+		        
+		        If Debugging Then Debug ("OutFile: " + OutFile +" Include File To Test: " + InFile+" Root Path: "+ RootPath +" InFolder: "+ InFolder)
+		        
+		        ' FIX: was checking "LLApp.tar.gz" twice regardless of BuildType — now checks BT correctly.
+		        If Exist(OutFile) = True Or Exist(InFile) = True Then
+		          If Debugging Then Debug ("Found existing archive, skipping compression: " + OutFile)
+		          'Archive already exists — skip compression, fall through to cleanup and outer .tar
 		        Else 'Only compress if not already compressed file found
-		          OutFile = OutFolder+BT+".tar.gz"
-		          InFolder = Slash(TextIncludeFolder.Text)
-		          InFile = InFolder+BT+".tar.gz"
-		          RootPath = Slash(Left(NoSlash(OutFolder), InStrRev(NoSlash(OutFolder), "/") - 1)) 'LLFiles use forward Slash
-		          
-		          If Debugging Then Debug ("OutFile: " + OutFile +" Include File To Test: " + InFile+" Root Path: "+ RootPath +" InFolder: "+ InFolder)
 		          If InFolder = OutFolder Then
 		            
 		            If Not Exist(OutFile) Then 'If doesn't have the compressed file make it still
@@ -5300,7 +5306,7 @@ End
 		                  Status.Text =  "Compressing Files..."
 		                  Notification.UpdateBuildStatus("Compressing Files...")
 		                  'Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"--exclude=*.jpg "+ "--exclude=*.png "+"--exclude=*.mp4 "+"--exclude=*.svg "+"--exclude=*.ico "+"-czf "+Chr(34)+OutFile+Chr(34)+" *"
-		                  Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"-czf "+Chr(34)+OutFile+Chr(34)+" *" 'Can NOT exclude all png's etc, it leaves them missing from the sub folders too, they may be needed
+		                  Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"--exclude=LLScript*.sh "+"-czf "+Chr(34)+OutFile+Chr(34)+" *" 'Can NOT exclude all png's etc, it leaves them missing from the sub folders too, they may be needed
 		                  Sh.Execute (Commands)
 		                  While Sh.IsRunning
 		                    App.DoEvents(20)
@@ -5321,7 +5327,7 @@ End
 		                Status.Text =  "Compressing Files..."
 		                Notification.UpdateBuildStatus("Compressing Files...")
 		                'Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"--exclude=*.jpg "+ "--exclude=*.png "+"--exclude=*.mp4 "+"--exclude=*.svg "+"--exclude=*.ico "+"-czf "+Chr(34)+OutFile+Chr(34)+" *"
-		                Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"-czf "+Chr(34)+OutFile+Chr(34)+" *"
+		                Commands = "cd "+Chr(34)+InFolder+Chr(34)+" && tar " + "--exclude=" +BT+".* "+"--exclude=Patch.7z "+"--exclude=LLScript*.sh "+"-czf "+Chr(34)+OutFile+Chr(34)+" *"
 		                Sh.Execute (Commands)
 		                While Sh.IsRunning
 		                  App.DoEvents(20)
@@ -5335,68 +5341,69 @@ End
 		            End If
 		          End If
 		          
-		          'Check if build path is the same as Source Path and delete original uncompressed files if so
-		          
-		          'STOP * If the user makes a script only build then this will remove important files, need a checkbox for them
-		          
-		          If ItemLLItem.NoInstall = True Then
-		            'No install, do nothing
-		          Else ' Is installer, clean up?
-		            If InFolder = OutFolder Then      
-		              If Exist(OutFile) Then 'Now if compressed file is in tact, remove all other files except BuildType.* Then
-		                F = GetFolderItem(OutFolder, FolderItem.PathTypeNative)
-		                If F <> Nil Then
-		                  FC = F.Count
-		                  Status.Text = "Clean Up Files..."
-		                  Notification.UpdateBuildStatus("Cleaning Up Files...")
-		                  ' Collect top-level items to delete. Windows: per-file rmdir/del commands.
-		                  ' Linux: build an array and execute rm -rf in batches of 20 to avoid ARG_MAX
-		                  '  limits. rm -rf handles each subfolder recursively so we only need the
-		                  '  top-level path - no need to enumerate files inside subfolders.
-		                  Dim WinCmds As String = ""
-		                  Dim LinuxItems() As String
-		                  For I = 1 To FC
-		                    If Left(F.Item(I).Name, 5) = Left(BT, 5) Or Left(F.Item(I).Name, 5) = "LLScr" Or Left(F.Item(I).Name, 8) = "Patch.7z" Then 'Keep
-		                    Else
-		                      If Right(F.Item(I).Name, 4) <> ".jpg" And Right(F.Item(I).Name, 4) <> ".mp4" And _
-		                        Right(F.Item(I).Name, 4) <> ".png" And Right(F.Item(I).Name, 4) <> ".svg" And _
-		                        Right(F.Item(I).Name, 4) <> ".ico" Then
-		                        WinCmds = WinCmds + "rmdir /q /s " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
-		                        WinCmds = WinCmds + "del /f /q " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
-		                        LinuxItems.Add(Chr(34) + F.Item(I).NativePath + Chr(34))
-		                      End If
-		                    End If
-		                  Next
-		                  If TargetWindows Then
-		                    If WinCmds.Trim <> "" Then RunCommand(WinCmds)
-		                    ' .lnk files: Xojo resolves shortcuts on Windows so NativePath points to the target, not
-		                    ' the .lnk itself. Use a wildcard del to catch them directly by path construction instead.
-		                    RunCommand("del /f /q " + Chr(34) + NoSlash(OutFolder) + "\*.lnk" + Chr(34))
+		        End If
+		        
+		        ' FIX: cleanup block moved outside the Else so it always runs — whether the
+		        '  archive was just built or already existed. Previously skipping cleanup when
+		        '  the archive pre-existed left uncompressed source files behind.
+		        'STOP * If the user makes a script only build then this will remove important files, need a checkbox for them
+		        
+		        If ItemLLItem.NoInstall = True Then
+		          'No install, do nothing
+		        Else ' Is installer, clean up?
+		          If InFolder = OutFolder Then      
+		            If Exist(OutFile) Then 'Now if compressed file is in tact, remove all other files except BuildType.* Then
+		              F = GetFolderItem(OutFolder, FolderItem.PathTypeNative)
+		              If F <> Nil Then
+		                FC = F.Count
+		                Status.Text = "Clean Up Files..."
+		                Notification.UpdateBuildStatus("Cleaning Up Files...")
+		                ' Collect top-level items to delete. Windows: per-file rmdir/del commands.
+		                ' Linux: build an array and execute rm -rf in batches of 20 to avoid ARG_MAX
+		                '  limits. rm -rf handles each subfolder recursively so we only need the
+		                '  top-level path - no need to enumerate files inside subfolders.
+		                Dim WinCmds As String = ""
+		                Dim LinuxItems() As String
+		                For I = 1 To FC
+		                  If Left(F.Item(I).Name, 5) = Left(BT, 5) Or Left(F.Item(I).Name, 5) = "LLScr" Or Left(F.Item(I).Name, 8) = "Patch.7z" Then 'Keep
 		                  Else
-		                    ' Execute rm -rf in batches of 20 top-level paths. Since rm -rf recurses into
-		                    ' any subfolder automatically, there's no need to list files inside them.
-		                    ' Batching keeps each shell call to a manageable size.
-		                    Dim LLBatchSize As Integer = 20
-		                    Dim LLBatchJ As Integer = 0
-		                    While LLBatchJ < LinuxItems.Count
-		                      Dim LLBatchCmd As String = "rm -rf"
-		                      Dim LLBatchEnd As Integer = LLBatchJ + LLBatchSize - 1
-		                      If LLBatchEnd >= LinuxItems.Count Then LLBatchEnd = LinuxItems.Count - 1
-		                      Dim LLBatchK As Integer
-		                      For LLBatchK = LLBatchJ To LLBatchEnd
-		                        LLBatchCmd = LLBatchCmd + " " + LinuxItems(LLBatchK)
-		                      Next LLBatchK
-		                      Sh.Execute(LLBatchCmd)
-		                      While Sh.IsRunning
-		                        App.DoEvents(20)
-		                      Wend
-		                      LLBatchJ = LLBatchJ + LLBatchSize
-		                    Wend
+		                    If Right(F.Item(I).Name, 4) <> ".jpg" And Right(F.Item(I).Name, 4) <> ".mp4" And _
+		                      Right(F.Item(I).Name, 4) <> ".png" And Right(F.Item(I).Name, 4) <> ".svg" And _
+		                      Right(F.Item(I).Name, 4) <> ".ico" Then
+		                      WinCmds = WinCmds + "rmdir /q /s " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
+		                      WinCmds = WinCmds + "del /f /q " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
+		                      LinuxItems.Add(Chr(34) + F.Item(I).NativePath + Chr(34))
+		                    End If
 		                  End If
+		                Next
+		                If TargetWindows Then
+		                  If WinCmds.Trim <> "" Then RunCommand(WinCmds)
+		                  ' .lnk files: Xojo resolves shortcuts on Windows so NativePath points to the target, not
+		                  ' the .lnk itself. Use a wildcard del to catch them directly by path construction instead.
+		                  RunCommand("del /f /q " + Chr(34) + NoSlash(OutFolder) + "\*.lnk" + Chr(34))
+		                Else
+		                  ' Execute rm -rf in batches of 20 top-level paths. Since rm -rf recurses into
+		                  ' any subfolder automatically, there's no need to list files inside them.
+		                  ' Batching keeps each shell call to a manageable size.
+		                  Dim LLBatchSize As Integer = 20
+		                  Dim LLBatchJ As Integer = 0
+		                  While LLBatchJ < LinuxItems.Count
+		                    Dim LLBatchCmd As String = "rm -rf"
+		                    Dim LLBatchEnd As Integer = LLBatchJ + LLBatchSize - 1
+		                    If LLBatchEnd >= LinuxItems.Count Then LLBatchEnd = LinuxItems.Count - 1
+		                    Dim LLBatchK As Integer
+		                    For LLBatchK = LLBatchJ To LLBatchEnd
+		                      LLBatchCmd = LLBatchCmd + " " + LinuxItems(LLBatchK)
+		                    Next LLBatchK
+		                    Sh.Execute(LLBatchCmd)
+		                    While Sh.IsRunning
+		                      App.DoEvents(20)
+		                    Wend
+		                    LLBatchJ = LLBatchJ + LLBatchSize
+		                  Wend
 		                End If
 		              End If
 		            End If
-		            
 		          End If
 		          
 		        End If
@@ -5479,7 +5486,7 @@ End
 		        
 		        If Exist (Slash(TextBuildToFolder.Text)+BT+".7z") = True Then
 		          If Debugging Then Debug (Chr(10)+"Found: "+ Slash(TextBuildToFolder.Text)+BT+".7z")
-		          'Do Nothing
+		          '.7z already exists — skip compression, fall through to cleanup and outer .apz/.pgz
 		        Else 'Only compress if not already compressed file found
 		          
 		          If InFolder = OutFolder Then
@@ -5526,68 +5533,69 @@ End
 		            End If
 		          End If
 		          
-		          'Check if build path is the same as Source Path and delete original uncompressed files if so
-		          
-		          'STOP * If the user makes a script only build then this will remove important files, need a checkbox for them
-		          
-		          If BT = "ssApp" Then 'ssApp is Windows NoInstall
-		            'No install, do nothing
-		          Else ' Is installer, clean up?
-		            If InFolder = OutFolder Then      
-		              If Exist(OutFile) Then 'Now if compressed file is in tact, remove all other files except BuildType.* Then
-		                F = GetFolderItem(OutFolder, FolderItem.PathTypeNative)
-		                If F <> Nil Then
-		                  FC = F.Count
-		                  Status.Text = "Clean Up Files..."
-		                  Notification.UpdateBuildStatus("Cleaning Up Files...")
-		                  ' Collect top-level items to delete. Windows: per-file rmdir/del commands.
-		                  ' Linux: build an array and execute rm -rf in batches of 20 to avoid ARG_MAX
-		                  '  limits. rm -rf handles each subfolder recursively so we only need the
-		                  '  top-level path - no need to enumerate files inside subfolders.
-		                  Dim WinCmds As String = ""
-		                  Dim LinuxItems() As String
-		                  For I = 1 To FC
-		                    If Left(F.Item(I).Name, 5) = Left(BT, 5) Then 'Keep
-		                    Else
-		                      If Right(F.Item(I).Name, 4) <> ".jpg" And Right(F.Item(I).Name, 4) <> ".mp4" And _
-		                        Right(F.Item(I).Name, 4) <> ".png" And Right(F.Item(I).Name, 4) <> ".svg" And _
-		                        Right(F.Item(I).Name, 4) <> ".ico" Then
-		                        WinCmds = WinCmds + "rmdir /q /s " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
-		                        WinCmds = WinCmds + "del /f /q " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
-		                        LinuxItems.Add(Chr(34) + F.Item(I).NativePath + Chr(34))
-		                      End If
-		                    End If
-		                  Next
-		                  If TargetWindows Then
-		                    If WinCmds.Trim <> "" Then RunCommand(WinCmds)
-		                    ' .lnk files: Xojo resolves shortcuts on Windows so NativePath points to the target, not
-		                    ' the .lnk itself. Use a wildcard del to catch them directly by path construction instead.
-		                    RunCommand("del /f /q " + Chr(34) + NoSlash(OutFolder) + "\*.lnk" + Chr(34))
+		        End If
+		        
+		        ' FIX: cleanup block moved outside the Else so it always runs — whether the
+		        '  .7z was just built or already existed. Previously skipping cleanup when the
+		        '  archive pre-existed left uncompressed source files behind.
+		        'STOP * If the user makes a script only build then this will remove important files, need a checkbox for them
+		        
+		        If BT = "ssApp" Then 'ssApp is Windows NoInstall
+		          'No install, do nothing
+		        Else ' Is installer, clean up?
+		          If InFolder = OutFolder Then      
+		            If Exist(OutFile) Then 'Now if compressed file is in tact, remove all other files except BuildType.* Then
+		              F = GetFolderItem(OutFolder, FolderItem.PathTypeNative)
+		              If F <> Nil Then
+		                FC = F.Count
+		                Status.Text = "Clean Up Files..."
+		                Notification.UpdateBuildStatus("Cleaning Up Files...")
+		                ' Collect top-level items to delete. Windows: per-file rmdir/del commands.
+		                ' Linux: build an array and execute rm -rf in batches of 20 to avoid ARG_MAX
+		                '  limits. rm -rf handles each subfolder recursively so we only need the
+		                '  top-level path - no need to enumerate files inside subfolders.
+		                Dim WinCmds As String = ""
+		                Dim LinuxItems() As String
+		                For I = 1 To FC
+		                  If Left(F.Item(I).Name, 5) = Left(BT, 5) Then 'Keep
 		                  Else
-		                    ' Execute rm -rf in batches of 20 top-level paths. Since rm -rf recurses into
-		                    ' any subfolder automatically, there's no need to list files inside them.
-		                    ' Batching keeps each shell call to a manageable size.
-		                    Dim LLBatchSize As Integer = 20
-		                    Dim LLBatchJ As Integer = 0
-		                    While LLBatchJ < LinuxItems.Count
-		                      Dim LLBatchCmd As String = "rm -rf"
-		                      Dim LLBatchEnd As Integer = LLBatchJ + LLBatchSize - 1
-		                      If LLBatchEnd >= LinuxItems.Count Then LLBatchEnd = LinuxItems.Count - 1
-		                      Dim LLBatchK As Integer
-		                      For LLBatchK = LLBatchJ To LLBatchEnd
-		                        LLBatchCmd = LLBatchCmd + " " + LinuxItems(LLBatchK)
-		                      Next LLBatchK
-		                      Sh.Execute(LLBatchCmd)
-		                      While Sh.IsRunning
-		                        App.DoEvents(20)
-		                      Wend
-		                      LLBatchJ = LLBatchJ + LLBatchSize
-		                    Wend
+		                    If Right(F.Item(I).Name, 4) <> ".jpg" And Right(F.Item(I).Name, 4) <> ".mp4" And _
+		                      Right(F.Item(I).Name, 4) <> ".png" And Right(F.Item(I).Name, 4) <> ".svg" And _
+		                      Right(F.Item(I).Name, 4) <> ".ico" Then
+		                      WinCmds = WinCmds + "rmdir /q /s " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
+		                      WinCmds = WinCmds + "del /f /q " + Chr(34) + F.Item(I).NativePath + Chr(34) + Chr(10)
+		                      LinuxItems.Add(Chr(34) + F.Item(I).NativePath + Chr(34))
+		                    End If
 		                  End If
+		                Next
+		                If TargetWindows Then
+		                  If WinCmds.Trim <> "" Then RunCommand(WinCmds)
+		                  ' .lnk files: Xojo resolves shortcuts on Windows so NativePath points to the target, not
+		                  ' the .lnk itself. Use a wildcard del to catch them directly by path construction instead.
+		                  RunCommand("del /f /q " + Chr(34) + NoSlash(OutFolder) + "\*.lnk" + Chr(34))
+		                Else
+		                  ' Execute rm -rf in batches of 20 top-level paths. Since rm -rf recurses into
+		                  ' any subfolder automatically, there's no need to list files inside them.
+		                  ' Batching keeps each shell call to a manageable size.
+		                  Dim LLBatchSize As Integer = 20
+		                  Dim LLBatchJ As Integer = 0
+		                  While LLBatchJ < LinuxItems.Count
+		                    Dim LLBatchCmd As String = "rm -rf"
+		                    Dim LLBatchEnd As Integer = LLBatchJ + LLBatchSize - 1
+		                    If LLBatchEnd >= LinuxItems.Count Then LLBatchEnd = LinuxItems.Count - 1
+		                    Dim LLBatchK As Integer
+		                    For LLBatchK = LLBatchJ To LLBatchEnd
+		                      LLBatchCmd = LLBatchCmd + " " + LinuxItems(LLBatchK)
+		                    Next LLBatchK
+		                    Sh.Execute(LLBatchCmd)
+		                    While Sh.IsRunning
+		                      App.DoEvents(20)
+		                    Wend
+		                    LLBatchJ = LLBatchJ + LLBatchSize
+		                  Wend
 		                End If
 		              End If
 		            End If
-		            
 		          End If
 		          
 		        End If
