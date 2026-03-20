@@ -1,0 +1,835 @@
+#!/bin/bash
+# LLStore – Upgrade Scripts in .tar  (Nemo / Nautilus Script)
+# Place in ~/.local/share/nemo/scripts/
+#         ~/.local/share/nautilus/scripts/
+# Right-click any .tar LLStore package → Scripts → Upgrade Scripts
+#
+# Migrates LLScript.sh / LLScript_Sudo.sh inside each .tar to the current
+# templates, preserving all user-edited content:
+#   • OS case arm bodies   (case $ID)
+#   • DE case arm bodies   (case $XDG_SESSION_DESKTOP / $DE)
+#   • PM arm bodies        (if/elif chain or case $PM)
+#   • Custom code section  (#----- Add Your Code Here)
+#   • User Set Variables   (#---------- User Set Variables)
+#
+# Flatpak conversion (old → new):
+#   $OSTERM -e "flatpak install --user ... flathub APP_ID"  → flatinst APP_ID
+#   flatpak remote-add --user ... flathub URL               → removed (core handles it)
+#   flatpak install ... https://....flatpakref              → kept as-is + note
+#
+
+TEMPLATES_DIR="/opt/LastOS/LLStore/Templates"
+TEMPLATE_USER="$TEMPLATES_DIR/LLScript.sh"
+TEMPLATE_SUDO="$TEMPLATES_DIR/LLScript_Sudo.sh"
+
+# ===========================================================================
+# FLATPAK LINE CONVERSION
+# ===========================================================================
+convert_flatpak_lines() {
+    local file="$1"
+    [[ ! -s "$file" ]] && return 0
+    local tmp; tmp=$(mktemp)
+
+    awk '
+    function ltrim(s) { gsub(/^[[:space:]]+/, "", s); return s }
+    function rtrim(s) { gsub(/[[:space:]]+$/, "", s); return s }
+
+    function get_indent(line,   i, c, ch) {
+        i = ""
+        for (c = 1; c <= length(line); c++) {
+            ch = substr(line, c, 1)
+            if (ch == " " || ch == "\t") { i = i ch } else { break }
+        }
+        return i
+    }
+
+    function unquote(s,   q, p1, p2, i, ch) {
+        p1 = 0
+        for (i = 1; i <= length(s); i++) {
+            ch = substr(s, i, 1)
+            if (ch == "\"" || ch == "'\''") { q = ch; p1 = i; break }
+        }
+        if (p1 == 0) return s
+        for (i = length(s); i > p1; i--) {
+            if (substr(s, i, 1) == q) { p2 = i; break }
+        }
+        if (p2 == 0) return s
+        return substr(s, p1+1, p2-p1-1)
+    }
+
+    function extract_ids(cmd,   parts, n, i, j, ids) {
+        n = split(cmd, parts, /[[:space:]]+/)
+        ids = ""
+        for (i = 1; i <= n; i++) {
+            if (tolower(parts[i]) == "flathub") {
+                ids = ""
+                for (j = i+1; j <= n; j++) {
+                    if (tolower(parts[j]) != "flathub")
+                        ids = ids (ids == "" ? "" : " ") parts[j]
+                }
+            }
+        }
+        return rtrim(ids)
+    }
+
+    {
+        line   = $0
+        indent = get_indent(line)
+        content = ltrim(line)
+
+        is_comment = 0
+        inner_content = content
+        if (substr(content,1,1) == "#") {
+            is_comment = 1
+            inner_content = ltrim(substr(content, 2))
+        }
+
+        cmd = inner_content
+        if (cmd ~ /^[$]OSTERM/) cmd = unquote(cmd)
+        cmd = ltrim(cmd)
+
+        if (cmd ~ /flatpak[[:space:]]+remote-add/ && cmd ~ /flathub/) {
+            if (is_comment) {
+                print line
+            } else {
+                print indent "# (removed: flathub remote-add is now handled by the core)"
+            }
+            next
+        }
+
+        if (cmd ~ /flatpak[[:space:]]+install/) {
+            if (cmd ~ /[.]flatpakref/) {
+                print (is_comment ? indent "# " : indent) cmd \
+                      "  # NOTE: .flatpakref URL cannot be auto-converted to flatinst – check manually"
+                next
+            }
+            if (cmd ~ /flathub/) {
+                ids = extract_ids(cmd)
+                if (ids != "" && ids ~ /[.]/) {
+                    print indent (is_comment ? "# " : "") "flatinst " ids
+                } else {
+                    print line "  # NOTE: could not auto-convert flatpak line – check manually"
+                }
+                next
+            }
+        }
+
+        print
+    }
+    ' "$file" > "$tmp"
+    mv "$tmp" "$file"
+}
+
+# ===========================================================================
+# FIX 2: Dedup extracted content against corresponding template section.
+# Strips any line (whitespace-normalised) from content_file that already
+# appears in template_lines_file so template boilerplate comments that were
+# also in old scripts do not appear twice in the output.
+# ===========================================================================
+dedup_against_template() {
+    local content_file="$1" template_lines_file="$2"
+    [[ ! -s "$content_file" ]] && return 0
+    [[ ! -s "$template_lines_file" ]] && return 0
+    local tmp; tmp=$(mktemp)
+    awk '
+    NR==FNR {
+        s=$0; gsub(/^[[:space:]]+/,"",s); gsub(/[[:space:]]+$/,"",s)
+        if (s!="") seen[s]=1
+        next
+    }
+    {
+        s=$0; gsub(/^[[:space:]]+/,"",s); gsub(/[[:space:]]+$/,"",s)
+        if (s in seen) next
+        print
+    }
+    ' "$template_lines_file" "$content_file" > "$tmp"
+    mv "$tmp" "$content_file"
+}
+
+# ===========================================================================
+# CONTENT EXTRACTION HELPERS
+# ===========================================================================
+
+detect_gen() {
+    local f="$1"
+    if   grep -q "#LLCore"                                                              "$f" 2>/dev/null; then echo "3"
+    elif grep -q "#LLStore Script\|#LLStore Sudo Script\|LLScript v\|Sudo Script v"    "$f" 2>/dev/null; then echo "2"
+    elif grep -q "inst ()\|PAMAC_CMD\|DNF_CMD"                                          "$f" 2>/dev/null; then echo "1"
+    else echo "0"
+    fi
+}
+
+extract_case_arm() {
+    local file="$1" sec_kw="$2" arm_kw="$3"
+    awk -v SK="$sec_kw" -v AK="$arm_kw" '
+    $0 ~ SK && /case/ { in_sec=1; next }
+    in_sec && /^[[:space:]]*esac/ { in_sec=0 }
+    in_sec && !in_arm {
+        s=$0; gsub(/^[[:space:]]+/,"",s)
+        if (index(s, AK) > 0 && s ~ /\)[[:space:]]*$/ && s !~ /^#/) {
+            in_arm=1; next
+        }
+    }
+    in_sec && in_arm {
+        s=$0; gsub(/^[[:space:]]+/,"",s)
+        if (s ~ /^[^#].*\)[[:space:]]*$/ && s !~ /[$][(]/ && s !~ /"/ && s !~ /[\\]$/) {
+            in_arm=0; next
+        }
+        if (/^[[:space:]]*;;[[:space:]]*$/) { in_arm=0; next }
+        print
+    }
+    ' "$file"
+}
+
+extract_pm_elif_arm() {
+    local file="$1" pm_var="$2"
+    awk -v KW="$pm_var" '
+    /^inst[[:space:]]*[(][)]/ { in_func=1 }
+    in_func && /^}[[:space:]]*$/ { in_func=0; next }
+    in_func { next }
+    !in_func && (/^if[[:space:]]*\[\[/ || /^elif[[:space:]]*\[\[/) && index($0,KW)>0 {
+        in_arm=1; next
+    }
+    in_arm && (/^elif/ || /^else[[:space:]]*$/ || /^fi[[:space:]]*$/) { in_arm=0 }
+    in_arm {
+        line=$0; gsub(/^[[:space:]]+/,"",line)
+        if (line == "")                                  next
+        if (line ~ /^PM=/)                               next
+        if (line ~ /^echo[[:space:]]+"Package Manager:/) next
+        if (line ~ /^#[[:space:]]*$/)                    next
+        print
+    }
+    ' "$file"
+}
+
+extract_custom_code() {
+    local file="$1"
+    awk '
+    /^#----- Add Your Code Here|^#---------- Custom Code/ { found=1; next }
+    found && /^exit[[:space:]]+0[[:space:]]*$/ { exit }
+    found { print }
+    ' "$file"
+}
+
+extract_user_vars() {
+    local file="$1"
+    awk '
+    /User Set Variables/ { found=1; next }
+    found && /^[#]{10,}/ { exit }
+    found && /#LLCore/   { exit }
+    found && /^if[[:space:]]*\[/ { exit }
+    found { print }
+    ' "$file"
+}
+
+# ===========================================================================
+# GEN 0 BOILERPLATE STRIPPER
+# Used only as a last resort when a Gen 0 script has no recognisable case
+# blocks or "Add Your Code Here" section.  Removes known old-format
+# scaffolding so only genuine user code lands in the Custom Code section.
+# ===========================================================================
+strip_gen0_to_custom() {
+    local file="$1"
+    awk '
+    NR == 1 && /^#!/ { next }
+
+    # Terminal detection block: terms=( ... done  and OSTERM= assignment
+    /^[[:space:]]*(terms=\(|#[[:space:]]*Get Best Terminal)/ { in_term=1 }
+    in_term { if (/^done[[:space:]]*$/) { in_term=0 }; next }
+    /^[[:space:]]*OSTERM=/ { next }
+
+    # Boilerplate echo lines
+    /echo[[:space:]]+"(Terminal Used:|Desktop Environment:|OS ID:)/ { next }
+
+    # Source /etc/os-release
+    /^[[:space:]]*(\.|\bsource\b)[[:space:]]+\/etc\/os-release/ { next }
+
+    # Old section comment headers that exist in the template
+    /^#[[:space:]]*(Do Tasks For (Detected OS|Active Desktop)|Get Desktop Environment|Get Best Terminal)/ { next }
+    /^#[[:space:]]*FlatPak Install Package for User/ { next }
+    /^#Add[[:space:]]+"org\.name\./ { next }
+    /^#[$]OSTERM[[:space:]]+-e[[:space:]]+"flatpak/ { next }
+
+    # Entire OS case block  (case $ID in … esac)
+    /^case[[:space:]]+[$]ID[[:space:]]+in/ { in_os=1; next }
+    in_os && /^esac/ { in_os=0; next }
+    in_os { next }
+
+    # Entire DE case block  (case $XDG_SESSION_DESKTOP in … esac)
+    /^case[[:space:]]+[$]XDG_SESSION_DESKTOP[[:space:]]+in/ { in_de=1; next }
+    in_de && /^esac/ { in_de=0; next }
+    in_de { next }
+
+    # Skip the "Add Your Code Here" marker line itself
+    /^#----- Add Your Code Here/ { next }
+
+    # Skip exit 0
+    /^exit[[:space:]]+0[[:space:]]*$/ { next }
+
+    { print }
+    ' "$file"
+}
+
+# ===========================================================================
+# CUSTOM CODE SANITIZER
+# Removes Gen 0 / pre-template boilerplate that may have been incorrectly
+# placed in the Custom Code section by a previous migration run.
+# Applied to $CD/custom for ALL generations after extraction.
+# ===========================================================================
+sanitize_custom_code() {
+    local file="$1"
+    [[ ! -s "$file" ]] && return 0
+    local tmp; tmp=$(mktemp)
+    awk '
+    # Terminal detection block
+    /^[[:space:]]*(terms=\(|#[[:space:]]*Get Best Terminal)/ { in_term=1 }
+    in_term { if (/^done[[:space:]]*$/) { in_term=0 }; next }
+    /^[[:space:]]*OSTERM=/ { next }
+
+    # Old boilerplate echo lines
+    /echo[[:space:]]+"(Terminal Used:|Desktop Environment:|OS ID:)/ { next }
+
+    # Source /etc/os-release
+    /^[[:space:]]*(\.|\bsource\b)[[:space:]]+\/etc\/os-release/ { next }
+
+    # Old section comment headers
+    /^#[[:space:]]*(Do Tasks For (Detected OS|Active Desktop)|Get Desktop Environment|Get Best Terminal)/ { next }
+    /^#[[:space:]]*FlatPak Install Package for User/ { next }
+    /^#Add[[:space:]]+"org\.name\./ { next }
+    /^#[$]OSTERM[[:space:]]+-e[[:space:]]+"flatpak/ { next }
+
+    # Old OS case block (case $ID in … esac)
+    /^case[[:space:]]+[$]ID[[:space:]]+in/ { in_os=1; next }
+    in_os && /^esac/ { in_os=0; next }
+    in_os { next }
+
+    # Old DE case block (case $XDG_SESSION_DESKTOP in … esac)
+    /^case[[:space:]]+[$]XDG_SESSION_DESKTOP[[:space:]]+in/ { in_de=1; next }
+    in_de && /^esac/ { in_de=0; next }
+    in_de { next }
+
+    { print }
+    ' "$file" > "$tmp"
+    # Collapse leading blank lines
+    awk 'NF || found { found=1; print }' "$tmp" > "$file"
+    rm -f "$tmp"
+}
+
+
+migrate_script() {
+    local old="$1" tmpl="$2" out="$3"
+    local gen; gen=$(detect_gen "$old")
+    local is_sudo=false
+    [[ "$(basename "$tmpl")" == *"Sudo"* ]] && is_sudo=true
+    echo "      Generation detected: $gen | Sudo: $is_sudo"
+
+    local CD; CD=$(mktemp -d)
+    trap "rm -rf '$CD'" RETURN
+
+    # -----------------------------------------------------------------------
+    # GEN 0: pre-header script
+    # Many Gen 0 scripts share the same OS/DE case layout and even have a
+    # "#----- Add Your Code Here" section – they just predate the version
+    # header that detect_gen looks for.  Try full structured extraction
+    # first; only fall back to boilerplate-stripping if nothing is found.
+    # -----------------------------------------------------------------------
+    if [[ "$gen" == "0" ]]; then
+        # --- attempt structured extraction (same logic as Gen 1/2/3) ---
+        extract_custom_code "$old" > "$CD/custom"
+        sanitize_custom_code "$CD/custom"
+
+        local OS_SEC_G0="case.*ID"
+        for distro in manjaro linuxmint ubuntu debian pop fedora nobara \
+                      opensuse-tumbleweed almalinux arch endeavouros argent \
+                      biglinux cachyos deepin garuda regataos solus zorin; do
+            extract_case_arm "$old" "$OS_SEC_G0" "$distro" > "$CD/os_${distro}"
+            extract_case_arm "$tmpl" "$OS_SEC_G0" "$distro" > "$CD/tmpl_os_${distro}"
+            dedup_against_template "$CD/os_${distro}" "$CD/tmpl_os_${distro}"
+        done
+        [[ -s "$CD/os_ubuntu"      ]] && [[ ! -s "$CD/os_linuxmint" ]] && mv "$CD/os_ubuntu"      "$CD/os_linuxmint"
+        [[ -s "$CD/os_pop"         ]] && [[ ! -s "$CD/os_debian"    ]] && mv "$CD/os_pop"         "$CD/os_debian"
+        [[ -s "$CD/os_nobara"      ]] && [[ ! -s "$CD/os_fedora"    ]] && mv "$CD/os_nobara"      "$CD/os_fedora"
+        [[ -s "$CD/os_endeavouros" ]] && [[ ! -s "$CD/os_arch"      ]] && mv "$CD/os_endeavouros" "$CD/os_arch"
+
+        declare -A de_kw_g0=(
+            [cinnamon]="innamon"    [gnome]="gnome"      [kde]="kde"
+            [lxde]="lxde"          [mate]="mate"         [unity]="unity"
+            [xfce]="xfce"          [cosmic]="osmic"      [budgie]="budgie"
+            [lxqt]="LXQt"          [anduinos]="anduinos" [deepin]="deepin"
+            [default]="default"    [zorin]="zorin"
+        )
+        for de in "${!de_kw_g0[@]}"; do
+            local kw="${de_kw_g0[$de]}"
+            local c; c=$(extract_case_arm "$old" "XDG_SESSION_DESKTOP" "$kw")
+            [[ -z "${c//[[:space:]]/}" ]] && c=$(extract_case_arm "$old" 'case.*[$]DE' "$kw")
+            if [[ -n "${c//[[:space:]]/}" ]]; then
+                printf '%s\n' "$c" > "$CD/de_${de}"
+                local tmpl_de_c; tmpl_de_c=$(extract_case_arm "$tmpl" "XDG_SESSION_DESKTOP" "$kw")
+                [[ -z "${tmpl_de_c//[[:space:]]/}" ]] && tmpl_de_c=$(extract_case_arm "$tmpl" 'case.*[$]DE' "$kw")
+                if [[ -n "${tmpl_de_c//[[:space:]]/}" ]]; then
+                    printf '%s\n' "$tmpl_de_c" > "$CD/tmpl_de_${de}"
+                    dedup_against_template "$CD/de_${de}" "$CD/tmpl_de_${de}"
+                fi
+            fi
+        done
+
+        # Check if structured extraction produced anything useful
+        local has_content=false
+        for _f in "$CD/custom" "$CD"/os_* "$CD"/de_*; do
+            [[ -s "$_f" ]] && has_content=true && break
+        done
+
+        if $has_content; then
+            echo "      Gen 0 legacy – structured extraction succeeded"
+        else
+            # Truly bare/unknown – strip known Gen 0 boilerplate, put rest in custom
+            strip_gen0_to_custom "$old" > "$CD/custom"
+            # Collapse leading/trailing blank lines
+            local tmp_g0; tmp_g0=$(mktemp)
+            awk 'NF || p { print }; { p = NF }' "$CD/custom" > "$tmp_g0" && mv "$tmp_g0" "$CD/custom"
+            if [[ ! -s "$CD/custom" ]]; then
+                echo "      Empty script – using template as-is"
+                cp "$tmpl" "$out"; return 0
+            fi
+            echo "      Gen 0 bare – boilerplate-stripped content placed in Custom Code section"
+        fi
+    else
+        # -------------------------------------------------------------------
+        # GEN 1 / 2 / 3: structured extraction
+        # -------------------------------------------------------------------
+
+        # User vars: extract then dedup against template's own user vars section
+        # FIX 1: dedup prevents FORCE_REINSTALL (and its comment) appearing twice
+        extract_user_vars "$old"  > "$CD/user_vars"
+        extract_user_vars "$tmpl" > "$CD/tmpl_user_vars"
+        dedup_against_template "$CD/user_vars" "$CD/tmpl_user_vars"
+
+        extract_custom_code "$old" > "$CD/custom"
+        sanitize_custom_code "$CD/custom"
+
+        # OS case arms
+        local OS_SEC="case.*ID"
+        for distro in manjaro linuxmint ubuntu debian pop fedora nobara \
+                      opensuse-tumbleweed almalinux arch endeavouros argent \
+                      biglinux cachyos deepin garuda regataos solus zorin; do
+            extract_case_arm "$old" "$OS_SEC" "$distro" > "$CD/os_${distro}"
+            # FIX 2: dedup against template arm so boilerplate comments don't double-up
+            extract_case_arm "$tmpl" "$OS_SEC" "$distro" > "$CD/tmpl_os_${distro}"
+            dedup_against_template "$CD/os_${distro}" "$CD/tmpl_os_${distro}"
+        done
+        # Merge split arms
+        [[ -s "$CD/os_ubuntu"      ]] && [[ ! -s "$CD/os_linuxmint" ]] && mv "$CD/os_ubuntu"      "$CD/os_linuxmint"
+        [[ -s "$CD/os_pop"         ]] && [[ ! -s "$CD/os_debian"    ]] && mv "$CD/os_pop"         "$CD/os_debian"
+        [[ -s "$CD/os_nobara"      ]] && [[ ! -s "$CD/os_fedora"    ]] && mv "$CD/os_nobara"      "$CD/os_fedora"
+        [[ -s "$CD/os_endeavouros" ]] && [[ ! -s "$CD/os_arch"      ]] && mv "$CD/os_endeavouros" "$CD/os_arch"
+
+        # DE case arms
+        declare -A de_kw=(
+            [cinnamon]="innamon"    [gnome]="gnome"     [kde]="kde"
+            [lxde]="lxde"          [mate]="mate"        [unity]="unity"
+            [xfce]="xfce"          [cosmic]="osmic"     [budgie]="budgie"
+            [lxqt]="LXQt"          [anduinos]="anduinos" [deepin]="deepin"
+            [default]="default"    [zorin]="zorin"
+        )
+        for de in "${!de_kw[@]}"; do
+            local kw="${de_kw[$de]}"
+            local c; c=$(extract_case_arm "$old" "XDG_SESSION_DESKTOP" "$kw")
+            [[ -z "${c//[[:space:]]/}" ]] && c=$(extract_case_arm "$old" 'case.*[$]DE' "$kw")
+            if [[ -n "${c//[[:space:]]/}" ]]; then
+                printf '%s\n' "$c" > "$CD/de_${de}"
+                # FIX 2: dedup DE arm content against template arm
+                local tmpl_de_c; tmpl_de_c=$(extract_case_arm "$tmpl" "XDG_SESSION_DESKTOP" "$kw")
+                [[ -z "${tmpl_de_c//[[:space:]]/}" ]] && tmpl_de_c=$(extract_case_arm "$tmpl" 'case.*[$]DE' "$kw")
+                if [[ -n "${tmpl_de_c//[[:space:]]/}" ]]; then
+                    printf '%s\n' "$tmpl_de_c" > "$CD/tmpl_de_${de}"
+                    dedup_against_template "$CD/de_${de}" "$CD/tmpl_de_${de}"
+                fi
+            fi
+        done
+
+        # PM arms (sudo only)
+        if $is_sudo; then
+            declare -A pm_var_map=(
+                [pamac]="PAMAC_CMD"   [dnf]="DNF_CMD"     [apt]="APT_CMD"
+                [pacman]="PACMAN_CMD" [zypper]="ZYPPER_CMD" [yum]="YUM_CMD"
+                [emerge]="EMERGE_CMD" [eopkg]="EOPKG_CMD"  [apk]="APK_CMD"
+            )
+            for pm in "${!pm_var_map[@]}"; do
+                local c; c=$(extract_case_arm "$old" 'case.*[$]PM' "$pm")
+                if [[ -z "${c//[[:space:]]/}" ]]; then
+                    c=$(extract_pm_elif_arm "$old" "${pm_var_map[$pm]}")
+                fi
+                if [[ -n "${c//[[:space:]]/}" ]]; then
+                    printf '%s\n' "$c" > "$CD/pm_${pm}"
+                    # FIX 2: dedup PM arm content against template arm
+                    extract_case_arm "$tmpl" 'case.*[$]PM' "$pm" > "$CD/tmpl_pm_${pm}"
+                    dedup_against_template "$CD/pm_${pm}" "$CD/tmpl_pm_${pm}"
+                fi
+            done
+        fi
+    fi
+
+    # Flatpak conversion on all extracted content files
+    for f in "$CD"/custom "$CD"/user_vars "$CD"/pm_* "$CD"/os_* "$CD"/de_*; do
+        [[ -s "$f" ]] && convert_flatpak_lines "$f"
+    done
+
+    # Report
+    local found_sections=""
+    [[ -s "$CD/user_vars" ]] && found_sections+=" UserVars"
+    [[ -s "$CD/custom" ]]    && found_sections+=" CustomCode"
+    for f in "$CD"/os_*;  do [[ -s "$f" ]] && [[ "$(basename "$f")" != tmpl_* ]] && found_sections+=" OS:$(basename "$f" | cut -d_ -f2-)"; done
+    for f in "$CD"/de_*;  do [[ -s "$f" ]] && [[ "$(basename "$f")" != tmpl_* ]] && found_sections+=" DE:$(basename "$f" | cut -d_ -f2-)"; done
+    for f in "$CD"/pm_*;  do [[ -s "$f" ]] && [[ "$(basename "$f")" != tmpl_* ]] && found_sections+=" PM:$(basename "$f" | cut -d_ -f2-)"; done
+    echo "      Content found:${found_sections:- (none – template will be clean copy)}"
+
+    # -----------------------------------------------------------------------
+    # Inject into new template
+    # FIX 1: user_vars injection skips template lines until the next ####
+    #        divider so FORCE_REINSTALL=false cannot appear twice.
+    # -----------------------------------------------------------------------
+    awk -v cd="$CD" '
+    function slurp(path,   line, buf) {
+        buf = ""
+        while ((getline line < path) > 0) buf = buf line "\n"
+        close(path)
+        return buf
+    }
+    function inject(path,   content) {
+        content = slurp(path)
+        if (content != "") printf "%s", content
+    }
+    function arm_canonical(section, arm_text,   s, low) {
+        s = arm_text; gsub(/^[[:space:]]+/, "", s); low = tolower(s)
+        if (section == "os") {
+            if (index(low,"manjaro")     > 0) return "os_manjaro"
+            if (index(low,"linuxmint")   > 0) return "os_linuxmint"
+            if (index(low,"ubuntu")      > 0) return "os_linuxmint"
+            if (index(low,"debian")      > 0) return "os_debian"
+            if (index(low,"pop")         > 0) return "os_debian"
+            if (index(low,"fedora")      > 0) return "os_fedora"
+            if (index(low,"nobara")      > 0) return "os_fedora"
+            if (index(low,"opensuse")    > 0) return "os_opensuse-tumbleweed"
+            if (index(low,"almalinux")   > 0) return "os_almalinux"
+            if (index(low,"arch")        > 0) return "os_arch"
+            if (index(low,"endeavouros") > 0) return "os_arch"
+            if (index(low,"argent")      > 0) return "os_argent"
+            if (index(low,"biglinux")    > 0) return "os_biglinux"
+            if (index(low,"cachyos")     > 0) return "os_cachyos"
+            if (index(low,"deepin")      > 0) return "os_deepin"
+            if (index(low,"garuda")      > 0) return "os_garuda"
+            if (index(low,"regataos")    > 0) return "os_regataos"
+            if (index(low,"solus")       > 0) return "os_solus"
+            if (index(low,"zorin")       > 0) return "os_zorin"
+        }
+        if (section == "de") {
+            if (index(low,"innamon")   > 0) return "de_cinnamon"
+            if (index(low,"gnome")     > 0) return "de_gnome"
+            if (index(low,"kde")       > 0) return "de_kde"
+            if (index(low,"lxde")      > 0) return "de_lxde"
+            if (index(low,"mate")      > 0) return "de_mate"
+            if (index(low,"unity")     > 0) return "de_unity"
+            if (index(low,"xfce")      > 0) return "de_xfce"
+            if (index(low,"osmic")     > 0) return "de_cosmic"
+            if (index(low,"budgie")    > 0) return "de_budgie"
+            if (index(s,   "LXQt")     > 0 || index(low,"lxqt") > 0) return "de_lxqt"
+            if (index(low,"anduinos")  > 0) return "de_anduinos"
+            if (index(low,"deepin")    > 0) return "de_deepin"
+            if (index(low,"default")   > 0) return "de_default"
+            if (index(low,"zorin")     > 0) return "de_zorin"
+        }
+        if (section == "pm") {
+            if (index(low,"pamac")   > 0) return "pm_pamac"
+            if (index(low,"dnf")     > 0) return "pm_dnf"
+            if (index(low,"apt")     > 0) return "pm_apt"
+            if (index(low,"pacman")  > 0) return "pm_pacman"
+            if (index(low,"zypper")  > 0) return "pm_zypper"
+            if (index(low,"yum")     > 0) return "pm_yum"
+            if (index(low,"emerge")  > 0) return "pm_emerge"
+            if (index(low,"eopkg")   > 0) return "pm_eopkg"
+            if (index(low,"apk")     > 0) return "pm_apk"
+        }
+        return ""
+    }
+
+    BEGIN { section=""; cur_arm=""; in_case=0; skip_uvars=0 }
+
+    /Package Manager Tasks/ { section="pm";     in_case=0; cur_arm="" }
+    /OS Specific Tasks/     { section="os";     in_case=0; cur_arm="" }
+    /DE Specific Tasks/     { section="de";     in_case=0; cur_arm="" }
+    /Installation Section/  { section="";       in_case=0; cur_arm="" }
+    /Custom Code/           { section="custom"; in_case=0; cur_arm="" }
+
+    section != "" && section != "custom" && /^[[:space:]]*case[[:space:]]/ { in_case=1 }
+    in_case && /^[[:space:]]*esac/ { in_case=0; cur_arm="" }
+
+    in_case && /\)[[:space:]]*$/ && !/^[[:space:]]*esac/ && !/^[[:space:]]*#/ {
+        s=$0; gsub(/^[[:space:]]+/,"",s)
+        if (s ~ /^[A-Za-z0-9_.*|!@%-]/ && s !~ /[$][(]/) {
+            name = arm_canonical(section, $0)
+            cur_arm = (name != "") ? name : ""
+        }
+        print; next
+    }
+
+    in_case && /^[[:space:]]*;;/ && cur_arm != "" {
+        inject(cd "/" cur_arm)
+        cur_arm = ""
+        print; next
+    }
+
+    # FIX 1: User vars injection – inject user content then skip template
+    # var-zone lines (up to next #### divider) so FORCE_REINSTALL etc.
+    # cannot appear twice.
+    /User Set Variables/ {
+        print
+        content = slurp(cd "/user_vars")
+        if (content != "") {
+            printf "%s", content
+            skip_uvars = 1
+        }
+        next
+    }
+    skip_uvars && /^[#]{10,}/ { skip_uvars=0; print; next }
+    skip_uvars { next }
+
+    /^#----- Add Your Code Here/ {
+        print
+        inject(cd "/custom")
+        next
+    }
+
+    { print }
+    ' "$tmpl" > "$out"
+
+    # FIX 3: Collapse runs of 2+ blank lines down to a single blank line.
+    # This cleans up the space between the last user command and exit 0
+    # without touching any non-blank content.
+    local tmp_post; tmp_post=$(mktemp)
+    awk '
+    /^[[:space:]]*$/ { blanks++; next }
+    { if (blanks > 0) { print ""; blanks=0 } print }
+    END { if (blanks > 0) print "" }
+    ' "$out" > "$tmp_post"
+    mv "$tmp_post" "$out"
+
+    chmod +x "$out"
+    echo "      Written: $out"
+}
+
+# ===========================================================================
+# FOLDER PROCESSING
+# ===========================================================================
+process_folder() {
+    local folder="$1"
+    local folder_name; folder_name=$(basename "$folder")
+
+    echo ""
+    echo "======================================================"
+    echo "  Processing folder: $folder_name"
+    echo "======================================================"
+
+    local do_user=true do_sudo=true
+    [[ ! -f "$TEMPLATE_USER" ]] && { echo "  WARN: $TEMPLATE_USER not found – skipping LLScript.sh";      do_user=false; }
+    [[ ! -f "$TEMPLATE_SUDO" ]] && { echo "  WARN: $TEMPLATE_SUDO not found – skipping LLScript_Sudo.sh"; do_sudo=false; }
+    if ! $do_user && ! $do_sudo; then echo "  ERROR: No templates found. Skipping."; return 1; fi
+
+    local did_something=false
+
+    if $do_user && [[ -f "$folder/LLScript.sh" ]]; then
+        echo ""
+        echo "  --- LLScript.sh ---"
+        local tmp_old; tmp_old=$(mktemp)
+        cp "$folder/LLScript.sh" "$tmp_old"
+        migrate_script "$tmp_old" "$TEMPLATE_USER" "$folder/LLScript.sh"
+        rm -f "$tmp_old"
+        did_something=true
+    elif $do_user; then
+        echo "  (LLScript.sh not present in folder – skipping)"
+    fi
+
+    if $do_sudo && [[ -f "$folder/LLScript_Sudo.sh" ]]; then
+        echo ""
+        echo "  --- LLScript_Sudo.sh ---"
+        local tmp_old; tmp_old=$(mktemp)
+        cp "$folder/LLScript_Sudo.sh" "$tmp_old"
+        migrate_script "$tmp_old" "$TEMPLATE_SUDO" "$folder/LLScript_Sudo.sh"
+        rm -f "$tmp_old"
+        did_something=true
+    elif $do_sudo; then
+        echo "  (LLScript_Sudo.sh not present in folder – skipping)"
+    fi
+
+    if ! $did_something; then
+        echo "  No LLScript files found in folder – nothing to do."
+    fi
+}
+
+# ===========================================================================
+# SINGLE SCRIPT PROCESSING
+# ===========================================================================
+process_script() {
+    local script_file="$1"
+    local script_name; script_name=$(basename "$script_file")
+
+    case "$script_name" in
+        LLScript.sh)      local tmpl="$TEMPLATE_USER" ;;
+        LLScript_Sudo.sh) local tmpl="$TEMPLATE_SUDO" ;;
+        *)
+            echo "Skipping (not LLScript.sh or LLScript_Sudo.sh): $script_name"
+            return 0
+            ;;
+    esac
+
+    if [[ ! -f "$tmpl" ]]; then
+        echo "  ERROR: Template not found for $script_name: $tmpl"
+        return 1
+    fi
+
+    echo ""
+    echo "======================================================"
+    echo "  Processing script: $script_name"
+    echo "======================================================"
+
+    local tmp_old; tmp_old=$(mktemp)
+    cp "$script_file" "$tmp_old"
+    migrate_script "$tmp_old" "$tmpl" "$script_file"
+    rm -f "$tmp_old"
+
+    echo "  ✓ Done: $script_name"
+}
+
+# ===========================================================================
+# TAR PROCESSING
+# ===========================================================================
+process_tar() {
+    local tar_file="$1"
+    local tar_name; tar_name=$(basename "$tar_file")
+    local WORK; WORK=$(mktemp -d)
+    trap "rm -rf '$WORK'" RETURN
+
+    echo ""
+    echo "======================================================"
+    echo "  Processing: $tar_name"
+    echo "======================================================"
+
+    local do_user=true do_sudo=true
+    [[ ! -f "$TEMPLATE_USER" ]] && { echo "  WARN: $TEMPLATE_USER not found – skipping LLScript.sh";      do_user=false; }
+    [[ ! -f "$TEMPLATE_SUDO" ]] && { echo "  WARN: $TEMPLATE_SUDO not found – skipping LLScript_Sudo.sh"; do_sudo=false; }
+    if ! $do_user && ! $do_sudo; then echo "  ERROR: No templates found. Skipping."; return 1; fi
+
+    # Find the exact in-archive paths for LLScript.sh / LLScript_Sudo.sh
+    # (they may be at root level or inside a subdirectory)
+    local path_user path_sudo
+    path_user=$(tar tf "$tar_file" 2>/dev/null | grep -E '(^|/)LLScript\.sh$'      | head -1)
+    path_sudo=$(tar tf "$tar_file" 2>/dev/null | grep -E '(^|/)LLScript_Sudo\.sh$' | head -1)
+
+    local did_something=false
+
+    if $do_user && [[ -n "$path_user" ]]; then
+        echo ""
+        echo "  --- LLScript.sh ---"
+        # Extract only this one file, preserving its subdirectory structure in WORK
+        tar xf "$tar_file" -C "$WORK" "$path_user" 2>/dev/null
+        local extracted_user="$WORK/$path_user"
+        local tmp_old; tmp_old=$(mktemp)
+        cp "$extracted_user" "$tmp_old"
+        migrate_script "$tmp_old" "$TEMPLATE_USER" "$extracted_user"
+        rm -f "$tmp_old"
+        # Write the updated file back into the archive in-place (no rebuild)
+        ( cd "$WORK" && tar uf "$tar_file" "$path_user" )
+        did_something=true
+    elif $do_user; then
+        echo "  (LLScript.sh not present in package – skipping)"
+    fi
+
+    if $do_sudo && [[ -n "$path_sudo" ]]; then
+        echo ""
+        echo "  --- LLScript_Sudo.sh ---"
+        tar xf "$tar_file" -C "$WORK" "$path_sudo" 2>/dev/null
+        local extracted_sudo="$WORK/$path_sudo"
+        local tmp_old; tmp_old=$(mktemp)
+        cp "$extracted_sudo" "$tmp_old"
+        migrate_script "$tmp_old" "$TEMPLATE_SUDO" "$extracted_sudo"
+        rm -f "$tmp_old"
+        ( cd "$WORK" && tar uf "$tar_file" "$path_sudo" )
+        did_something=true
+    elif $do_sudo; then
+        echo "  (LLScript_Sudo.sh not present in package – skipping)"
+    fi
+
+    if ! $did_something; then
+        echo "  No LLScript files found in package – nothing to do."
+        return 0
+    fi
+
+    echo "  ✓ Done: $tar_name"
+}
+
+# ===========================================================================
+# MAIN
+# ===========================================================================
+if   [[ -n "$NEMO_SCRIPT_SELECTED_FILE_PATHS" ]];    then
+    mapfile -t SELECTED < <(printf '%s' "$NEMO_SCRIPT_SELECTED_FILE_PATHS")
+elif [[ -n "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS" ]]; then
+    mapfile -t SELECTED < <(printf '%s' "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS")
+else
+    SELECTED=("$@")
+fi
+
+if [[ "${#SELECTED[@]}" -eq 0 ]]; then
+    zenity --error --text="No files selected." 2>/dev/null || true
+    exit 1
+fi
+
+run_upgrade() {
+    local had_error=0
+    for FILE in "$@"; do
+        FILE="${FILE%$'\r'}"
+        [[ -z "$FILE" ]] && continue
+        if [[ -d "$FILE" ]]; then
+            process_folder "$FILE" || had_error=1
+        elif [[ "${FILE,,}" == *.sh ]]; then
+            process_script "$FILE" || had_error=1
+        elif [[ "${FILE,,}" == *.tar ]]; then
+            process_tar "$FILE" || had_error=1
+        else
+            echo "Skipping (unsupported type): $(basename "$FILE")"
+        fi
+    done
+
+    echo ""
+    if [[ "$had_error" -ne 0 ]]; then
+        echo "======================================================"
+        echo "  One or more upgrades failed. See output above."
+        echo "======================================================"
+        read -rp "Press Enter to close..." || true
+    else
+        echo "======================================================"
+        echo "  All upgrades completed successfully."
+        echo "======================================================"
+        sleep 3
+    fi
+}
+
+QUOTED_ARGS="$(printf '%q ' "${SELECTED[@]}")"
+TERMS=(gnome-terminal konsole kde-ptyxis xfce4-terminal lxterminal x-terminal-emulator xterm)
+for T in "${TERMS[@]}"; do
+    if command -v "$T" &>/dev/null; then
+        CMD="$(declare -f convert_flatpak_lines dedup_against_template detect_gen \
+               extract_case_arm extract_pm_elif_arm extract_custom_code \
+               extract_user_vars migrate_script process_folder process_script process_tar run_upgrade)"
+        CMD+="
+TEMPLATES_DIR='$TEMPLATES_DIR'
+TEMPLATE_USER='$TEMPLATE_USER'
+TEMPLATE_SUDO='$TEMPLATE_SUDO'
+run_upgrade $QUOTED_ARGS"
+        case "$T" in
+            gnome-terminal) "$T" -- bash -c "$CMD" ;;
+            *)              "$T" -e bash -c "$CMD" ;;
+        esac
+        exit 0
+    fi
+done
+
+run_upgrade "${SELECTED[@]}"

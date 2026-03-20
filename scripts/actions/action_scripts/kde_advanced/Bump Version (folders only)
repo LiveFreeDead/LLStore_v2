@@ -1,0 +1,44 @@
+#!/bin/bash
+# Nemo Action Script: Bump version in LLApp.lla or LLGame.llg
+# Place in ~/.local/share/nemo/scripts/ and make executable
+
+updated=0
+
+for folder in "$@"; do
+    # Skip if not a directory
+    [ -d "$folder" ] || continue
+
+    # Find the first matching file
+    target=""
+    for name in "LLApp.lla" "LLGame.llg"; do
+        candidate="$folder/$name"
+        if [ -f "$candidate" ]; then
+            target="$candidate"
+            break
+        fi
+    done
+
+    # Skip if no matching file found
+    [ -n "$target" ] || continue
+
+    # Check the Version line exists (with or without leading v)
+    version_line=$(grep -m1 '^Version=' "$target")
+    [ -n "$version_line" ] || continue
+
+    # Extract the numeric part, stripping optional leading v
+    current=$(echo "$version_line" | sed 's/^Version=v*//')
+
+    # Skip if version has more than one decimal point
+    dot_count=$(echo "$current" | tr -cd '.' | wc -c)
+    [ "$dot_count" -le 1 ] || continue
+
+    # Increment by 0.01 using awk (handles float precision cleanly)
+    new_version=$(awk -v v="$current" 'BEGIN { printf "%.2f", v + 0.01 }')
+
+    # Replace the line in-place (no backup)
+    sed -i "s/^Version=v*.*/Version=v${new_version}/" "$target"
+
+    updated=$((updated + 1))
+done
+
+notify-send "LL Version Bump" "Updated $updated item(s)"

@@ -1,0 +1,100 @@
+#!/bin/bash
+# LLStore – Make SFX  (Nemo Script)
+# Place in ~/.local/share/nemo/scripts/
+# chmod +x it, then right-click any supported LLStore package → Scripts → Make SFX
+#
+# Supported types: .tar .lla .llg .app .ppg .apz .pgz
+
+MAKE_SFX="/opt/LastOS/LLStore/Tools/make_sfx.sh"
+
+if [ ! -f "$MAKE_SFX" ]; then
+    zenity --error --text="make_sfx.sh not found at:\n$MAKE_SFX" 2>/dev/null \
+        || xmessage "make_sfx.sh not found at: $MAKE_SFX"
+    exit 1
+fi
+
+if [ -n "$NEMO_SCRIPT_SELECTED_FILE_PATHS" ]; then
+    mapfile -t SELECTED < <(printf '%s' "$NEMO_SCRIPT_SELECTED_FILE_PATHS")
+else
+    SELECTED=("$@")
+fi
+
+if [ "${#SELECTED[@]}" -eq 0 ]; then
+    zenity --error --text="No files selected." 2>/dev/null || true
+    exit 1
+fi
+
+is_supported_ext() {
+    case "${1,,}" in
+        *.tar|*.lla|*.llg|*.app|*.ppg|*.apz|*.pgz) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+run_builds() {
+    local make_sfx="$1"; shift
+    local had_error=0
+
+    for FILE in "$@"; do
+        FILE="${FILE%$'\r'}"
+        [ -z "$FILE" ] && continue
+
+        if ! is_supported_ext "$FILE"; then
+            echo "Skipping (unsupported type): $FILE"
+            continue
+        fi
+
+        OUTPUT_DIR="$(dirname "$FILE")"
+        echo "======================================================"
+        echo "  Building SFX for: $(basename "$FILE")"
+        echo "  Output dir:       $OUTPUT_DIR"
+        echo "======================================================"
+        echo ""
+
+        bash "$make_sfx" "$FILE" "$OUTPUT_DIR"
+        STATUS=$?
+
+        echo ""
+        if [ "$STATUS" -eq 0 ]; then
+            echo "  ✓ Done: $(basename "$FILE")"
+        else
+            echo "  ✗ Failed (status $STATUS): $(basename "$FILE")"
+            had_error=1
+        fi
+        echo ""
+    done
+
+    if [ "$had_error" -ne 0 ]; then
+        echo "======================================================"
+        echo "  One or more builds failed. See output above."
+        echo "======================================================"
+        read -rp "Press Enter to close..." || true
+    else
+        echo "======================================================"
+        echo "  All builds completed successfully."
+        echo "======================================================"
+        sleep 2
+    fi
+}
+
+# Build safely quoted args – MAKE_SFX is passed as first argument so the
+# subshell doesn't need to inherit any variables at all.
+QUOTED_ARGS="$(printf '%q' "$MAKE_SFX")"
+for F in "${SELECTED[@]}"; do
+    QUOTED_ARGS="$QUOTED_ARGS $(printf '%q' "$F")"
+done
+
+TERMS=(gnome-terminal konsole kde-ptyxis xfce4-terminal lxterminal x-terminal-emulator xterm)
+for T in "${TERMS[@]}"; do
+    if command -v "$T" &>/dev/null; then
+        CMD="$(declare -f is_supported_ext run_builds); run_builds $QUOTED_ARGS"
+        case "$T" in
+            gnome-terminal) "$T" -- bash -c "$CMD" ;;
+            *)              "$T" -e bash -c "$CMD" ;;
+        esac
+        exit 0
+    fi
+done
+
+# No GUI terminal – run directly
+run_builds "$MAKE_SFX" "${SELECTED[@]}"

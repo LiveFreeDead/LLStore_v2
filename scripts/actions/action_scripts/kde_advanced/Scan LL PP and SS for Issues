@@ -1,0 +1,339 @@
+#!/bin/bash
+
+# Nemo script: Scan LL / PP / SS items for metadata and image issues.
+#
+# Accepts any mix of:
+#   • Folders          – recursively finds all metadata files inside
+#   • Metadata files   – LLApp.lla  LLGame.llg  ppApp.app  ppGame.ppg  ssApp.app
+#                        (right-click the file directly; its parent folder is scanned)
+#   • Archives         – .tar  .apz  .pgz
+#                        (metadata extracted to a temp dir; archive contents listed for images)
+#
+# Checks performed on every metadata file found:
+#   Fields  : Description=  Category=  Catalog=  InstalledSize=
+#   Images  : <BuildType>.jpg  (screenshot)   <BuildType>.png  (icon)
+#             where BuildType = LLApp | LLGame | ppApp | ppGame | ssApp
+#
+# Report written to: ~/Desktop/LLFile_Missing_Data.txt
+
+REPORT="$HOME/Desktop/LLFile_Missing_Data.txt"
+> "$REPORT"
+
+IFS=$'\n'
+
+echo "LL / PP / SS Issue Scan Report"   >> "$REPORT"
+echo "Generated: $(date)"               >> "$REPORT"
+echo "=========================================="  >> "$REPORT"
+echo >> "$REPORT"
+
+# ---------------------------------------------------------------------------
+# build_type_prefix <meta_basename>
+#   Returns the image filename prefix that matches the build type.
+#   e.g.  LLApp.lla → LLApp   ppApp.app → ppApp   ssApp.app → ssApp
+# ---------------------------------------------------------------------------
+build_type_prefix() {
+    case "$1" in
+        LLApp.lla)  echo "LLApp"  ;;
+        LLGame.llg) echo "LLGame" ;;
+        ppApp.app)  echo "ppApp"  ;;
+        ppGame.ppg) echo "ppGame" ;;
+        ssApp.app)  echo "ssApp"  ;;
+        *)          echo ""       ;;
+    esac
+}
+
+# ---------------------------------------------------------------------------
+# check_meta_file <file> <source_label> <has_jpg_flag> <has_png_flag>
+#   file         – path to the extracted/local metadata file
+#   source_label – human-readable origin shown in the report
+#   has_jpg_flag – "yes" | "no"  (was the screenshot image found?)
+#   has_png_flag – "yes" | "no"  (was the icon image found?)
+# ---------------------------------------------------------------------------
+check_meta_file() {
+    local file="$1"
+    local src="$2"
+    local has_jpg="$3"
+    local has_png="$4"
+    local errors=()
+
+    # ── Field checks ────────────────────────────────────────────────────────
+    local desc catg cata size
+    desc=$(grep -m1 '^Description='   "$file" | cut -d= -f2-)
+    catg=$(grep -m1 '^Category='      "$file" | cut -d= -f2-)
+    cata=$(grep -m1 '^Catalog='       "$file" | cut -d= -f2-)
+    size=$(grep -m1 '^InstalledSize=' "$file" | cut -d= -f2-)
+
+    if ! grep -q '^Description=' "$file"; then
+        errors+=("Description= is missing")
+    elif [[ -z "$desc" ]]; then
+        errors+=("Description= is present but empty")
+    fi
+
+    if ! grep -q '^Category=' "$file"; then
+        errors+=("Category= is missing")
+    elif [[ -z "$catg" ]]; then
+        errors+=("Category= is present but empty / not set")
+    fi
+
+    if ! grep -q '^Catalog=' "$file"; then
+        errors+=("Catalog= is missing")
+    elif [[ -z "$cata" ]]; then
+        errors+=("Catalog= is present but empty / not set")
+    fi
+
+    if ! grep -q '^InstalledSize=' "$file"; then
+        errors+=("InstalledSize= is missing")
+    elif [[ -z "$size" ]]; then
+        errors+=("InstalledSize= is present but empty / not set")
+    fi
+
+    # ── Image checks ────────────────────────────────────────────────────────
+    [[ "$has_jpg" == "no" ]] && errors+=("Missing Screenshot ($(build_type_prefix "$(basename "$file")").jpg)")
+    [[ "$has_png" == "no" ]] && errors+=("Missing Icon ($(build_type_prefix "$(basename "$file")").png)")
+
+    # ── Write report block if anything failed ────────────────────────────
+    if [ ${#errors[@]} -gt 0 ]; then
+        echo "Source: $src"                      >> "$REPORT"
+        echo "File:   $(basename "$file")"       >> "$REPORT"
+        echo "------------------------------------------" >> "$REPORT"
+        for e in "${errors[@]}"; do
+            echo " - $e" >> "$REPORT"
+        done
+        echo >> "$REPORT"
+        echo >> "$REPORT"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# check_folder_meta <file>
+#   Checks a metadata file that lives on disk.
+#   Image files are looked up as siblings in the same directory.
+# ---------------------------------------------------------------------------
+check_folder_meta() {
+    local file="$1"
+    local dir prefix has_jpg has_png
+
+    dir="$(dirname "$file")"
+    prefix="$(build_type_prefix "$(basename "$file")")"
+
+    if [[ -n "$prefix" ]]; then
+        [[ -f "$dir/$prefix.jpg" ]] && has_jpg="yes" || has_jpg="no"
+        [[ -f "$dir/$prefix.png" ]] && has_png="yes" || has_png="no"
+    else
+        has_jpg="yes"   # unknown type — don't flag image issues
+        has_png="yes"
+    fi
+
+    check_meta_file "$file" "$file" "$has_jpg" "$has_png"
+}
+
+# ---------------------------------------------------------------------------
+# archive_has_file <archive_listing> <filename>
+#   Returns 0 (true) if filename appears anywhere in the pre-built listing.
+# ---------------------------------------------------------------------------
+archive_has_file() {
+    local listing="$1"
+    local name="$2"
+    grep -qF "$name" <<< "$listing"
+}
+
+# ---------------------------------------------------------------------------
+# process_archive <archive>
+#   Extracts metadata files to a temp dir; checks images by listing the archive.
+# ---------------------------------------------------------------------------
+process_archive() {
+    local archive="$1"
+    local tmpdir listing
+
+    tmpdir=$(mktemp -d)
+    echo "Scanning archive: $(basename "$archive")"
+
+    # ── Extract metadata files only ──────────────────────────────────────
+    case "$archive" in
+        *.tar)
+            tar -xf "$archive" -C "$tmpdir" \
+                --wildcards \
+                '*/LLGame.llg' '*/LLApp.lla' '*/ppGame.ppg' '*/ppApp.app' '*/ssApp.app' \
+                'LLGame.llg'   'LLApp.lla'   'ppGame.ppg'   'ppApp.app'   'ssApp.app' \
+                2>/dev/null
+            ;;
+        *.apz|*.pgz)
+            7z e "$archive" \
+                LLGame.llg LLApp.lla ppGame.ppg ppApp.app ssApp.app \
+                -o"$tmpdir" -y >/dev/null 2>&1
+            ;;
+    esac
+
+    # ── Build a single listing of all filenames in the archive ───────────
+    # Used for image lookups — avoids extracting large image files.
+    case "$archive" in
+        *.tar)
+            listing=$(tar -tf "$archive" 2>/dev/null | xargs -I{} basename {})
+            ;;
+        *.apz|*.pgz)
+            listing=$(7z l "$archive" 2>/dev/null \
+                | awk '/^---/{p=!p;next} p && $NF!="" {print $NF}' \
+                | xargs -I{} basename {})
+            ;;
+        *)
+            listing=""
+            ;;
+    esac
+
+    # ── Check each extracted metadata file ──────────────────────────────
+    find "$tmpdir" -type f \( \
+        -name "LLGame.llg" -o \
+        -name "LLApp.lla"  -o \
+        -name "ppGame.ppg" -o \
+        -name "ppApp.app"  -o \
+        -name "ssApp.app" \
+    \) | sort | while IFS= read -r meta; do
+        local prefix has_jpg has_png
+        prefix="$(build_type_prefix "$(basename "$meta")")"
+
+        if [[ -n "$prefix" ]]; then
+            archive_has_file "$listing" "$prefix.jpg" && has_jpg="yes" || has_jpg="no"
+            archive_has_file "$listing" "$prefix.png" && has_png="yes" || has_png="no"
+        else
+            has_jpg="yes"
+            has_png="yes"
+        fi
+
+        check_meta_file "$meta" "$archive" "$has_jpg" "$has_png"
+    done
+
+    rm -rf "$tmpdir"
+}
+
+# ---------------------------------------------------------------------------
+# run_scan <items...>
+# ---------------------------------------------------------------------------
+run_scan() {
+    local had_error=0
+
+    for item in "$@"; do
+        item="${item%$'\r'}"
+        [[ -z "$item" ]] && continue
+
+        # ── Direct metadata file (right-click on .lla / .llg / .app etc.) ─
+        if [[ -f "$item" ]]; then
+            case "$(basename "$item")" in
+                LLApp.lla|LLGame.llg|ppApp.app|ppGame.ppg|ssApp.app)
+                    echo "Scanning: $(basename "$item") ($(dirname "$item"))"
+                    check_folder_meta "$item"
+                    continue
+                    ;;
+            esac
+        fi
+
+        # ── Folder ────────────────────────────────────────────────────────
+        if [[ -d "$item" ]]; then
+            echo "Scanning folder: $item"
+
+            # Loose metadata files in subfolders
+            find "$item" -type f \( \
+                -name "LLGame.llg" -o \
+                -name "LLApp.lla"  -o \
+                -name "ppGame.ppg" -o \
+                -name "ppApp.app"  -o \
+                -name "ssApp.app" \
+            \) | sort | while IFS= read -r file; do
+                check_folder_meta "$file"
+            done
+
+            # Archives inside the folder (.tar .apz .pgz)
+            find "$item" -type f \( \
+                -name "*.tar" -o \
+                -name "*.apz" -o \
+                -name "*.pgz" \
+            \) | sort | while IFS= read -r archive; do
+                process_archive "$archive"
+            done
+
+            continue
+        fi
+
+        # ── Archive ───────────────────────────────────────────────────────
+        if [[ -f "$item" ]]; then
+            case "$item" in
+                *.tar|*.apz|*.pgz)
+                    process_archive "$item" || had_error=1
+                    ;;
+                *)
+                    echo "Skipping unsupported file type: $(basename "$item")"
+                    ;;
+            esac
+            continue
+        fi
+    done
+
+    # ── Finalise report ───────────────────────────────────────────────────
+    echo "" >> "$REPORT"
+    echo "==========================================" >> "$REPORT"
+    echo "Scan complete: $(date)" >> "$REPORT"
+
+    echo ""
+    if [[ "$had_error" -ne 0 ]]; then
+        echo "======================================================"
+        echo "  One or more items failed to scan. See output above."
+        echo "======================================================"
+        read -rp "Press Enter to close..." || true
+    else
+        echo "======================================================"
+        echo "  Scan complete. Report saved to:"
+        echo "  $REPORT"
+        echo "======================================================"
+        sleep 4
+    fi
+}
+
+# ===========================================================================
+# Entry point — terminal wrapper
+# ===========================================================================
+if   [[ -n "$NEMO_SCRIPT_SELECTED_FILE_PATHS" ]];     then
+    mapfile -t SELECTED < <(printf '%s' "$NEMO_SCRIPT_SELECTED_FILE_PATHS")
+elif [[ -n "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS" ]]; then
+    mapfile -t SELECTED < <(printf '%s' "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS")
+else
+    SELECTED=("$@")
+fi
+
+if [[ "${#SELECTED[@]}" -eq 0 ]]; then
+    zenity --error --text="No files selected." 2>/dev/null || true
+    exit 1
+fi
+
+QUOTED_ARGS="$(printf '%q ' "${SELECTED[@]}")"
+TERMS=(gnome-terminal konsole kde-ptyxis xfce4-terminal lxterminal x-terminal-emulator xterm)
+
+TMP_RUNNER=$(mktemp)
+chmod +x "$TMP_RUNNER"
+
+{
+    echo "#!/bin/bash"
+    declare -f build_type_prefix check_meta_file check_folder_meta \
+               archive_has_file process_archive run_scan
+    echo "REPORT=$(printf '%q' "$REPORT")"
+    echo "> \"\$REPORT\""
+    printf 'echo "%s" >> "$REPORT"\n' \
+        "LL / PP / SS Issue Scan Report" \
+        "Generated: $(date)" \
+        "==========================================" \
+        ""
+    echo "run_scan $QUOTED_ARGS"
+    echo "rm -f \"\$0\""
+} > "$TMP_RUNNER"
+
+for T in "${TERMS[@]}"; do
+    if command -v "$T" &>/dev/null; then
+        case "$T" in
+            gnome-terminal) "$T" -- "$TMP_RUNNER" ;;
+            *)              "$T" -e "$TMP_RUNNER" ;;
+        esac
+        exit 0
+    fi
+done
+
+# No terminal found — run inline
+run_scan "${SELECTED[@]}"
+rm -f "$TMP_RUNNER"

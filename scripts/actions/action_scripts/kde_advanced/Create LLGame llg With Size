@@ -1,0 +1,100 @@
+#!/bin/bash
+# Cinnamon Script
+# Creates LLGame.llg inside each selected folder
+# and auto-fills InstalledSize= in KB
+
+IFS=$'\n'
+
+# Get uncompressed size from archive without extracting
+get_size_from_archive() {
+    local archive="$1"
+    local total_bytes=0
+
+    case "$archive" in
+        *.tar.gz)
+            while read -r size; do
+                total_bytes=$((total_bytes + size))
+            done < <(tar -tvzf "$archive" | awk '{print $3}')
+            ;;
+        *.7z)
+            while read -r size; do
+                total_bytes=$((total_bytes + size))
+            done < <(7z l "$archive" | awk '
+                /^-------------------/ {p=!p; next}
+                p && $1 ~ /^[0-9]/ {print $4}
+            ')
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    # Bytes → KB (round up)
+    echo $(( (total_bytes + 1023) / 1024 ))
+}
+
+# Get folder size (KB)
+get_size_from_folder() {
+    local folder="$1"
+    du -sk "$folder" | cut -f1
+}
+
+for folder in "$@"; do
+    [ -d "$folder" ] || continue
+
+    FOLDER_NAME="$(basename "$folder")"
+    FOLDER_NAME_DOTS="${FOLDER_NAME// /.}"
+    TODAY="$(date +%Y-%m-%d)"
+    OUTPUT_FILE="$folder/LLGame.llg"
+
+    # Prefer archive size
+    if [ -f "$folder/LLGame.tar.gz" ]; then
+        INSTALLED_SIZE=$(get_size_from_archive "$folder/LLGame.tar.gz")
+        echo "Using archive size for $FOLDER_NAME"
+    elif [ -f "$folder/ppGame.7z" ]; then
+        INSTALLED_SIZE=$(get_size_from_archive "$folder/ppGame.7z")
+        echo "Using archive size for $FOLDER_NAME"
+    else
+        INSTALLED_SIZE=$(get_size_from_folder "$folder")
+        echo "Using folder size for $FOLDER_NAME"
+    fi
+
+    # Safety fallback
+    [ -z "$INSTALLED_SIZE" ] && INSTALLED_SIZE=0
+
+    cat > "$OUTPUT_FILE" <<EOF
+[LLFile]
+Title=$FOLDER_NAME
+Version=v1.01
+Description=
+URL=
+Category=
+BuildType=LLGame
+AppPath=%LLGames%/$FOLDER_NAME_DOTS
+Priority=5
+DECompatible=All-Linux
+PMCompatible=All
+ArchCompatible=x86 + x64
+[Meta]
+InstalledSize=$INSTALLED_SIZE
+Publisher=
+Rating=
+Players=1
+ReleaseDate=$TODAY
+License=1
+[$FOLDER_NAME.desktop]
+Exec=%AppPath%/run.sh
+Comment=
+Path=%AppPath%
+Icon=%AppPath%/LLGame.png
+Categories=Game;
+Terminal=False
+EOF
+
+    echo "Created: $OUTPUT_FILE (InstalledSize=$INSTALLED_SIZE KB)"
+
+#Open in Editor
+/opt/LastOS/LLStore/llstore -e "$OUTPUT_FILE"
+
+done
+

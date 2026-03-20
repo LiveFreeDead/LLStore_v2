@@ -1,0 +1,106 @@
+#!/bin/bash
+# Extract LL and PP Archives
+# Extracts selected LLStore/PPStore archives and folders.
+#
+# Supported inputs:
+#   OUTER ARCHIVES (.tar, .apz, .pgz)
+#     Creates a subfolder named after the archive (minus extension).
+#     Extracts the outer archive into it.
+#     Then extracts any inner LL/PP archives found inside (see below) and
+#     deletes them after successful extraction.
+#     Deletes the outer archive on success.
+#
+#   FOLDERS
+#     Scans the folder directly for inner LL/PP archives and extracts them.
+#
+#   DIRECT ARCHIVES (.7z, .tar.gz)
+#     Extracts to the same folder, then deletes the archive.
+#
+#   Inner LL/PP archives (processed inside folders):
+#     LLGame.tar.gz  LLApp.tar.gz  ppGame.7z  ppApp.7z
+
+IFS=$'\n'
+
+# ---------------------------------------------------------------------------
+# extract_inner_archives <dir>
+# ---------------------------------------------------------------------------
+extract_inner_archives() {
+    local dir="$1"
+    for archive in "$dir/LLGame.tar.gz" "$dir/LLApp.tar.gz" \
+                   "$dir/ppGame.7z"     "$dir/ppApp.7z"; do
+        [ -f "$archive" ] || continue
+        echo "  Found inner archive: $(basename "$archive")"
+        cd "$dir" || continue
+        case "$archive" in
+            *.tar.gz) tar -xzf "$(basename "$archive")"; status=$? ;;
+            *.7z)     7z x     "$(basename "$archive")"; status=$? ;;
+            *)        status=1 ;;
+        esac
+        if [ $status -eq 0 ]; then
+            echo "  Extracted OK — deleting: $(basename "$archive")"
+            rm -f "$archive"
+        else
+            echo "  ERROR extracting: $(basename "$archive")"
+        fi
+    done
+}
+
+# ---------------------------------------------------------------------------
+# Main loop — safe for paths with spaces
+# ---------------------------------------------------------------------------
+if   [ -n "$NEMO_SCRIPT_SELECTED_FILE_PATHS" ];    then PATHS="$NEMO_SCRIPT_SELECTED_FILE_PATHS"
+elif [ -n "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS" ]; then PATHS="$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS"
+else PATHS=$(printf '%s\n' "$@"); fi
+
+while IFS= read -r item; do
+    [ -z "$item" ] && continue
+
+    # ── FOLDER ────────────────────────────────────────────────────────────
+    if [ -d "$item" ]; then
+        echo "Scanning folder: $item"
+        extract_inner_archives "$item"
+        continue
+    fi
+
+    [ -f "$item" ] || continue
+    filename="$(basename "$item")"
+    parent_dir="$(dirname "$item")"
+
+    case "$filename" in
+
+        # ── OUTER ARCHIVES (.tar, .apz, .pgz) ─────────────────────────────
+        *.tar|*.apz|*.pgz)
+            subfolder="${filename%.*}"
+            dest="$parent_dir/$subfolder"
+            echo "Outer archive: $filename  →  $dest"
+            mkdir -p "$dest"
+            cd "$parent_dir" || continue
+            case "$filename" in
+                *.tar)      tar -xf "$filename" -C "$dest"; status=$? ;;
+                *.apz|*.pgz) 7z x "$filename" -o"$dest";  status=$? ;;
+            esac
+            if [ $status -eq 0 ]; then
+                echo "  Outer extraction OK — scanning for inner archives"
+                extract_inner_archives "$dest"
+                echo "  Deleting outer archive: $filename"
+                rm -f "$item"
+            else
+                echo "  ERROR extracting outer archive: $filename"
+            fi
+            ;;
+
+        # ── DIRECT ARCHIVES (.tar.gz, .7z) ────────────────────────────────
+        *.tar.gz)
+            echo "Direct TAR.GZ: $filename"
+            cd "$parent_dir" && tar -xzf "$filename" && rm -f "$item" \
+                || echo "  ERROR extracting: $filename"
+            ;;
+        *.7z)
+            echo "Direct 7Z: $filename"
+            cd "$parent_dir" && 7z x "$filename" && rm -f "$item" \
+                || echo "  ERROR extracting: $filename"
+            ;;
+    esac
+done <<< "$PATHS"
+
+exit 0

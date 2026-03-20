@@ -1,0 +1,39 @@
+#!/bin/bash
+# Open .run Archive
+# Peeks inside an LLStore SFX (.run) file without running it.
+# Strips the shell header and opens the embedded .tar.gz in Archive Manager
+# (file-roller) so you can inspect or extract its contents safely.
+#
+# An LLStore SFX file is a self-extracting bash script with a tar.gz payload
+# appended after a "__ARCHIVE_FOLLOWS__" marker line.
+
+PATHS="${NEMO_SCRIPT_SELECTED_FILE_PATHS:-$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS}"
+if [ -n "$PATHS" ]; then
+    INPUT=$(printf '%s' "$PATHS" | head -n 1)
+else
+    INPUT="$1"
+fi
+
+[ -z "$INPUT" ] && { echo "Usage: $0 <file.run>"; exit 1; }
+
+SELF="$(readlink -f "$INPUT")"
+[ -f "$SELF" ] || { echo "Error: File not found: $INPUT"; exit 1; }
+
+# Find the line number AFTER the __ARCHIVE_FOLLOWS__ marker
+SKIP=$(awk '/^__ARCHIVE_FOLLOWS__$/ { print NR + 1; exit }' "$SELF")
+
+if [ -z "$SKIP" ]; then
+    zenity --error --text="Could not find __ARCHIVE_FOLLOWS__ marker.\nThis may not be an LLStore SFX file." 2>/dev/null \
+        || echo "Error: not an LLStore SFX file."
+    exit 1
+fi
+
+BASENAME=$(basename "$SELF" .run)
+OUT="/tmp/${BASENAME}.tar.gz"
+
+echo "Extracting embedded archive (starts at line $SKIP)..."
+tail -n +"$SKIP" "$SELF" > "$OUT"
+
+echo "Saved to: $OUT"
+echo "Opening in Archive Manager..."
+file-roller "$OUT" &

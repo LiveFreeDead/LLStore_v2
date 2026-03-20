@@ -1,0 +1,687 @@
+#!/bin/bash
+
+# Nemo script:
+# Update InstalledSize= for ALL metadata files found.
+#
+# Rules:
+#  - Only modify files that contain a [Meta] section.
+#  - For folders: prefer uncompressed size from inner archive (LLGame.tar.gz etc),
+#    fall back to folder size on disk if no inner archive found.
+#  - For outer archives (.tar / .apz / .pgz):
+#      InstalledSize = uncompressed size (bytes) of all files in the outer archive
+#                      EXCEPT the inner archive
+#                    + uncompressed size (bytes) of the inner archive's contents
+#      If no inner archive is present:
+#          InstalledSize = uncompressed size (bytes) of all files in the outer archive
+#  - Parses LLScript.sh and LLScript_Sudo.sh for inst/flatinst lines and adds
+#    their installed package sizes to the total InstalledSize.
+#  - InstalledSize= is always written inside the [Meta] section (stored in bytes).
+#  - No .bak files are created, files are overwritten directly.
+
+IFS=$'\n'
+
+# ---------------------------------------------------------------------------
+# get_uncompressed_bytes_from_inner <archive>
+# ---------------------------------------------------------------------------
+get_uncompressed_bytes_from_inner() {
+    local archive="$1"
+    local total=0
+
+    case "$archive" in
+        *.tar.gz)
+            while read -r size; do
+                total=$((total + size))
+            done < <(tar -tvzf "$archive" 2>/dev/null | awk '{print $3}')
+            ;;
+        *.7z)
+            while read -r size; do
+                total=$((total + size))
+            done < <(7z l "$archive" 2>/dev/null | awk '
+                /^-------------------/ {p=!p; next}
+                p && $1 ~ /^[0-9]/ {print $4}
+            ')
+            ;;
+        *) return 1 ;;
+    esac
+
+    echo "$total"
+}
+
+# ---------------------------------------------------------------------------
+# get_outer_other_bytes <outer_archive> <exclude_basename>
+# ---------------------------------------------------------------------------
+get_outer_other_bytes() {
+    local outer="$1"
+    local exclude="$2"
+    local total=0
+    local size name bname
+
+    case "$outer" in
+        *.tar)
+            while IFS=$' \t' read -r size name; do
+                name="${name#./}"
+                bname="$(basename "$name")"
+                [ -n "$exclude" ] && [ "$bname" = "$exclude" ] && continue
+                total=$((total + size))
+            done < <(tar -tvf "$outer" 2>/dev/null | awk '{print $3, $NF}')
+            ;;
+        *.apz|*.pgz)
+            while IFS=$' \t' read -r size name; do
+                bname="$(basename "$name")"
+                [ -n "$exclude" ] && [ "$bname" = "$exclude" ] && continue
+                total=$((total + size))
+            done < <(7z l "$outer" 2>/dev/null | awk '
+                /^-------------------/ {p=!p; next}
+                p && $1 ~ /^[0-9]/ {print $4, $NF}
+            ')
+            ;;
+    esac
+
+    echo "$total"
+}
+
+# ---------------------------------------------------------------------------
+# get_size_from_folder <folder>
+# ---------------------------------------------------------------------------
+get_size_from_folder() {
+    local folder="$1"
+    du -sb "$folder" | cut -f1
+}
+
+# ---------------------------------------------------------------------------
+# Package manager detection
+# ---------------------------------------------------------------------------
+detect_package_manager() {
+    if   command -v pamac    >/dev/null 2>&1; then echo "pamac"
+    elif command -v apt-cache >/dev/null 2>&1; then echo "apt"
+    elif command -v dnf      >/dev/null 2>&1; then echo "dnf"
+    elif command -v yum      >/dev/null 2>&1; then echo "yum"
+    elif command -v pacman   >/dev/null 2>&1; then echo "pacman"
+    elif command -v zypper   >/dev/null 2>&1; then echo "zypper"
+    elif command -v eopkg    >/dev/null 2>&1; then echo "eopkg"
+    elif command -v apk      >/dev/null 2>&1; then echo "apk"
+    elif command -v emerge   >/dev/null 2>&1; then echo "emerge"
+    else echo ""
+    fi
+}
+PM_MANAGER=$(detect_package_manager)
+
+# ---------------------------------------------------------------------------
+# get_native_size <package>
+# ---------------------------------------------------------------------------
+get_native_size() {
+    local pkg="$1"
+    local size=0
+    case "$PM_MANAGER" in
+        pamac)   size=$(pamac info "$pkg" 2>/dev/null | grep 'Installed Size' | cut -d: -f2 | tr -dc '0-9.KMG' | numfmt --from=auto 2>/dev/null) ;;
+        dnf|yum) size=$($PM_MANAGER info "$pkg" 2>/dev/null | grep -E '^(Installed [Ss]ize|Size)' | head -n1 | cut -d: -f2 | tr -dc '0-9.KMG' | numfmt --from=auto 2>/dev/null) ;;
+        apt)
+            local kb
+            kb=$(apt-cache show "$pkg" 2>/dev/null | grep '^Installed-Size:' | head -n1 | awk '{print $2}')
+            [ -n "$kb" ] && size=$((kb * 1024))
+            ;;
+        pacman)  size=$(pacman -Si "$pkg" 2>/dev/null | grep 'Installed Size' | cut -d: -f2 | tr -dc '0-9.KMG' | numfmt --from=iec 2>/dev/null) ;;
+        zypper)  size=$(zypper info "$pkg" 2>/dev/null | grep 'Installed Size' | cut -d: -f2 | tr -dc '0-9.KMG' | numfmt --from=auto 2>/dev/null) ;;
+        eopkg)   size=$(eopkg info "$pkg" 2>/dev/null | grep 'Installed size' | cut -d: -f2 | tr -dc '0-9.KMG' | numfmt --from=auto 2>/dev/null) ;;
+        emerge)  size=$(emerge -pv "$pkg" 2>/dev/null | grep -oP '\[size \K[^\]]+' | tr -dc '0-9.KMG' | numfmt --from=auto 2>/dev/null) ;;
+        apk)     size=$(apk info -s "$pkg" 2>/dev/null | grep -A1 "$pkg" | tail -n1 | tr -dc '0-9') ;;
+    esac
+    echo "${size:-0}"
+}
+
+# ---------------------------------------------------------------------------
+# get_flatpak_size <app-id>
+# ---------------------------------------------------------------------------
+get_flatpak_size() {
+    local size=0
+    if command -v flatpak >/dev/null 2>&1; then
+        size=$(flatpak remote-info --user flathub "$1" 2>/dev/null \
+            | grep "Installed:" | cut -d: -f2 | sed 's/B$//' \
+            | tr -dc '0-9.KMG' | numfmt --from=auto 2>/dev/null)
+    fi
+    echo "${size:-0}"
+}
+
+# ---------------------------------------------------------------------------
+# get_deb_url_installed_size <url>
+#   Returns the installed size in bytes for a .deb package referenced by URL.
+#   Strategy:
+#     1. Extract the package name from the filename (e.g.
+#        google-chrome-stable_current_amd64.deb  →  google-chrome-stable)
+#        and query the native package manager for its installed size.
+#        This is fast, accurate, and requires no download.
+#     2. Fall back to the Content-Length HTTP header as a download-size
+#        estimate only if the PM lookup returns nothing.
+# ---------------------------------------------------------------------------
+get_deb_url_installed_size() {
+    local url="$1"
+    local filename pkg_name size=0
+
+    filename=$(basename "$url")
+    # Debian naming: <name>_<version>_<arch>.deb  — grab everything before first '_'
+    # If no underscore (unusual), strip the .deb suffix as a fallback.
+    pkg_name="${filename%%_*}"
+    pkg_name="${pkg_name%.deb}"
+
+    # --- 1. Try dpkg -s (works if the package is already installed on this machine) ---
+    if [ -n "$pkg_name" ] && command -v dpkg >/dev/null 2>&1; then
+        local kb
+        kb=$(dpkg -s "$pkg_name" 2>/dev/null \
+            | grep '^Installed-Size:' | head -n1 | awk '{print $2}')
+        if [ -n "$kb" ] && [ "$kb" -gt 0 ] 2>/dev/null; then
+            echo $((kb * 1024))
+            return
+        fi
+    fi
+
+    # --- 2. Try native PM cache (no network needed, works if pkg is in repos) ---
+    if [ -n "$pkg_name" ]; then
+        case "$PM_MANAGER" in
+            apt)
+                local kb
+                kb=$(apt-cache show "$pkg_name" 2>/dev/null \
+                    | grep '^Installed-Size:' | head -n1 | awk '{print $2}')
+                if [ -n "$kb" ] && [ "$kb" -gt 0 ] 2>/dev/null; then
+                    echo $((kb * 1024))
+                    return
+                fi
+                ;;
+            pamac)
+                size=$(pamac info "$pkg_name" 2>/dev/null \
+                    | grep 'Installed Size' | cut -d: -f2 \
+                    | tr -dc '0-9.KMG' | numfmt --from=auto 2>/dev/null)
+                if [ -n "$size" ] && [ "$size" -gt 0 ] 2>/dev/null; then
+                    echo "$size"; return
+                fi
+                ;;
+            pacman)
+                size=$(pacman -Si "$pkg_name" 2>/dev/null \
+                    | grep 'Installed Size' | cut -d: -f2 \
+                    | tr -dc '0-9.KMG' | numfmt --from=iec 2>/dev/null)
+                if [ -n "$size" ] && [ "$size" -gt 0 ] 2>/dev/null; then
+                    echo "$size"; return
+                fi
+                ;;
+            dnf|yum)
+                size=$($PM_MANAGER info "$pkg_name" 2>/dev/null \
+                    | grep -E '^(Installed [Ss]ize|Size)' | head -n1 \
+                    | cut -d: -f2 | tr -dc '0-9.KMG' \
+                    | numfmt --from=auto 2>/dev/null)
+                if [ -n "$size" ] && [ "$size" -gt 0 ] 2>/dev/null; then
+                    echo "$size"; return
+                fi
+                ;;
+        esac
+    fi
+
+    # --- 3. Fall back to Content-Length header from the URL ---
+    # This returns the compressed download size, which is an under-estimate of the
+    # installed footprint but is far better than nothing for packages not in any repo.
+    # curl is preferred: -sIL sends a HEAD request following redirects cleanly.
+    if command -v curl >/dev/null 2>&1; then
+        size=$(curl -sIL --max-time 15 "$url" 2>/dev/null \
+            | grep -i '^content-length:' | tail -n1 \
+            | awk '{print $2}' | tr -dc '0-9')
+    elif command -v wget >/dev/null 2>&1; then
+        # wget --spider prints headers to stderr; grab only the final Content-Length.
+        size=$(wget --spider --server-response --max-redirect=5 "$url" 2>&1 \
+            | grep -i '^  Content-Length:' | tail -n1 \
+            | awk '{print $2}' | tr -dc '0-9')
+    fi
+    echo "${size:-0}"
+}
+
+# ---------------------------------------------------------------------------
+# get_pkg_bytes_from_scripts <dir>
+#   Scans LLScript.sh and LLScript_Sudo.sh for inst/flatinst/wget lines and
+#   returns the total installed byte size.
+#
+#   Parsing rules:
+#     - Inside a  case "$PM" in ... esac  block:
+#         only lines in the arm whose pattern matches the current $PM_MANAGER
+#         are counted. The *) catch-all arm is always skipped (it is the
+#         "unknown distro" fallback that just prints a warning).
+#     - Outside any PM case block (Installation Section, Custom Code, etc.):
+#         lines are always counted — those sections run on every system.
+#     - Deduplication: each unique package / flatpak / URL is sized once,
+#         even if the same token appears in multiple scripts or arms.
+# ---------------------------------------------------------------------------
+get_pkg_bytes_from_scripts() {
+    local dir="$1"
+    local total=0
+
+    # Deduplication — each unique item is only priced once across both files.
+    declare -A seen_pkgs=()
+    declare -A seen_flatpaks=()
+    declare -A seen_deb_urls=()
+
+    for script in "$dir/LLScript.sh" "$dir/LLScript_Sudo.sh"; do
+        [ -f "$script" ] || continue
+
+        # Parser state
+        local in_pm_case=false       # inside  case "$PM" in … esac
+        local arm_active=false       # inside the arm that matches our PM
+
+        # || [ -n "$line" ] catches a missing trailing newline on the last line
+        while IFS= read -r line || [ -n "$line" ]; do
+
+            # ── Strip leading/trailing whitespace (spaces AND tabs) ─────
+            line="${line#"${line%%[![:space:]]*}"}"
+            line="${line%"${line##*[![:space:]]}"}"
+
+            # ── Skip blank lines and full-line comments ──────────────────
+            [[ -z "$line" || "$line" == \#* ]] && continue
+
+            # ── Detect start of the PM case block ────────────────────────
+            # Matches:  case "$PM" in   or   case "$PM_MANAGER" in
+            if [[ "$line" =~ ^case\ \"\$PM(_MANAGER)?\"\ in$ ]]; then
+                in_pm_case=true
+                arm_active=false
+                continue
+            fi
+
+            # ── Inside the PM case block ──────────────────────────────────
+            if $in_pm_case; then
+
+                # End of case block
+                if [[ "$line" == "esac" ]]; then
+                    in_pm_case=false
+                    arm_active=false
+                    continue
+                fi
+
+                # End of current arm
+                if [[ "$line" == ";;" ]]; then
+                    arm_active=false
+                    continue
+                fi
+
+                # Arm header: one or more tokens separated by | followed by )
+                # e.g.  apt)   pamac)   dnf|yum)   *)
+                if [[ "$line" =~ ^[a-zA-Z_*][a-zA-Z0-9_|*-]*\)$ ]]; then
+                    local arm_pat="${line%)}"   # strip trailing )
+                    # Never count the *) catch-all — it's just a warning block
+                    if [[ "$arm_pat" == "*" ]]; then
+                        arm_active=false
+                    else
+                        # Use bash's own case to match PM_MANAGER against the
+                        # arm pattern (handles | alternation correctly).
+                        case "$PM_MANAGER" in
+                            $arm_pat) arm_active=true  ;;
+                            *)        arm_active=false ;;
+                        esac
+                    fi
+                    continue
+                fi
+
+                # Only process lines inside the matching arm
+                $arm_active || continue
+            fi
+
+            # ── Process countable lines ───────────────────────────────────
+
+            if [[ "$line" == flatinst\ * ]]; then
+                read -ra ids <<< "${line#flatinst }"
+                for id in "${ids[@]}"; do
+                    [[ -z "$id" || "$id" == \#* ]] && break
+                    [[ -n "${seen_flatpaks[$id]}" ]] && continue
+                    seen_flatpaks["$id"]=1
+                    local sz
+                    sz=$(get_flatpak_size "$id")
+                    echo "    flatinst $id → ${sz}B" >&2
+                    total=$((total + sz))
+                done
+
+            elif [[ "$line" == inst\ * ]]; then
+                read -ra pkgs <<< "${line#inst }"
+                for pkg in "${pkgs[@]}"; do
+                    [[ -z "$pkg" || "$pkg" == \#* ]] && break
+                    [[ -n "${seen_pkgs[$pkg]}" ]] && continue
+                    seen_pkgs["$pkg"]=1
+                    local sz
+                    sz=$(get_native_size "$pkg")
+                    echo "    inst $pkg → ${sz}B" >&2
+                    total=$((total + sz))
+                done
+
+            elif [[ "$line" == wget\ * ]]; then
+                # Look for .deb URLs on wget download lines.
+                local part
+                for part in $line; do
+                    [[ "$part" == http* || "$part" == ftp* ]] || continue
+                    [[ "$part" == *.deb ]] || continue
+                    [[ -n "${seen_deb_urls[$part]}" ]] && continue
+                    seen_deb_urls["$part"]=1
+                    local sz
+                    sz=$(get_deb_url_installed_size "$part")
+                    echo "    wget .deb $(basename "$part") → ${sz}B" >&2
+                    total=$((total + sz))
+                done
+            fi
+
+        done < "$script"
+    done
+
+    echo "$total"
+}
+# ---------------------------------------------------------------------------
+# get_current_installed_size <file>
+# ---------------------------------------------------------------------------
+get_current_installed_size() {
+    awk '/^\[Meta\]/{m=1} m && /^InstalledSize=/{sub(/^InstalledSize=/,""); print; exit}' "$1" 2>/dev/null
+}
+
+# ---------------------------------------------------------------------------
+# write_installed_size <file> <size_bytes>
+# ---------------------------------------------------------------------------
+write_installed_size() {
+    local file="$1"
+    local size_bytes="$2"
+    local tmpfile
+
+    echo "  Updating $(basename "$file") → InstalledSize=$size_bytes bytes"
+
+    tmpfile=$(mktemp)
+
+    awk -v size="$size_bytes" '
+    BEGIN { in_meta=0; installed_written=0 }
+    /^\[Meta\]/ { print; in_meta=1; next }
+    /^\[.*\]/ {
+        if (in_meta && !installed_written) { print "InstalledSize=" size; installed_written=1 }
+        in_meta=0; print; next
+    }
+    {
+        if (in_meta && $0 ~ /^InstalledSize=/) { print "InstalledSize=" size; installed_written=1; next }
+        print
+    }
+    END { if (in_meta && !installed_written) { print "InstalledSize=" size } }
+    ' "$file" > "$tmpfile"
+
+    mv "$tmpfile" "$file"
+}
+
+# ---------------------------------------------------------------------------
+# update_file <file>
+# ---------------------------------------------------------------------------
+update_file() {
+    local file="$1"
+    local dir archive size_bytes
+
+    if ! grep -q '^\[Meta\]' "$file"; then
+        echo "  Skipping (no [Meta]): $file"
+        return
+    fi
+
+    dir="$(dirname "$file")"
+
+    case "$(basename "$file")" in
+        LLGame.llg) archive="$dir/LLGame.tar.gz" ;;
+        LLApp.lla)  archive="$dir/LLApp.tar.gz"  ;;
+        ppGame.ppg) archive="$dir/ppGame.7z"      ;;
+        ppApp.app)  archive="$dir/ppApp.7z"       ;;
+        ssApp.app)  archive="$dir/ppApp.7z"       ;;
+        *) return ;;
+    esac
+
+    if [ -f "$archive" ]; then
+        size_bytes=$(get_uncompressed_bytes_from_inner "$archive")
+        echo "  Using archive for $(basename "$file") → $(basename "$archive")"
+    else
+        size_bytes=$(get_size_from_folder "$dir")
+        echo "  Archive not found, using folder size for $(basename "$file")"
+    fi
+
+    if [ -z "$size_bytes" ]; then
+        echo "  Failed to calculate InstalledSize for: $file"
+        return
+    fi
+
+    # Add sizes of packages defined in the scripts located in this folder
+    local pkg_bytes
+    pkg_bytes=$(get_pkg_bytes_from_scripts "$dir")
+    if [ "$pkg_bytes" -gt 0 ] 2>/dev/null; then
+        echo "  Package sizes from scripts → ${pkg_bytes}B"
+        size_bytes=$(( size_bytes + pkg_bytes ))
+    fi
+
+    local current_size
+    current_size=$(get_current_installed_size "$file")
+    if [ "$current_size" = "$size_bytes" ]; then
+        echo "  Skipping (size unchanged: $size_bytes): $(basename "$file")"
+        return
+    fi
+
+    write_installed_size "$file" "$size_bytes"
+}
+
+# ---------------------------------------------------------------------------
+# meta_to_inner_archive <meta_basename>
+# ---------------------------------------------------------------------------
+meta_to_inner_archive() {
+    case "$1" in
+        LLGame.llg) echo "LLGame.tar.gz" ;;
+        LLApp.lla)  echo "LLApp.tar.gz"  ;;
+        ppGame.ppg) echo "ppGame.7z"     ;;
+        ppApp.app)  echo "ppApp.7z"      ;;
+        ssApp.app)  echo "ppApp.7z"      ;;
+        *)          echo ""              ;;
+    esac
+}
+
+# ---------------------------------------------------------------------------
+# update_outer_archive <archive>
+# ---------------------------------------------------------------------------
+update_outer_archive() {
+    local outer="$1"
+    local tmpdir
+    tmpdir=$(mktemp -d)
+
+    echo "Processing outer archive: $outer"
+
+    # --- Extract only the files we care about (Including the SH files) ---
+    case "$outer" in
+        *.tar)
+            for f in LLGame.llg LLGame.tar.gz \
+                     LLApp.lla  LLApp.tar.gz  \
+                     ppGame.ppg ppGame.7z     \
+                     ppApp.app  ppApp.7z      \
+                     ssApp.app  \
+                     LLScript.sh LLScript_Sudo.sh; do
+                tar -xf "$outer" -C "$tmpdir" "$f" 2>/dev/null
+            done
+            ;;
+        *.apz|*.pgz)
+            7z e "$outer" -o"$tmpdir" \
+                LLGame.llg LLGame.tar.gz \
+                LLApp.lla  LLApp.tar.gz  \
+                ppGame.ppg ppGame.7z     \
+                ppApp.app  ppApp.7z      \
+                ssApp.app  \
+                LLScript.sh LLScript_Sudo.sh \
+                2>/dev/null
+            ;;
+    esac
+
+    # Find the size of the packages requested inside the scripts (if any)
+    local pkg_bytes=0
+    pkg_bytes=$(get_pkg_bytes_from_scripts "$tmpdir")
+
+    # --- Compute size and update each metadata file ----------------------
+    local updated=()
+
+    for meta in "$tmpdir"/LLGame.llg \
+                "$tmpdir"/LLApp.lla  \
+                "$tmpdir"/ppGame.ppg \
+                "$tmpdir"/ppApp.app  \
+                "$tmpdir"/ssApp.app; do
+
+        [ -f "$meta" ] || continue
+
+        if ! grep -q '^\[Meta\]' "$meta"; then
+            echo "  Skipping (no [Meta]): $(basename "$meta")"
+            continue
+        fi
+
+        local meta_name inner_name inner_path
+        meta_name="$(basename "$meta")"
+        inner_name="$(meta_to_inner_archive "$meta_name")"
+        inner_path="$tmpdir/$inner_name"
+
+        local other_bytes=0 inner_bytes=0 total_bytes
+
+        # Sizes of all files in the outer archive except the inner archive
+        other_bytes=$(get_outer_other_bytes "$outer" "$inner_name")
+
+        if [ -n "$inner_name" ] && [ -f "$inner_path" ]; then
+            inner_bytes=$(get_uncompressed_bytes_from_inner "$inner_path")
+            echo "  $meta_name: outer-other=${other_bytes}B + inner-contents=${inner_bytes}B"
+        else
+            echo "  $meta_name: no inner archive found, using outer files only (${other_bytes}B)"
+        fi
+
+        total_bytes=$(( other_bytes + inner_bytes ))
+
+        # Add the sizes of the inst/flatinst packages defined in the SH files
+        if [ "$pkg_bytes" -gt 0 ] 2>/dev/null; then
+            echo "  Package sizes from scripts → ${pkg_bytes}B"
+            total_bytes=$(( total_bytes + pkg_bytes ))
+        fi
+
+        local current_size
+        current_size=$(get_current_installed_size "$meta")
+        if [ "$current_size" = "$total_bytes" ]; then
+            echo "  Skipping (size unchanged: $total_bytes): $meta_name"
+            continue
+        fi
+
+        local before after
+        before=$(stat -c '%Y' "$meta")
+        write_installed_size "$meta" "$total_bytes"
+        after=$(stat -c '%Y' "$meta")
+
+        [ "$after" != "$before" ] && updated+=("$meta_name")
+    done
+
+    # --- Write updated metadata files back into the outer archive --------
+    if [ ${#updated[@]} -eq 0 ]; then
+        echo "  No metadata files needed updating in: $outer"
+    else
+        for name in "${updated[@]}"; do
+            echo "  Writing updated $name back into: $outer"
+            case "$outer" in
+                *.tar)
+                    tar -uf "$outer" -C "$tmpdir" "$name"
+                    ;;
+                *.apz|*.pgz)
+                    ( cd "$tmpdir" && 7z u "$outer" "$name" )
+                    ;;
+            esac
+        done
+    fi
+
+    rm -rf "$tmpdir"
+}
+
+# ===========================================================================
+# MAIN
+# ===========================================================================
+if   [[ -n "$NEMO_SCRIPT_SELECTED_FILE_PATHS" ]];    then
+    mapfile -t SELECTED < <(printf '%s' "$NEMO_SCRIPT_SELECTED_FILE_PATHS")
+elif [[ -n "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS" ]]; then
+    mapfile -t SELECTED < <(printf '%s' "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS")
+else
+    SELECTED=("$@")
+fi
+
+if [[ "${#SELECTED[@]}" -eq 0 ]]; then
+    zenity --error --text="No files selected." 2>/dev/null || true
+    exit 1
+fi
+
+run_update() {
+    local had_error=0
+    for item in "$@"; do
+        item="${item%$'\r'}"
+        [[ -z "$item" ]] && continue
+
+        # ── FOLDER ──────────────────────────────────────────────────────────
+        if [[ -d "$item" ]]; then
+            echo "Scanning folder: $item"
+            find "$item" -type f \( \
+                -name "LLGame.llg" -o \
+                -name "LLApp.lla"  -o \
+                -name "ppGame.ppg" -o \
+                -name "ppApp.app"  -o \
+                -name "ssApp.app" \
+            \) | while IFS= read -r file; do
+                update_file "$file"
+            done
+            continue
+        fi
+
+        # ── FILE ────────────────────────────────────────────────────────────
+        if [[ -f "$item" ]]; then
+            case "$(basename "$item")" in
+                # Metadata files: right-click directly on .lla / .llg / .ppg / .app
+                # → treat their parent folder as the scan target
+                LLGame.llg|LLApp.lla|ppGame.ppg|ppApp.app|ssApp.app)
+                    echo "Scanning parent folder of: $(basename "$item")"
+                    update_file "$item"
+                    ;;
+                # Outer archives
+                *.tar|*.apz|*.pgz)
+                    update_outer_archive "$item" || had_error=1
+                    ;;
+                *)
+                    echo "Skipping unsupported file type: $(basename "$item")"
+                    ;;
+            esac
+            continue
+        fi
+    done
+
+    echo ""
+    if [[ "$had_error" -ne 0 ]]; then
+        echo "======================================================"
+        echo "  One or more updates failed. See output above."
+        echo "======================================================"
+        read -rp "Press Enter to close..." || true
+    else
+        echo "======================================================"
+        echo "  InstalledSize update complete."
+        echo "======================================================"
+        sleep 3
+    fi
+}
+
+QUOTED_ARGS="$(printf '%q ' "${SELECTED[@]}")"
+TERMS=(gnome-terminal konsole kde-ptyxis xfce4-terminal lxterminal x-terminal-emulator xterm)
+
+TMP_RUNNER=$(mktemp)
+chmod +x "$TMP_RUNNER"
+
+{
+    echo "#!/bin/bash"
+    declare -f detect_package_manager get_native_size get_flatpak_size \
+               get_deb_url_installed_size \
+               get_pkg_bytes_from_scripts get_uncompressed_bytes_from_inner \
+               get_outer_other_bytes get_size_from_folder get_current_installed_size \
+               write_installed_size update_file meta_to_inner_archive \
+               update_outer_archive run_update
+    echo "PM_MANAGER='$PM_MANAGER'"
+    echo "run_update $QUOTED_ARGS"
+    echo "rm -f \"\$0\""
+} > "$TMP_RUNNER"
+
+for T in "${TERMS[@]}"; do
+    if command -v "$T" &>/dev/null; then
+        case "$T" in
+            gnome-terminal) "$T" -- "$TMP_RUNNER" ;;
+            *)              "$T" -e "$TMP_RUNNER" ;;
+        esac
+        exit 0
+    fi
+done
+
+run_update "${SELECTED[@]}"
+rm -f "$TMP_RUNNER"

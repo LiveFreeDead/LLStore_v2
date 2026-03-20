@@ -2801,12 +2801,23 @@ Protected Module LLMod
 		  ' X-KDE-Submenu groups all Desktop Actions under one "LLFile" submenu.
 		  ' MimeType list controls which right-clicks show the menu.
 		  ' kbuildsycoca rebuilds the KDE service cache without requiring logout.
+		  ' llkde_wrap.sh dispatches each selected file individually — KDE sends
+		  ' all selected paths as one Exec call; the wrapper loops per-file so
+		  ' llfile and llextract.sh always receive exactly one path at a time.
 		  ' =====================================================================
 		  If RunCommandResults("which dolphin 2>/dev/null").Trim <> "" _
 		    Or DE = "kde" Or DE = "plasma" Then
 		    If Debugging Then Debug("  Context menus: Dolphin/KDE")
 		    Dim DolDir As String = Slash(HomePath)+".local/share/kio/servicemenus/"
-		    ShellFast.Execute("mkdir -p "+Q+DolDir+Q)
+		    Dim DolScripts As String = DolDir+"action_scripts/"
+		    ShellFast.Execute("mkdir -p "+Q+DolScripts+Q)
+		    
+		    ' Deploy llextract.sh and llkde_wrap.sh — wrapper locates llextract.sh
+		    ' via its own $SCRIPT_DIR so absolute paths stay valid after moves.
+		    ShellFast.Execute("cp -f "+Q+Slash(AppPath)+"scripts/actions/action_scripts/llextract.sh"+Q+" "+Q+DolScripts+Q)
+		    ShellFast.Execute("cp -f "+Q+Slash(AppPath)+"scripts/actions/action_scripts/llkde_wrap.sh"+Q+" "+Q+DolScripts+Q)
+		    ShellFast.Execute("chmod +x "+Q+DolScripts+"llextract.sh"+Q+" "+Q+DolScripts+"llkde_wrap.sh"+Q)
+		    Dim DolWrap As String = DolScripts+"llkde_wrap.sh"
 		    
 		    Dim KDE As String
 		    KDE = "[Desktop Entry]"+NL
@@ -2815,26 +2826,100 @@ Protected Module LLMod
 		    KDE = KDE+"X-KDE-ServiceTypes=KonqPopupMenu/Plugin"+NL
 		    KDE = KDE+"MimeType=application/x-llfile;application/x-tar;inode/directory;application/octet-stream;"+NL
 		    KDE = KDE+"X-KDE-Submenu=LLFile"+NL
-		    KDE = KDE+"Actions=llf_install;llf_edit;llf_compress;llf_build"+NL+NL
+		    KDE = KDE+"Actions=llf_install;llf_edit;llf_extract;llf_compress;llf_build"+NL+NL
 		    KDE = KDE+"[Desktop Action llf_install]"+NL
 		    KDE = KDE+"Name=Install with LLFile"+NL
 		    KDE = KDE+"Icon="+Icon+NL
-		    KDE = KDE+"Exec="+LL+" -i %F"+NL+NL
+		    KDE = KDE+"Exec=bash "+Q+DolWrap+Q+" -i %F"+NL+NL
 		    KDE = KDE+"[Desktop Action llf_edit]"+NL
 		    KDE = KDE+"Name=Edit in LLFile Editor"+NL
 		    KDE = KDE+"Icon="+Icon+NL
-		    KDE = KDE+"Exec="+LL+" -e %F"+NL+NL
+		    KDE = KDE+"Exec=bash "+Q+DolWrap+Q+" -e %F"+NL+NL
+		    KDE = KDE+"[Desktop Action llf_extract]"+NL
+		    KDE = KDE+"Name=Extract LLFile Archive"+NL
+		    KDE = KDE+"Icon="+Icon+NL
+		    KDE = KDE+"Exec=bash "+Q+DolWrap+Q+" -x %F"+NL+NL
 		    KDE = KDE+"[Desktop Action llf_compress]"+NL
 		    KDE = KDE+"Name=Compress as LLFile"+NL
 		    KDE = KDE+"Icon="+Icon+NL
-		    KDE = KDE+"Exec="+LL+" -c %F"+NL+NL
+		    KDE = KDE+"Exec=bash "+Q+DolWrap+Q+" -c %F"+NL+NL
 		    KDE = KDE+"[Desktop Action llf_build]"+NL
 		    KDE = KDE+"Name=Build as LLFile"+NL
 		    KDE = KDE+"Icon="+Icon+NL
-		    KDE = KDE+"Exec="+LL+" -b %F"+NL
+		    KDE = KDE+"Exec=bash "+Q+DolWrap+Q+" -b %F"+NL
 		    
 		    SaveDataToFile(KDE, DolDir+"llfile.desktop")
 		    ShellFast.Execute("chmod +x "+Q+DolDir+"llfile.desktop"+Q)
+		    
+		    ' ---- LLFile Advanced submenu — second .desktop file ----
+		    ' Deploys all Advanced scripts to kde_advanced/ subdir and
+		    ' writes a second servicemenu (llfile_advanced.desktop) that
+		    ' appears as a separate "LLFile Advanced" submenu in Dolphin.
+		    ' llkde_adv_wrap.sh sets Nemo/Nautilus env vars so each script
+		    ' works regardless of which $@ / env-var mechanism it uses.
+		    Dim DolAdv As String = DolScripts+"kde_advanced/"
+		    ShellFast.Execute("mkdir -p "+Q+DolAdv+Q)
+		    ShellFast.Execute("cp -f "+Q+Slash(AppPath)+"scripts/actions/action_scripts/llkde_adv_wrap.sh"+Q+" "+Q+DolScripts+Q)
+		    ShellFast.Execute("chmod +x "+Q+DolScripts+"llkde_adv_wrap.sh"+Q)
+		    ShellFast.Execute("cp -rf "+Q+NoSlash(Slash(AppPath)+"scripts/actions/action_scripts/kde_advanced")+Q+" "+Q+DolScripts+Q)
+		    ShellFast.Execute("chmod -R +x "+Q+DolAdv+Q)
+		    Dim DolAdvWrap As String = DolScripts+"llkde_adv_wrap.sh"
+		    
+		    Dim KDE2 As String
+		    KDE2 = "[Desktop Entry]"+NL
+		    KDE2 = KDE2+"Type=Service"+NL
+		    KDE2 = KDE2+"ServiceTypes=KonqPopupMenu/Plugin"+NL
+		    KDE2 = KDE2+"X-KDE-ServiceTypes=KonqPopupMenu/Plugin"+NL
+		    KDE2 = KDE2+"MimeType=all/allfiles;inode/directory;"+NL
+		    KDE2 = KDE2+"X-KDE-Submenu=LLFile Advanced"+NL
+		    KDE2 = KDE2+"Actions=llfa_bump;llfa_create_lla;llfa_create_llg;llfa_create_llg_size;llfa_extract;llfa_make_sfx;llfa_update_scripts;llfa_open_run;llfa_scan;llfa_sizes;llfa_sizes_v2"+NL+NL
+		    KDE2 = KDE2+"[Desktop Action llfa_bump]"+NL
+		    KDE2 = KDE2+"Name=Bump Version (folders only)"+NL
+		    KDE2 = KDE2+"Icon="+Icon+NL
+		    KDE2 = KDE2+"Exec=bash "+Q+DolAdvWrap+Q+" "+Q+"Bump Version (folders only)"+Q+" %F"+NL+NL
+		    KDE2 = KDE2+"[Desktop Action llfa_create_lla]"+NL
+		    KDE2 = KDE2+"Name=Create LLApp lla"+NL
+		    KDE2 = KDE2+"Icon="+Icon+NL
+		    KDE2 = KDE2+"Exec=bash "+Q+DolAdvWrap+Q+" "+Q+"Create LLApp lla"+Q+" %F"+NL+NL
+		    KDE2 = KDE2+"[Desktop Action llfa_create_llg]"+NL
+		    KDE2 = KDE2+"Name=Create LLGame llg"+NL
+		    KDE2 = KDE2+"Icon="+Icon+NL
+		    KDE2 = KDE2+"Exec=bash "+Q+DolAdvWrap+Q+" "+Q+"Create LLGame llg"+Q+" %F"+NL+NL
+		    KDE2 = KDE2+"[Desktop Action llfa_create_llg_size]"+NL
+		    KDE2 = KDE2+"Name=Create LLGame llg With Size"+NL
+		    KDE2 = KDE2+"Icon="+Icon+NL
+		    KDE2 = KDE2+"Exec=bash "+Q+DolAdvWrap+Q+" "+Q+"Create LLGame llg With Size"+Q+" %F"+NL+NL
+		    KDE2 = KDE2+"[Desktop Action llfa_extract]"+NL
+		    KDE2 = KDE2+"Name=Extract LL and PP Archives"+NL
+		    KDE2 = KDE2+"Icon="+Icon+NL
+		    KDE2 = KDE2+"Exec=bash "+Q+DolAdvWrap+Q+" "+Q+"Extract LL and PP Archives"+Q+" %F"+NL+NL
+		    KDE2 = KDE2+"[Desktop Action llfa_make_sfx]"+NL
+		    KDE2 = KDE2+"Name=LLFile Make SFX"+NL
+		    KDE2 = KDE2+"Icon="+Icon+NL
+		    KDE2 = KDE2+"Exec=bash "+Q+DolAdvWrap+Q+" "+Q+"LLFile Make SFX"+Q+" %F"+NL+NL
+		    KDE2 = KDE2+"[Desktop Action llfa_update_scripts]"+NL
+		    KDE2 = KDE2+"Name=LLFile Update LLScripts"+NL
+		    KDE2 = KDE2+"Icon="+Icon+NL
+		    KDE2 = KDE2+"Exec=bash "+Q+DolAdvWrap+Q+" "+Q+"LLFile Update LLScripts"+Q+" %F"+NL+NL
+		    KDE2 = KDE2+"[Desktop Action llfa_open_run]"+NL
+		    KDE2 = KDE2+"Name=Open .run Archive"+NL
+		    KDE2 = KDE2+"Icon="+Icon+NL
+		    KDE2 = KDE2+"Exec=bash "+Q+DolAdvWrap+Q+" "+Q+"Open .run Archive"+Q+" %F"+NL+NL
+		    KDE2 = KDE2+"[Desktop Action llfa_scan]"+NL
+		    KDE2 = KDE2+"Name=Scan LL PP and SS for Issues"+NL
+		    KDE2 = KDE2+"Icon="+Icon+NL
+		    KDE2 = KDE2+"Exec=bash "+Q+DolAdvWrap+Q+" "+Q+"Scan LL PP and SS for Issues"+Q+" %F"+NL+NL
+		    KDE2 = KDE2+"[Desktop Action llfa_sizes]"+NL
+		    KDE2 = KDE2+"Name=Update LL PP and SS Installed Sizes"+NL
+		    KDE2 = KDE2+"Icon="+Icon+NL
+		    KDE2 = KDE2+"Exec=bash "+Q+DolAdvWrap+Q+" "+Q+"Update LL PP and SS Installed Sizes"+Q+" %F"+NL+NL
+		    KDE2 = KDE2+"[Desktop Action llfa_sizes_v2]"+NL
+		    KDE2 = KDE2+"Name=Update LL PP and SS Installed Sizes v2"+NL
+		    KDE2 = KDE2+"Icon="+Icon+NL
+		    KDE2 = KDE2+"Exec=bash "+Q+DolAdvWrap+Q+" "+Q+"Update LL PP and SS Installed Sizes v2"+Q+" %F"+NL
+		    
+		    SaveDataToFile(KDE2, DolDir+"llfile_advanced.desktop")
+		    ShellFast.Execute("chmod +x "+Q+DolDir+"llfile_advanced.desktop"+Q)
 		    'Rebuild KDE sycoca so the service menu is active without a logout.
 		    'Timeout prevents this from hanging the install on slow KDE setups.
 		    ShellFast.Execute("bash -c 'timeout 15 kbuildsycoca6 --noincremental 2>/dev/null || timeout 15 kbuildsycoca5 --noincremental 2>/dev/null || true &'") 'Backgrounded: KDE cache rebuild, can be slow, no need to block

@@ -1,0 +1,470 @@
+#!/bin/bash
+
+# Nemo script:
+# Update InstalledSize= for ALL metadata files found.
+#
+# Rules:
+#  - Only modify files that contain a [Meta] section.
+#  - For folders: prefer uncompressed size from inner archive (LLGame.tar.gz etc),
+#    fall back to folder size on disk if no inner archive found.
+#  - For outer archives (.tar / .apz / .pgz):
+#      InstalledSize = uncompressed size (bytes) of all files in the outer archive
+#                      EXCEPT the inner archive
+#                    + uncompressed size (bytes) of the inner archive's contents
+#      If no inner archive is present:
+#          InstalledSize = uncompressed size (bytes) of all files in the outer archive
+#  - InstalledSize= is always written inside the [Meta] section (stored in bytes).
+#  - No .bak files are created, files are overwritten directly.
+#
+# Supported metadata:
+#   LLGame.llg
+#   LLApp.lla
+#   ppGame.ppg
+#   ppApp.app
+#   ssApp.app
+#
+# Supported input types:
+#   Folder             → scans recursively for metadata files (existing behaviour)
+#   .tar / .apz / .pgz → extracts only the metadata + inner archive files to
+#                        a temp dir, updates InstalledSize, writes the updated
+#                        metadata file back into the outer archive in-place
+#                        (no rebuild, no backup)
+
+IFS=$'\n'
+
+# ---------------------------------------------------------------------------
+# get_uncompressed_bytes_from_inner <archive>
+#   Returns raw uncompressed byte total from a .tar.gz or .7z inner archive
+#   by reading its headers without extracting.
+# ---------------------------------------------------------------------------
+get_uncompressed_bytes_from_inner() {
+    local archive="$1"
+    local total=0
+
+    case "$archive" in
+        *.tar.gz)
+            while read -r size; do
+                total=$((total + size))
+            done < <(tar -tvzf "$archive" 2>/dev/null | awk '{print $3}')
+            ;;
+        *.7z)
+            while read -r size; do
+                total=$((total + size))
+            done < <(7z l "$archive" 2>/dev/null | awk '
+                /^-------------------/ {p=!p; next}
+                p && $1 ~ /^[0-9]/ {print $4}
+            ')
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    echo "$total"
+}
+
+# ---------------------------------------------------------------------------
+# get_outer_other_bytes <outer_archive> <exclude_basename>
+#   Sums the stored/uncompressed sizes of every file entry in the outer
+#   archive (.tar / .apz / .pgz), skipping any entry whose basename matches
+#   <exclude_basename> (pass "" to skip nothing).
+#   Returns raw bytes.
+# ---------------------------------------------------------------------------
+get_outer_other_bytes() {
+    local outer="$1"
+    local exclude="$2"
+    local total=0
+    local size name bname
+
+    case "$outer" in
+        *.tar)
+            # tar -tvf columns: perms links user/group SIZE date time NAME
+            while IFS=$' \t' read -r size name; do
+                # Strip leading ./ from tar entry names
+                name="${name#./}"
+                bname="$(basename "$name")"
+                [ -n "$exclude" ] && [ "$bname" = "$exclude" ] && continue
+                total=$((total + size))
+            done < <(tar -tvf "$outer" 2>/dev/null | awk '{print $3, $NF}')
+            ;;
+        *.apz|*.pgz)
+            # 7z l columns (after dashes): date time attr USIZE CSIZE NAME
+            while IFS=$' \t' read -r size name; do
+                bname="$(basename "$name")"
+                [ -n "$exclude" ] && [ "$bname" = "$exclude" ] && continue
+                total=$((total + size))
+            done < <(7z l "$outer" 2>/dev/null | awk '
+                /^-------------------/ {p=!p; next}
+                p && $1 ~ /^[0-9]/ {print $4, $NF}
+            ')
+            ;;
+    esac
+
+    echo "$total"
+}
+
+# ---------------------------------------------------------------------------
+# get_size_from_folder <folder>
+#   Returns total on-disk size in bytes.
+# ---------------------------------------------------------------------------
+get_size_from_folder() {
+    local folder="$1"
+    du -sb "$folder" | cut -f1
+}
+
+# ---------------------------------------------------------------------------
+# has_noinstall_flag <file>
+#   Returns 0 (true) if the Flags= line in the file contains "noinstall".
+#   Only relevant for LLApp.lla and LLGame.llg.
+# ---------------------------------------------------------------------------
+has_noinstall_flag() {
+    grep -qE '^Flags=.*noinstall' "$1" 2>/dev/null
+}
+
+# ---------------------------------------------------------------------------
+# get_current_installed_size <file>
+#   Reads the current InstalledSize= value from inside the [Meta] section.
+#   Returns an empty string if not present.
+# ---------------------------------------------------------------------------
+get_current_installed_size() {
+    awk '/^\[Meta\]/{m=1} m && /^InstalledSize=/{sub(/^InstalledSize=/,""); print; exit}' "$1" 2>/dev/null
+}
+
+# ---------------------------------------------------------------------------
+# write_installed_size <file> <size_bytes>
+#   Rewrites InstalledSize= inside the [Meta] section of a metadata file.
+# ---------------------------------------------------------------------------
+write_installed_size() {
+    local file="$1"
+    local size_bytes="$2"
+    local tmpfile
+
+    echo "  Updating $(basename "$file") → InstalledSize=$size_bytes bytes"
+
+    tmpfile=$(mktemp)
+
+    awk -v size="$size_bytes" '
+    BEGIN {
+        in_meta=0
+        installed_written=0
+    }
+
+    /^\[Meta\]/ {
+        print
+        in_meta=1
+        next
+    }
+
+    /^\[.*\]/ {
+        if (in_meta && !installed_written) {
+            print "InstalledSize=" size
+            installed_written=1
+        }
+        in_meta=0
+        print
+        next
+    }
+
+    {
+        if (in_meta && $0 ~ /^InstalledSize=/) {
+            print "InstalledSize=" size
+            installed_written=1
+            next
+        }
+        print
+    }
+
+    END {
+        if (in_meta && !installed_written) {
+            print "InstalledSize=" size
+        }
+    }
+    ' "$file" > "$tmpfile"
+
+    mv "$tmpfile" "$file"
+}
+
+# ---------------------------------------------------------------------------
+# update_file <file>
+#   Folder-based path: looks for a matching inner archive in the same
+#   directory, uses its uncompressed size; falls back to folder size.
+# ---------------------------------------------------------------------------
+update_file() {
+    local file="$1"
+    local dir archive size_bytes
+
+    if ! grep -q '^\[Meta\]' "$file"; then
+        echo "  Skipping (no [Meta]): $file"
+        return
+    fi
+
+    dir="$(dirname "$file")"
+
+    case "$(basename "$file")" in
+        LLGame.llg) archive="$dir/LLGame.tar.gz" ;;
+        LLApp.lla)  archive="$dir/LLApp.tar.gz"  ;;
+        ppGame.ppg) archive="$dir/ppGame.7z"      ;;
+        ppApp.app)  archive="$dir/ppApp.7z"       ;;
+        ssApp.app)  archive="$dir/ppApp.7z"       ;;
+        *) return ;;
+    esac
+
+    # noinstall flag means files are downloaded at runtime – skip LLApp/LLGame only
+    case "$(basename "$file")" in
+        LLApp.lla|LLGame.llg)
+            if has_noinstall_flag "$file"; then
+                echo "  Skipping (noinstall flag): $(basename "$file")"
+                return
+            fi
+            ;;
+    esac
+
+    if [ -f "$archive" ]; then
+        size_bytes=$(get_uncompressed_bytes_from_inner "$archive")
+        echo "  Using archive for $(basename "$file") → $(basename "$archive")"
+    else
+        size_bytes=$(get_size_from_folder "$dir")
+        echo "  Archive not found, using folder size for $(basename "$file")"
+    fi
+
+    if [ -z "$size_bytes" ]; then
+        echo "  Failed to calculate InstalledSize for: $file"
+        return
+    fi
+
+    local current_size
+    current_size=$(get_current_installed_size "$file")
+    if [ "$current_size" = "$size_bytes" ]; then
+        echo "  Skipping (size unchanged: $size_bytes): $(basename "$file")"
+        return
+    fi
+
+    write_installed_size "$file" "$size_bytes"
+}
+
+# ---------------------------------------------------------------------------
+# meta_to_inner_archive <meta_basename>
+#   Returns the inner archive filename that pairs with a metadata file.
+# ---------------------------------------------------------------------------
+meta_to_inner_archive() {
+    case "$1" in
+        LLGame.llg) echo "LLGame.tar.gz" ;;
+        LLApp.lla)  echo "LLApp.tar.gz"  ;;
+        ppGame.ppg) echo "ppGame.7z"     ;;
+        ppApp.app)  echo "ppApp.7z"      ;;
+        ssApp.app)  echo "ppApp.7z"      ;;
+        *)          echo ""              ;;
+    esac
+}
+
+# ---------------------------------------------------------------------------
+# update_outer_archive <archive>
+#   Handles a selected .tar / .apz / .pgz outer archive:
+#     1. Extracts only the known metadata + inner archive files to a temp dir.
+#     2. For each metadata file found, computes:
+#          other_bytes  = uncompressed sizes of all files in the outer archive
+#                         EXCEPT the inner archive
+#          inner_bytes  = uncompressed contents of the inner archive (if present)
+#          total_bytes  = other_bytes + inner_bytes
+#     3. Writes each updated metadata file back into the outer archive
+#        in-place (tar -u for .tar; 7z u for .apz/.pgz).
+#     4. Cleans up the temp dir.
+#   No full rebuild. No backup files.
+# ---------------------------------------------------------------------------
+update_outer_archive() {
+    local outer="$1"
+    local tmpdir
+    tmpdir=$(mktemp -d)
+
+    echo "Processing outer archive: $outer"
+
+    # --- Extract only the files we care about ----------------------------
+    case "$outer" in
+        *.tar)
+            for f in LLGame.llg LLGame.tar.gz \
+                      LLApp.lla  LLApp.tar.gz  \
+                      ppGame.ppg ppGame.7z      \
+                      ppApp.app  ppApp.7z       \
+                      ssApp.app; do
+                tar -xf "$outer" -C "$tmpdir" "$f" 2>/dev/null
+            done
+            ;;
+        *.apz|*.pgz)
+            7z e "$outer" -o"$tmpdir" \
+                LLGame.llg LLGame.tar.gz \
+                LLApp.lla  LLApp.tar.gz  \
+                ppGame.ppg ppGame.7z     \
+                ppApp.app  ppApp.7z      \
+                ssApp.app \
+                2>/dev/null
+            ;;
+    esac
+
+    # --- Compute size and update each metadata file ----------------------
+    local updated=()
+
+    for meta in "$tmpdir"/LLGame.llg \
+                "$tmpdir"/LLApp.lla  \
+                "$tmpdir"/ppGame.ppg \
+                "$tmpdir"/ppApp.app  \
+                "$tmpdir"/ssApp.app; do
+
+        [ -f "$meta" ] || continue
+
+        if ! grep -q '^\[Meta\]' "$meta"; then
+            echo "  Skipping (no [Meta]): $(basename "$meta")"
+            continue
+        fi
+
+        local meta_name inner_name inner_path
+        meta_name="$(basename "$meta")"
+        inner_name="$(meta_to_inner_archive "$meta_name")"
+        inner_path="$tmpdir/$inner_name"
+
+        # noinstall flag means files are downloaded at runtime – skip LLApp/LLGame only
+        case "$meta_name" in
+            LLApp.lla|LLGame.llg)
+                if has_noinstall_flag "$meta"; then
+                    echo "  Skipping (noinstall flag): $meta_name"
+                    continue
+                fi
+                ;;
+        esac
+
+        local other_bytes=0 inner_bytes=0 total_bytes
+
+        # Sizes of all files in the outer archive except the inner archive
+        other_bytes=$(get_outer_other_bytes "$outer" "$inner_name")
+
+        if [ -n "$inner_name" ] && [ -f "$inner_path" ]; then
+            # Add uncompressed contents of the inner archive
+            inner_bytes=$(get_uncompressed_bytes_from_inner "$inner_path")
+            echo "  $meta_name: outer-other=${other_bytes}B + inner-contents=${inner_bytes}B"
+        else
+            echo "  $meta_name: no inner archive found, using outer files only (${other_bytes}B)"
+        fi
+
+        total_bytes=$(( other_bytes + inner_bytes ))
+
+        local current_size
+        current_size=$(get_current_installed_size "$meta")
+        if [ "$current_size" = "$total_bytes" ]; then
+            echo "  Skipping (size unchanged: $total_bytes): $meta_name"
+            continue
+        fi
+
+        local before after
+        before=$(stat -c '%Y' "$meta")
+        write_installed_size "$meta" "$total_bytes"
+        after=$(stat -c '%Y' "$meta")
+
+        [ "$after" != "$before" ] && updated+=("$meta_name")
+    done
+
+    # --- Write updated metadata files back into the outer archive --------
+    if [ ${#updated[@]} -eq 0 ]; then
+        echo "  No metadata files needed updating in: $outer"
+    else
+        for name in "${updated[@]}"; do
+            echo "  Writing updated $name back into: $outer"
+            case "$outer" in
+                *.tar)
+                    # tar -u appends a newer version; the updated entry wins
+                    # on extraction. No full rebuild required.
+                    tar -uf "$outer" -C "$tmpdir" "$name"
+                    ;;
+                *.apz|*.pgz)
+                    # 7z u replaces the file entry in-place
+                    ( cd "$tmpdir" && 7z u "$outer" "$name" )
+                    ;;
+            esac
+        done
+    fi
+
+    rm -rf "$tmpdir"
+}
+
+# ===========================================================================
+# MAIN
+# ===========================================================================
+if   [[ -n "$NEMO_SCRIPT_SELECTED_FILE_PATHS" ]];    then
+    mapfile -t SELECTED < <(printf '%s' "$NEMO_SCRIPT_SELECTED_FILE_PATHS")
+elif [[ -n "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS" ]]; then
+    mapfile -t SELECTED < <(printf '%s' "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS")
+else
+    SELECTED=("$@")
+fi
+
+if [[ "${#SELECTED[@]}" -eq 0 ]]; then
+    zenity --error --text="No files selected." 2>/dev/null || true
+    exit 1
+fi
+
+run_update() {
+    local had_error=0
+    for item in "$@"; do
+        item="${item%$'\r'}"
+        [[ -z "$item" ]] && continue
+
+        # ── FOLDER ──────────────────────────────────────────────────────────
+        if [[ -d "$item" ]]; then
+            echo "Scanning folder: $item"
+            find "$item" -type f \( \
+                -name "LLGame.llg" -o \
+                -name "LLApp.lla"  -o \
+                -name "ppGame.ppg" -o \
+                -name "ppApp.app"  -o \
+                -name "ssApp.app" \
+            \) | while IFS= read -r file; do
+                update_file "$file"
+            done
+            continue
+        fi
+
+        # ── OUTER ARCHIVE ───────────────────────────────────────────────────
+        if [[ -f "$item" ]]; then
+            case "$item" in
+                *.tar|*.apz|*.pgz)
+                    update_outer_archive "$item" || had_error=1
+                    ;;
+                *)
+                    echo "Skipping unsupported file type: $(basename "$item")"
+                    ;;
+            esac
+            continue
+        fi
+    done
+
+    echo ""
+    if [[ "$had_error" -ne 0 ]]; then
+        echo "======================================================"
+        echo "  One or more updates failed. See output above."
+        echo "======================================================"
+        read -rp "Press Enter to close..." || true
+    else
+        echo "======================================================"
+        echo "  InstalledSize update complete."
+        echo "======================================================"
+        sleep 3
+    fi
+}
+
+QUOTED_ARGS="$(printf '%q ' "${SELECTED[@]}")"
+TERMS=(gnome-terminal konsole kde-ptyxis xfce4-terminal lxterminal x-terminal-emulator xterm)
+for T in "${TERMS[@]}"; do
+    if command -v "$T" &>/dev/null; then
+        CMD="$(declare -f get_uncompressed_bytes_from_inner get_outer_other_bytes \
+               get_size_from_folder has_noinstall_flag get_current_installed_size \
+               write_installed_size update_file meta_to_inner_archive \
+               update_outer_archive run_update)"
+        CMD+="
+run_update $QUOTED_ARGS"
+        case "$T" in
+            gnome-terminal) "$T" -- bash -c "$CMD" ;;
+            *)              "$T" -e bash -c "$CMD" ;;
+        esac
+        exit 0
+    fi
+done
+
+run_update "${SELECTED[@]}"

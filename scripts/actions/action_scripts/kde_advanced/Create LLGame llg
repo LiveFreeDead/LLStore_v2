@@ -1,0 +1,46 @@
+#!/bin/bash
+# Create LLGame llg
+# Creates a boilerplate LLGame.llg metadata file inside each selected folder
+# and opens it in the LLStore metadata editor.
+# The AppPath, Title, and desktop entry are derived from the folder name.
+
+for folder in "$@"; do
+    [ -d "$folder" ] || continue
+
+    FOLDER_NAME="$(basename "$folder")"
+    FOLDER_DOTS="${FOLDER_NAME// /.}"
+    TODAY="$(date +%Y-%m-%d)"
+    OUT="$folder/LLGame.llg"
+
+    cat > "$OUT" << EOF
+[LLFile]
+Title=$FOLDER_NAME
+Version=v1.01
+Description=
+URL=
+Category=
+BuildType=LLGame
+AppPath=%LLGames%/$FOLDER_DOTS
+Priority=5
+DECompatible=All-Linux
+PMCompatible=All
+ArchCompatible=x86 + x64
+[Meta]
+InstalledSize=
+Publisher=
+Rating=
+Players=1
+ReleaseDate=$TODAY
+License=1
+[$FOLDER_NAME.desktop]
+Exec=%AppPath%/run.sh
+Comment=
+Path=%AppPath%
+Icon=%AppPath%/LLGame.png
+Categories=Game;
+Terminal=False
+EOF
+
+    echo "Created: $OUT"
+    /opt/LastOS/LLStore/llstore -e "$OUT"
+done
