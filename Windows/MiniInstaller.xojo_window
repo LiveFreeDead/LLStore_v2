@@ -487,6 +487,10 @@ End
 		  QuitInstaller = False
 		  SuccessfulInstall = False
 		  ThreadFinished = True 'It's sets itself to False when it can't be called to run a 2nd Thread
+		  JobInstalling = False 'Reset so a prior run's in-progress job never blocks/skews the new run
+		  SkippedInstalling = False 'Fix: if the last item of a previous install run was Skipped, this stale True
+		  'suppressed the first MiniUpTo increment on the next run (WasSkipped check in InstallItems.Run),
+		  'leaving MiniUpTo stuck at -1 so the display showed item 0 instead of item 1
 		  
 		  ItemsToInstall = 0
 		  
@@ -952,15 +956,18 @@ End
 		    'Update Stats
 		    #Pragma BreakOnExceptions Off
 		    Try
+		      'Defensive clamp: MiniUpTo can briefly be -1 (before the first item), never show that as "item 0"
+		      Dim DisplayUpTo As Integer = MiniUpTo
+		      If DisplayUpTo < 0 Then DisplayUpTo = 0
 		      If Downloading = True Then
 		        Stats.Text = "Downloading "+ DownloadPercentage
 		        App.DoEvents(1) 'Needed to update %
 		      Else
-		        Stats.Text = "Installing "+Str(MiniUpTo+1)+"/"+Str(MiniInstaller.Items.RowCount)
+		        Stats.Text = "Installing "+Str(DisplayUpTo+1)+"/"+Str(MiniInstaller.Items.RowCount)
 		        DownloadPercentage = ""
 		        App.DoEvents(1)
 		      End If
-		      MiniInstaller.Title = Str(MiniUpTo+1)+"/"+Str(MiniInstaller.Items.RowCount) + " Installing"
+		      MiniInstaller.Title = Str(DisplayUpTo+1)+"/"+Str(MiniInstaller.Items.RowCount) + " Installing"
 		      #Pragma BreakOnExceptions Off
 		      Try
 		        If MiniUpTo - 1 >=0 Then

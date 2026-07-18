@@ -1336,6 +1336,12 @@ Protected Module LLMod
 		    PathIn = PathIn.ReplaceAll("%Desktop%",  FixPath(NoSlash(SpecialFolder.Desktop.NativePath)))
 		    PathIn = PathIn.ReplaceAll("%AppData%",  FixPath(NoSlash(SpecialFolder.ApplicationData.NativePath)))
 		    
+		    'Fix "Path Not Found" errors caused by mixed separators - eg when a trailing-slash variable such as
+		    '%SourcePath% is immediately followed by a literal backslash in the script text ("%SourcePath%\fnr.exe"),
+		    'which previously produced "C:/Program Files/Last10_Tweaks/\fnr.exe" instead of "...Last10_Tweaks/fnr.exe"
+		    PathIn = PathIn.ReplaceAll("/\", "/")
+		    PathIn = PathIn.ReplaceAll("\/", "/")
+		    
 		  Else 'Use Linux full paths instead (So can detect if installed etc first).
 		    If WinPaths Then
 		      PathIn = PathIn.ReplaceAll("%USBDrive%", "z:") 'Convert USB/DVD your running off  to correct Path
@@ -1387,6 +1393,11 @@ Protected Module LLMod
 		      
 		      PathIn = PathIn.ReplaceAll("%Desktop%", FixPath("z:"+NoSlash(SpecialFolder.Desktop.NativePath)))
 		      PathIn = PathIn.ReplaceAll("%AppData%", "C:/users/"+UserName+"/AppData/Roaming")
+		      
+		      'Fix "Path Not Found" errors caused by mixed separators (eg a trailing-slash variable followed
+		      'by a literal backslash in the script text, such as "%SourcePath%\fnr.exe")
+		      PathIn = PathIn.ReplaceAll("/\", "/")
+		      PathIn = PathIn.ReplaceAll("\/", "/")
 		      
 		    Else 'Linux Path, not windows paths for scripts to use
 		      PathIn = PathIn.ReplaceAll("%ToolPath%", NoSlash(ToolPath)) 'LLStore Tools folder - resolves to wherever LLStore is running from (USB or installed)
