@@ -2450,6 +2450,7 @@ Protected Module LLMod
 		        Loop Until Shelly.IsRunning = False
 		      Else
 		        Suc = Copy(Slash(InstallFromPath) + "LLScript.sh", Slash(InstallToPath) + "LLScript.sh")
+		        Suc = Copy(Slash(InstallFromPath) + "LLScript_Sudo.sh", Slash(InstallToPath) + "LLScript_Sudo.sh")
 		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType + ".app", Slash(InstallToPath) + ItemLLItem.BuildType + ".app")
 		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType + ".ppg", Slash(InstallToPath) + ItemLLItem.BuildType + ".ppg")
 		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType + ".reg", Slash(InstallToPath) + ItemLLItem.BuildType + ".reg")
@@ -3377,7 +3378,11 @@ Protected Module LLMod
 		          App.DoEvents(20)
 		        Loop Until Shelly.IsRunning = False
 		      Else
+		        If Debugging Then Debug(">>> LLApp Linux copy block reached. InstallFromPath=" + InstallFromPath + " InstallToPath=" + InstallToPath + " MainFileToExtract=" + MainFileToExtract)
 		        Suc = Copy(Slash(InstallFromPath) + "LLScript.sh", Slash(InstallToPath) + "LLScript.sh")
+		        If Debugging Then Debug("LLScript.sh copy: source exists=" + Exist(Slash(InstallFromPath) + "LLScript.sh").ToString + " Suc=" + Suc.ToString)
+		        Suc = Copy(Slash(InstallFromPath) + "LLScript_Sudo.sh", Slash(InstallToPath) + "LLScript_Sudo.sh")
+		        If Debugging Then Debug("LLScript_Sudo.sh copy: source exists=" + Exist(Slash(InstallFromPath) + "LLScript_Sudo.sh").ToString + " Suc=" + Suc.ToString + " dest exists after=" + Exist(Slash(InstallToPath) + "LLScript_Sudo.sh").ToString)
 		        Suc = Copy(Slash(InstallFromPath) +ItemLLItem.BuildType+".app", Slash(InstallToPath) +ItemLLItem.BuildType+ ".app")
 		        Suc = Copy(Slash(InstallFromPath) +ItemLLItem.BuildType+".ppg", Slash(InstallToPath) +ItemLLItem.BuildType+ ".ppg")
 		        Suc = Copy(Slash(InstallFromPath) + ItemLLItem.BuildType+".reg", Slash(InstallToPath) +ItemLLItem.BuildType+ ".reg")
