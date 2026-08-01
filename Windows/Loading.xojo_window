@@ -4210,23 +4210,27 @@ End
 		  Const ST_IDLE        = 0  ' Waiting for queue to have items
 		  Const ST_PREPARE     = 1  ' Set up current queue item
 		  Const ST_VALIDATING  = 2  ' Async validation shell running
-		  Const ST_DOWNLOADING = 3  ' Async wget shell running
+		  Const ST_SIZECHECK   = 7  ' Archives only - extra HEAD request to learn Content-Length for progress
+		  Const ST_DOWNLOADING = 3  ' Async curl shell running
 		  Const ST_FINALIZE    = 4  ' Rename .partial to final
 		  Const ST_ADVANCE     = 5  ' Move to next queue item
 		  Const ST_DONE        = 6  ' Post-queue cleanup
 		  
 		  Static DLState As Integer           ' Current state
-		  Static DLShell As Shell             ' Wget download shell
+		  Static DLShell As Shell             ' Curl download shell
 		  Static ValShell As Shell            ' Validation shell
 		  Static ValBuffer As String          ' Accumulated validation output
 		  Static MoveShell As Shell           ' Rename .partial shell
-		  Static KillShell As Shell           ' Kill wget shell
+		  Static KillShell As Shell           ' Kill curl shell
 		  Static GetURL As String             ' URL being processed (after WebLinks sub)
 		  Static IsArchive As Boolean         ' Current URL is an archive type
 		  Static UseGrep As Boolean           ' Grep is available on this system
 		  Static GrepChecked As Boolean       ' Grep availability has been checked
 		  Static GrepPath As String           ' Path to grep binary
 		  Static ValidationFallback As Boolean ' True = running HEAD fallback after magic-byte failed
+		  Static TotalBytes As Int64          ' Content-Length of current item, 0 = unknown
+		  Static SizeShell As Shell           ' Extra HEAD-only shell used by ST_SIZECHECK
+		  Static SizeBuffer As String         ' Accumulated ST_SIZECHECK output
 		  
 		  Select Case DLState
 		    
@@ -4267,6 +4271,7 @@ End
 		    ' Clean any leftover .partial from a previous failed attempt
 		    If Exist(QueueLocal(QueueUpTo) + ".partial") Then Deltree(QueueLocal(QueueUpTo) + ".partial")
 		    
+		    TotalBytes = 0 ' Reset for this item - filled in from the HEAD/validation response below
 		    GetURL = QueueURL(QueueUpTo)
 		    
 		    ' Route images to parallel async curl downloaders.
@@ -4391,19 +4396,50 @@ End
 		      Return
 		    End If
 		    
-		    ' Validated - kick off the actual wget download
+		    ' Pull Content-Length out of the validation response for progress tracking.
+		    ' Not present on the magic-byte path (Path A) - only on HEAD checks (Path B/C).
+		    ' TotalBytes stays 0 if not found - handled below.
+		    Dim CLPos As Integer = ValBuffer.Lowercase.IndexOf("content-length:")
+		    If CLPos >= 0 Then
+		      Dim CLRest As String = Mid(ValBuffer, CLPos + 16)
+		      Dim CLEnd As Integer = CLRest.IndexOf(Chr(10))
+		      If CLEnd >= 0 Then CLRest = Left(CLRest, CLEnd)
+		      TotalBytes = CLRest.Trim.Val
+		    End If
+		    
+		    ' Archives are validated via the magic-byte range check (Path A), which never
+		    ' returns headers, so TotalBytes is still 0 at this point for almost every real
+		    ' app/game download. Do one more quick HEAD-only request just to learn the size -
+		    ' this doesn't gate the download, it only feeds the progress percentage.
+		    If IsArchive And TotalBytes <= 0 Then
+		      SizeBuffer = ""
+		      If SizeShell Is Nil Then SizeShell = New Shell
+		      SizeShell.TimeOut = -1
+		      SizeShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		      SizeShell.Execute("curl --head --silent --connect-timeout 5 " + Chr(34) + GetURL + Chr(34))
+		      DLState = ST_SIZECHECK
+		      Return
+		    End If
+		    
+		    ' Validated - kick off the actual curl download
 		    If Debugging Then Debug("Validated! Starting download: " + GetURL)
 		    If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
 		    
+		    ' Silent curl download - no stdout progress meter to parse.
+		    ' Progress is tracked separately in ST_DOWNLOADING by polling the .partial file size.
+		    ' Uses the resolved curl path (WinCurl/LinuxCurl) set at startup, same as validation.
+		    Dim CurlBin As String = LinuxCurl
+		    If TargetWindows Then CurlBin = WinCurl
+		    
 		    Dim Commands As String
 		    If TargetWindows Then
-		      Commands = WinWget + " --tries=6 --timeout=9 --progress=bar:force -O " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + _
+		      Commands = CurlBin + " -L -s --retry 3 --connect-timeout 9 -o " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + _
 		      " " + Chr(34) + GetURL + Chr(34) + _
-		      " 2>&1 && echo done > " + Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
+		      " && echo done > " + Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
 		    Else
-		      Commands = LinuxWget + " --tries=6 --timeout=9 --progress=bar:force -O " + _
+		      Commands = CurlBin + " -L -s --retry 3 --connect-timeout 9 -o " + _
 		      Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + " " + _
-		      Chr(34) + GetURL + Chr(34) + " 2>&1 ; echo done > " + _
+		      Chr(34) + GetURL + Chr(34) + " ; echo done > " + _
 		      Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
 		    End If
 		    
@@ -4415,16 +4451,72 @@ End
 		    Return
 		    
 		    ' --------------------------------------------------------
-		    ' DOWNLOADING: Monitor wget progress, handle skip/cancel.
+		    ' SIZECHECK: Archives only. A quick extra HEAD request purely to learn
+		    ' Content-Length for the progress bar - never gates the download itself.
+		    ' If this comes back empty (host doesn't send Content-Length, timeout, etc)
+		    ' we just fall through and show KB transferred instead of a percentage.
+		    ' --------------------------------------------------------
+		  Case ST_SIZECHECK
+		    If ForceQuit Or CancelDownloading Then
+		      If SizeShell <> Nil And SizeShell.IsRunning Then SizeShell.Close
+		      CancelDownloading = False
+		      If ForceQuit Then
+		        DLState = ST_DONE
+		        Return
+		      End If
+		      DLState = ST_ADVANCE
+		      Return
+		    End If
+		    
+		    If SizeShell <> Nil Then SizeBuffer = SizeBuffer + SizeShell.ReadAll
+		    If SizeShell <> Nil And SizeShell.IsRunning Then Return
+		    If SizeShell <> Nil Then SizeBuffer = SizeBuffer + SizeShell.ReadAll
+		    
+		    Dim SCPos As Integer = SizeBuffer.Lowercase.IndexOf("content-length:")
+		    If SCPos >= 0 Then
+		      Dim SCRest As String = Mid(SizeBuffer, SCPos + 16)
+		      Dim SCEnd As Integer = SCRest.IndexOf(Chr(10))
+		      If SCEnd >= 0 Then SCRest = Left(SCRest, SCEnd)
+		      TotalBytes = SCRest.Trim.Val
+		    End If
+		    
+		    ' Start the real download now, same as the direct (non-archive) path above.
+		    If Debugging Then Debug("Validated! Starting download: " + GetURL)
+		    If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
+		    
+		    Dim CurlBin As String = LinuxCurl
+		    If TargetWindows Then CurlBin = WinCurl
+		    
+		    Dim Commands As String
+		    If TargetWindows Then
+		      Commands = CurlBin + " -L -s --retry 3 --connect-timeout 9 -o " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + _
+		      " " + Chr(34) + GetURL + Chr(34) + _
+		      " && echo done > " + Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
+		    Else
+		      Commands = CurlBin + " -L -s --retry 3 --connect-timeout 9 -o " + _
+		      Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + " " + _
+		      Chr(34) + GetURL + Chr(34) + " ; echo done > " + _
+		      Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
+		    End If
+		    
+		    If DLShell Is Nil Then DLShell = New Shell
+		    DLShell.TimeOut = -1
+		    DLShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		    DLShell.Execute(Commands)
+		    DLState = ST_DOWNLOADING
+		    Return
+		    
+		    ' --------------------------------------------------------
+		    ' DOWNLOADING: Monitor curl progress, handle skip/cancel.
 		    ' UI is fully responsive - Skip button works at any point.
 		    ' --------------------------------------------------------
 		  Case ST_DOWNLOADING
-		    ' Skip/cancel: kill wget immediately and move on
+		    ' Skip/cancel: kill curl immediately and move on
 		    If ForceQuit Or CancelDownloading Then
 		      If DLShell <> Nil And DLShell.IsRunning Then DLShell.Close
 		      If TargetWindows Then
 		        If KillShell Is Nil Then KillShell = New Shell
-		        KillShell.Execute("TaskKill /IM wget.exe /F")
+		        KillShell.Execute("TaskKill /IM curl.exe /F")
 		      End If
 		      If Exist(QueueLocal(QueueUpTo) + ".partial") Then Deltree(QueueLocal(QueueUpTo) + ".partial")
 		      If Exist(QueueLocal(QueueUpTo)) Then Deltree(QueueLocal(QueueUpTo))
@@ -4438,33 +4530,35 @@ End
 		      Return
 		    End If
 		    
-		    ' Drain wget output and extract progress percentage
+		    ' Curl runs silent (-s), so there's no progress meter in its output to parse.
+		    ' Drain anyway so the pipe never backs up and blocks the shell.
 		    If DLShell <> Nil Then
-		      Dim theResults As String = DLShell.ReadAll
-		      If theResults.Trim <> "" Then
-		        theResults = theResults.ReplaceAll(Chr(13), Chr(10))
-		        Dim lastPerc As Integer = InStrRev(theResults, "%")
-		        If lastPerc > 3 Then
-		          Dim pStart As Integer = lastPerc
-		          While pStart > 1 And IsNumeric(Mid(theResults, pStart - 1, 1))
-		            pStart = pStart - 1
-		          Wend
-		          Dim ProgPerc As String = Mid(theResults, pStart, lastPerc - pStart).Trim
-		          ' Only accept the value if it looks like a genuine wget bar percentage.
-		          ' wget --progress=bar:force always emits "NN%[" — the "[" immediately
-		          ' follows the "%" and opens the bar graphic.  Any "%" from the verbose
-		          ' connection/header output (Content-Type, URLs, etc.) will NOT have "["
-		          ' right after it, so those false readings are safely ignored while real
-		          ' values like 32% or 64% now show correctly again.
-		          If IsNumeric(ProgPerc) And Mid(theResults, lastPerc + 1, 1) = "[" Then
-		            DownloadPercentage = ProgPerc + "%"
-		          End If
+		      Dim discardOutput As String = DLShell.ReadAll
+		    End If
+		    
+		    ' Progress via .partial file-size polling instead of parsing tool stdout.
+		    ' This is immune to curl/wget version and output-format differences entirely.
+		    If Exist(QueueLocal(QueueUpTo) + ".partial") Then
+		      Dim PF As FolderItem = GetFolderItem(QueueLocal(QueueUpTo) + ".partial", FolderItem.PathTypeNative)
+		      If PF <> Nil Then
+		        Dim CurrentBytes As Int64 = PF.Length
+		        If TotalBytes > 0 Then
+		          Dim Pct As Integer = CType(CurrentBytes / TotalBytes * 100, Integer)
+		          If Pct > 100 Then Pct = 100
+		          DownloadPercentage = Str(Pct) + "%"
+		        Else
+		          ' No Content-Length was available (e.g. magic-byte validation path) -
+		          ' fall back to showing bytes transferred instead of a percentage.
+		          DownloadPercentage = Str(CurrentBytes \ 1024) + " KB"
 		        End If
 		      End If
 		    End If
 		    
 		    ' Update MiniInstaller / startup status text
-		    If MiniInstallerShowing Then MiniInstaller.Stats.Text = "Downloading " + DownloadPercentage
+		    If MiniInstallerShowing Then
+		      MiniInstaller.Stats.Text = "Downloading " + DownloadPercentage
+		      MiniInstaller.Stats.Refresh  ' Force the redraw now - don't wait on MiniInstaller's own 100ms UpdateUI tick
+		    End If
 		    If CheckingForUpdates Then UpdateLoading("Update: " + DownloadPercentage)
 		    If CheckingForDatabases Then UpdateLoading("Database: " + DownloadPercentage)
 		    

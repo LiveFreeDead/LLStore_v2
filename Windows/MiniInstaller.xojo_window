@@ -563,6 +563,16 @@ End
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		' How many times we've tried to download the current item (DownloadRetryItem tracks
+		' which MiniUpTo this count belongs to, so it resets when we move to a new item).
+		DownloadRetryCount As Integer = 0
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		DownloadRetryItem As Integer = -1
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		InstallDone As Boolean
 	#tag EndProperty
 
@@ -960,8 +970,12 @@ End
 		      Dim DisplayUpTo As Integer = MiniUpTo
 		      If DisplayUpTo < 0 Then DisplayUpTo = 0
 		      If Downloading = True Then
-		        Stats.Text = "Downloading "+ DownloadPercentage
-		        App.DoEvents(1) 'Needed to update %
+		        ' Loading.DownloadTimer owns Stats.Text while a download is active - it writes
+		        ' "Downloading..." the instant the item is queued and refreshes it every ~50ms.
+		        ' Don't re-derive/overwrite it here: this poll only runs every 100ms, and for
+		        ' small/fast archives the whole download can finish inside the gap between two
+		        ' of our ticks, so we'd either stomp a real percentage with a stale one or never
+		        ' see "Downloading" at all. Leave it alone - the Refresh below will redraw it.
 		      Else
 		        Stats.Text = "Installing "+Str(DisplayUpTo+1)+"/"+Str(MiniInstaller.Items.RowCount)
 		        DownloadPercentage = ""
@@ -1045,7 +1059,35 @@ End
 		      If Not Exist(FileToInstallFrom) Or DownloadAnyway = True Then 'Only if it doesn't exist or the existing file is tiny download it
 		        'Download if possible
 		        If Left(Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("PathINI")), 4) = "http" Then
-		          If SkippedInstalling = False Then GetOnlineFile(Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("PathINI")), FileToInstallFrom)
+		          If SkippedInstalling = False Then
+		            ' Counter here so we abort instead of retrying a failed download forever - Glenn
+		            ' Resets whenever we move on to a different item; caps attempts at 4 for this one.
+		            If DownloadRetryItem <> MiniUpTo Then
+		              DownloadRetryItem = MiniUpTo
+		              DownloadRetryCount = 0
+		            End If
+		            DownloadRetryCount = DownloadRetryCount + 1
+		            
+		            If DownloadRetryCount > 4 Then
+		              If Debugging Then Debug("* Giving up after 4 failed attempts: "+FileToInstallFrom)
+		              Items.CellTextAt(MiniUpTo, 1) = "Failed"
+		              If Not TargetWindows Then
+		                Dim FailedName As String = Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("UniqueName"))
+		                RunCommand("notify-send " + Chr(34) + "Failed Download (gave up after 4 tries): " + FailedName + Chr(34))
+		              End If
+		              DownloadRetryCount = 0
+		              DownloadRetryItem = -1
+		              MiniUpTo = MiniUpTo + 1 'Give up on this item and move on
+		              Return
+		            End If
+		            
+		            GetOnlineFile(Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("PathINI")), FileToInstallFrom)
+		            ' Set this immediately (not on the next UpdateUI tick) so the label changes
+		            ' right away even if the download finishes before Loading.DownloadTimer gets a look in.
+		            DownloadPercentage = ""
+		            Stats.Text = "Downloading..."
+		            Stats.Refresh
+		          End If
 		        Else
 		          Items.CellTextAt(MiniUpTo, 1) = "Failed" 'Usually due to unreadable USB or DVD
 		          If Debugging Then Debug("* Error Accessing: "+Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("PathINI")))
@@ -1053,9 +1095,7 @@ End
 		          Return
 		        End If
 		        
-		        'Do counter here, so will abort if stuck in download loop etc- Glenn
 		        If SkippedInstalling = True Then
-		          'GlennGlennGlennGlenn
 		          Return
 		        End If
 		        
@@ -1415,6 +1455,22 @@ End
 		InitialValue=""
 		Type="String"
 		EditorType="MultiLineEditor"
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="DownloadRetryCount"
+		Visible=false
+		Group="Behavior"
+		InitialValue="0"
+		Type="Integer"
+		EditorType=""
+	#tag EndViewProperty
+	#tag ViewProperty
+		Name="DownloadRetryItem"
+		Visible=false
+		Group="Behavior"
+		InitialValue="-1"
+		Type="Integer"
+		EditorType=""
 	#tag EndViewProperty
 	#tag ViewProperty
 		Name="InstallDone"
