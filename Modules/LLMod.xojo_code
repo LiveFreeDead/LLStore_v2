@@ -352,7 +352,7 @@ Protected Module LLMod
 		  If TmpPathBase = "" Or RunUUID = "" Then Return
 		  
 		  Dim BasePath As String = TmpPathBase
-		  If TargetWindows Then BasePath = BasePath.ReplaceAll("/", "\\")
+		  If TargetWindows Then BasePath = BasePath.ReplaceAll("/", "\")
 		  
 		  Dim BaseF As FolderItem = GetFolderItem(BasePath, FolderItem.PathTypeNative)
 		  If BaseF Is Nil Or Not BaseF.Exists Then Return
@@ -376,6 +376,21 @@ Protected Module LLMod
 		    End Try
 		    #Pragma BreakOnExceptions On
 		  Next
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub CleanScriptFolder(ScriptFileIn As String)
+		  'Removes the scripts##### temp folder that ExpScript made for a script that has finished running.
+		  'Only ever touches a folder directly inside this instance's TmpPath, so Sudo scripts in BaseDir are left alone.
+		  If ScriptFileIn = "" Then Return
+		  
+		  Dim ScriptDir As String = GetFullParent(ScriptFileIn) 'Folder the script is in (ends with a slash)
+		  Dim SafeStart As String = Slash(TmpPath) + "scripts"
+		  If Lowercase(Left(ScriptDir, Len(SafeStart))) <> Lowercase(SafeStart) Then Return 'Not one of ours, leave it
+		  
+		  If Debugging Then Debug("Cleaning Script Folder: " + ScriptDir)
+		  Deltree(NoSlash(ScriptDir))
 		End Sub
 	#tag EndMethod
 
@@ -2734,9 +2749,7 @@ Protected Module LLMod
 		  End If
 		  
 		  Deltree(Slash(TmpPath) + "LLShorts")
-		  Deltree(Slash(TmpPath) + "Expanded_Script.cmd")
-		  Deltree(Slash(TmpPath) + "Expanded_Script.sh")
-		  Deltree(Slash(TmpPath) + "Expanded_Reg.reg")
+		  Deltree(Slash(TmpPath) + "Expanded_Registry.reg") 'Script folders are removed in RunScripts by CleanScriptFolder
 		  
 		  If CleanUpIsle2 <> "" Then Deltree(CleanUpIsle2)
 		  CleanUpIsle2 = ""
@@ -3748,9 +3761,7 @@ Protected Module LLMod
 		  
 		  'Cleanup Temp items after installed (UUID-per-launch keeps each app run's scripts isolated)
 		  Deltree(Slash(TmpPath)+"LLShorts")
-		  Deltree(Slash(TmpPath)+"Expanded_Script.cmd")
-		  Deltree(Slash(TmpPath)+"Expanded_Script.sh")
-		  Deltree(Slash(TmpPath)+"Expanded_Reg.reg")
+		  Deltree(Slash(TmpPath)+"Expanded_Registry.reg") 'Script folders are removed in RunScripts by CleanScriptFolder
 		  
 		  If CleanUpIsle2 <> "" Then Deltree(CleanUpIsle2) 'If used temp
 		  CleanUpIsle2 = ""
@@ -7563,6 +7574,7 @@ Protected Module LLMod
 		        Wend
 		        ShBuf = ShBuf + Shelly.ReadAll
 		        If Debugging Then Debug("Script Return (.sh): "+ ShBuf)
+		        CleanScriptFolder(ScriptFile)
 		      End If
 		    Catch
 		      If Debugging Then Debug("* Error: "+ InstallToPath + "LLScript.sh - Isn't found or invalid path")
@@ -7591,7 +7603,7 @@ Protected Module LLMod
 		          End If
 		        End If
 		        Dim SsBuf As String = ""
-		        If Not BuildingCombinedBat Then
+		        If TargetWindows Or Not BuildingCombinedBat Then 'Windows has no combined bat, so always wait or the script gets deleted while it is still running
 		          While Shelly.IsRunning
 		            App.DoEvents(20)
 		            SsBuf = SsBuf + Shelly.ReadAll 'Drain to prevent pipe deadlock
@@ -7599,9 +7611,10 @@ Protected Module LLMod
 		          SsBuf = SsBuf + Shelly.ReadAll
 		        End If
 		        If Debugging Then Debug("Script Return (ssApp.cmd): "+ SsBuf)
+		        CleanScriptFolder(ScriptFile) 'Script has finished (or, for the Wine combined bat, has already been copied into it)
 		      End If
 		    Catch
-		      If Debugging Then Debug("* Error: "+ InstallToPath + "ssApp.cmd - Isn't found or invalid path")
+		      If Debugging Then Debug("* Error: "+ InstallFromPath + "ssApp.cmd - Isn't found or invalid path")
 		    End Try
 		    #Pragma BreakOnExceptions On
 		  Else ' ppApp or ppGame, runs script from the InstallTo Folder
@@ -7627,7 +7640,7 @@ Protected Module LLMod
 		          End If
 		        End If
 		        Dim PpBuf As String = ""
-		        If Not BuildingCombinedBat Then
+		        If TargetWindows Or Not BuildingCombinedBat Then 'Windows has no combined bat, so always wait or the script gets deleted while it is still running
 		          While Shelly.IsRunning
 		            App.DoEvents(20)
 		            PpBuf = PpBuf + Shelly.ReadAll 'Drain to prevent pipe deadlock
@@ -7635,6 +7648,7 @@ Protected Module LLMod
 		          PpBuf = PpBuf + Shelly.ReadAll
 		        End If
 		        If Debugging Then Debug("Script Return ("+ItemLLItem.BuildType+".cmd): "+ PpBuf)
+		        CleanScriptFolder(ScriptFile)
 		      End If
 		    Catch
 		      If Debugging Then Debug("* Error: "+ InstallToPath + ItemLLItem.BuildType+".cmd - Isn't found or invalid path")
