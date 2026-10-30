@@ -6242,11 +6242,11 @@ End
 		      
 		      'Save Scripts
 		      If TextUserScript.Text.Trim <> "" Then 'Normal
-		        SaveDataToFile(TextUserScript.Text.Trim, BTF+SF)
+		        SaveDataToFile(ToScriptEOL(TextUserScript.Text.Trim, SF), BTF+SF)
 		      End If
 		      
 		      If TextSudoScript.Text.Trim <> "" Then 'Sudo or reg
-		        SaveDataToFile(TextSudoScript.Text.Trim, BTF+SSF)
+		        SaveDataToFile(ToScriptEOL(TextSudoScript.Text.Trim, SSF), BTF+SSF)
 		      End If
 		      
 		      If ItemLLItem.Compressed = True Then 'Just Update the existing compressed item

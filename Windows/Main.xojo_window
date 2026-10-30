@@ -2286,7 +2286,7 @@ End
 		  
 		  
 		  If TargetWindows Then ' Best Way for Windows
-		    SaveDataToFile (Left(RunPath,2)+Chr(10)+"cd "+ Chr(34)+RunPath+Chr(34)+Chr(10)+Exe, Slash(TmpPath)+"LLRun.cmd")
+		    SaveDataToFile (ToScriptEOL(Left(RunPath,2)+Chr(10)+"cd /d "+ Chr(34)+RunPath+Chr(34)+Chr(10)+Exe, Slash(TmpPath)+"LLRun.cmd"), Slash(TmpPath)+"LLRun.cmd")
 		  End If
 		  
 		  '-------------------------------------------------

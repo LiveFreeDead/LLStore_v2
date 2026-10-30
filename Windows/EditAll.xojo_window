@@ -650,10 +650,10 @@ End
 		  Dim SF2 As String = ""
 		  EAGetScriptFilenames(BT, SF1, SF2)
 		  If SF1 <> "" And Script1TextArea.Text.Trim <> "" Then
-		    SaveDataToFile(Script1TextArea.Text, Slash(TF) + SF1)
+		    SaveDataToFile(ToScriptEOL(Script1TextArea.Text, SF1), Slash(TF) + SF1)
 		  End If
 		  If SF2 <> "" And Script1TextArea1.Text.Trim <> "" Then
-		    SaveDataToFile(Script1TextArea1.Text, Slash(TF) + SF2)
+		    SaveDataToFile(ToScriptEOL(Script1TextArea1.Text, SF2), Slash(TF) + SF2)
 		  End If
 		End Sub
 	#tag EndMethod
@@ -832,10 +832,10 @@ End
 		  End If
 		  If DirtyScript = "T" And row = EACurrentRow Then
 		    If SF1 <> "" And Script1TextArea.Text.Trim <> "" Then
-		      SaveDataToFile(Script1TextArea.Text, TF + SF1)
+		      SaveDataToFile(ToScriptEOL(Script1TextArea.Text, SF1), TF + SF1)
 		    End If
 		    If SF2 <> "" And Script1TextArea1.Text.Trim <> "" Then
-		      SaveDataToFile(Script1TextArea1.Text, TF + SF2)
+		      SaveDataToFile(ToScriptEOL(Script1TextArea1.Text, SF2), TF + SF2)
 		    End If
 		  End If
 		  Dim Q As String = Chr(34)

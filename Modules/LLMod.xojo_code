@@ -1524,6 +1524,7 @@ Protected Module LLMod
 		    inputStream.Close
 		  Catch
 		  End Try
+		  RL = RL.ReplaceAll(Chr(13) + Chr(10), Chr(10)) 'CRLF first, otherwise each CRLF becomes 2 line breaks
 		  RL = RL.ReplaceAll(Chr(13), Chr(10))
 		  Sp()=RL.Split(Chr(10))
 		  If Sp.Count <= 0 Then Return OrigScript ' Empty File or no header
@@ -1566,7 +1567,7 @@ Protected Module LLMod
 		    ScriptContent = ScriptContent + ExpPathReg(Sp(I), True) + Chr(10)
 		  Next I
 		  
-		  SaveDataToFile (ScriptContent, ScriptFile)
+		  SaveDataToFile (ToScriptEOL(ScriptContent, ScriptFile), ScriptFile) 'CRLF for .cmd/.reg, LF for .sh
 		  
 		  Return ScriptFile
 		End Function
@@ -1599,6 +1600,10 @@ Protected Module LLMod
 		    ScriptFile = BaseDir+"/Expanded_Script.sh"
 		  End If
 		  
+		  'cmd.exe only changes drive with cd /d, a plain cd to another drive silently stays on the old one. bash has no /d
+		  Dim CdCmd As String = "cd "
+		  If Right(ScriptFile, 4).Lowercase = ".cmd" Then CdCmd = "cd /d "
+		  
 		  'Load in whole file at once (Fastest Method)
 		  Try
 		    inputStream = TextInputStream.Open(F)
@@ -1609,6 +1614,7 @@ Protected Module LLMod
 		    inputStream.Close
 		  Catch
 		  End Try
+		  RL = RL.ReplaceAll(Chr(13) + Chr(10), Chr(10)) 'CRLF first, otherwise each CRLF becomes 2 line breaks
 		  RL = RL.ReplaceAll(Chr(13), Chr(10))
 		  Sp()=RL.Split(Chr(10))
 		  If Sp.Count <= 0 Then Return OrigScript ' Empty File or no header
@@ -1652,16 +1658,16 @@ Protected Module LLMod
 		        If Sp(I) <> "" Then
 		          ScriptContent = ScriptContent + Chr(10) 'Adds space Line
 		          If ItemLLItem.BuildType = "ssApp"Then
-		            ScriptContent = ScriptContent + "cd "+Chr(34)+InstallFromPath+Chr(34)+Chr(10) 'Add cd to top of scripts so it runs from the right locations
+		            ScriptContent = ScriptContent + CdCmd+Chr(34)+InstallFromPath+Chr(34)+Chr(10) 'Add cd to top of scripts so it runs from the right locations
 		          Else
-		            ScriptContent = ScriptContent + "cd "+Chr(34)+InstallToPath+Chr(34)+Chr(10) 'Add cd to top of scripts so it runs from the right locations
+		            ScriptContent = ScriptContent + CdCmd+Chr(34)+InstallToPath+Chr(34)+Chr(10) 'Add cd to top of scripts so it runs from the right locations
 		          End If
 		        Else
 		          ScriptContent = ScriptContent + Chr(10) 'Adds space Line
 		          If ItemLLItem.BuildType = "ssApp"Then
-		            ScriptContent = ScriptContent + "cd "+Chr(34)+InstallFromPath+Chr(34)+Chr(10) 'Add cd to top of scripts so it runs from the right locations
+		            ScriptContent = ScriptContent + CdCmd+Chr(34)+InstallFromPath+Chr(34)+Chr(10) 'Add cd to top of scripts so it runs from the right locations
 		          Else
-		            ScriptContent = ScriptContent + "cd "+Chr(34)+InstallToPath+Chr(34)+Chr(10) 'Add cd to top of scripts so it runs from the right locations
+		            ScriptContent = ScriptContent + CdCmd+Chr(34)+InstallToPath+Chr(34)+Chr(10) 'Add cd to top of scripts so it runs from the right locations
 		          End If
 		          Continue 'No Need to add a 2nd space line below
 		        End If
@@ -1704,7 +1710,7 @@ Protected Module LLMod
 		    ScriptContent = ScriptContent + ExpPathScript(Sp(I), True) + Chr(10)
 		  Next I
 		  
-		  SaveDataToFile (ScriptContent, ScriptFile)
+		  SaveDataToFile (ToScriptEOL(ScriptContent, ScriptFile), ScriptFile) 'CRLF for .cmd/.reg, LF for .sh
 		  
 		  MakeAllExec(ScriptFile)
 		  
@@ -1842,6 +1848,22 @@ Protected Module LLMod
 		  StrIn = StrIn.ReplaceAll(Chr(13), Chr(30))
 		  StrIn = StrIn.ReplaceAll(EndOfLine, Chr(30))
 		  Return StrIn
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function ToScriptEOL(Data As String, FileName As String) As String
+		  'Rewrites every line ending in Data to suit the kind of script it is going into.
+		  'Windows/Wine scripts (.cmd .bat .reg) need CRLF - cmd.exe misparses labels, call :sub and ( ) blocks when lines end in bare LF or CR.
+		  'Everything else (.sh etc) stays LF only, exactly as before, so Linux scripts are unaffected.
+		  Dim EOL As String = Chr(10)
+		  Dim Ext As String = Right(FileName, 4).Lowercase
+		  If Ext = ".cmd" Or Ext = ".bat" Or Ext = ".reg" Then EOL = Chr(13) + Chr(10)
+		  
+		  Data = Data.ReplaceAll(Chr(13) + Chr(10), Chr(10)) 'CRLF to LF first, so it can't become 2 line breaks
+		  Data = Data.ReplaceAll(Chr(13), Chr(10)) 'Lone CR (Xojo TextAreas use CR) to LF
+		  If EOL <> Chr(10) Then Data = Data.ReplaceAll(Chr(10), EOL)
+		  Return Data
 		End Function
 	#tag EndMethod
 
@@ -7076,6 +7098,7 @@ Protected Module LLMod
 		        
 		        'Below is no longer available as I use a single generated script to apply Assembly, so this must happen in the default order, use Scripts if you need a defined order
 		        Sp(I) = Sp(I).ReplaceAll("#RunScripts#","") 'Clean unrequired text
+		        Sp(I) = Sp(I).ReplaceAll("#RunScript#","") 'Clean unrequired text - singular form is used in some items (ReplaceAll is whole-string, so #RunScripts# above does not cover it)
 		        Sp(I) = Sp(I).ReplaceAll("#ApplyRegistry#","") 'Clean unrequired text
 		        Sp(I) = Sp(I).ReplaceAll("#RegisterDLL#","") 'Clean unrequired text
 		        Sp(I) = Sp(I).ReplaceAll("#ApplyPatch#","") 'Clean unrequired text
@@ -7120,6 +7143,7 @@ Protected Module LLMod
 		    
 		    'Below is no longer available as I use a single generated script to apply Assembly, so this must happen in the default order, use Scripts if you need a defined order
 		    ItemLLItem.Assembly = ItemLLItem.Assembly.ReplaceAll("#RunScripts#","") 'Clean unrequired text
+		    ItemLLItem.Assembly = ItemLLItem.Assembly.ReplaceAll("#RunScript#","") 'Clean unrequired text - singular form
 		    ItemLLItem.Assembly = ItemLLItem.Assembly.ReplaceAll("#ApplyRegistry#","") 'Clean unrequired text
 		    ItemLLItem.Assembly = ItemLLItem.Assembly.ReplaceAll("#RegisterDLL#","") 'Clean unrequired text
 		    ItemLLItem.Assembly = ItemLLItem.Assembly.ReplaceAll("#ApplyPatch#","") 'Clean unrequired text
@@ -7147,11 +7171,11 @@ Protected Module LLMod
 		    
 		    'MkDir(InstallToPath) ' 'Let the Setup install the folder so I can detect where it goes.
 		    AssemblyFile = ScriptPath+"Assembly.cmd"
-		    SaveDataToFile(AssemblyContent, AssemblyFile)
+		    SaveDataToFile(ToScriptEOL(AssemblyContent, AssemblyFile), AssemblyFile)
 		    
 		    F = GetFolderItem(AssemblyFile, FolderItem.PathTypeNative)
 		    If TargetWindows Then
-		      Shelly.Execute ("cd " + Chr(34) + InstallFromPath + Chr(34) + " && " + Chr(34) + FixPath(F.NativePath) + Chr(34)) ' Use && Here because if path fails, then script will anyway
+		      Shelly.Execute ("cd /d " + Chr(34) + InstallFromPath + Chr(34) + " && " + Chr(34) + FixPath(F.NativePath) + Chr(34)) ' Use && Here because if path fails, then script will anyway
 		    Else
 		      Shelly.Execute("cd " + Chr(34) + InstallFromPath + Chr(34) + " && wine " + Chr(34) + FixPath(F.NativePath) + Chr(34)) ' Use && Here because if path fails, then script will anyway
 		    End If
@@ -7198,7 +7222,7 @@ Protected Module LLMod
 		    If FoldIn <> "" Then Success = ChDirSet(FoldIn)
 		    
 		    If TargetWindows Then
-		      SaveDataToFile(CmdIn, ScriptFile)
+		      SaveDataToFile(ToScriptEOL(CmdIn, ScriptFile), ScriptFile)
 		      
 		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		      If F.Exists Then
@@ -7255,7 +7279,7 @@ Protected Module LLMod
 		    If FoldIn <> "" Then Success = ChDirSet(FoldIn)
 		    
 		    If TargetWindows Then
-		      SaveDataToFile(CmdIn, ScriptFile)
+		      SaveDataToFile(ToScriptEOL(CmdIn, ScriptFile), ScriptFile)
 		      
 		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		      If F.Exists Then
@@ -7329,7 +7353,7 @@ Protected Module LLMod
 		    If FoldIn <> "" Then Success = ChDirSet(FoldIn)
 		    
 		    If TargetWindows Then
-		      SaveDataToFile(CmdIn, ScriptFile)
+		      SaveDataToFile(ToScriptEOL(CmdIn, ScriptFile), ScriptFile)
 		      
 		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		      If F.Exists Then
@@ -7408,7 +7432,7 @@ Protected Module LLMod
 		    
 		    'If FoldIn <> "" Then Success = ChDirSet(FoldIn)
 		    
-		    SaveDataToFile(CmdIn, ScriptFile)
+		    SaveDataToFile(ToScriptEOL(CmdIn, ScriptFile), ScriptFile)
 		    
 		    F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
 		    If F.Exists Then
@@ -7560,7 +7584,7 @@ Protected Module LLMod
 		            'Accumulate into combined bat — wine will be run once at end of regen
 		            Dim BatCdPath As String = "z:" + InstallFromPath.ReplaceAll("/", "\")
 		            Dim BatScriptContent As String = LoadDataFromFile(ScriptFile)
-		            CombinedWineBat = CombinedWineBat + "cd " + Chr(34) + BatCdPath + Chr(34) + Chr(13) + Chr(10)
+		            CombinedWineBat = CombinedWineBat + "cd /d " + Chr(34) + BatCdPath + Chr(34) + Chr(13) + Chr(10)
 		            CombinedWineBat = CombinedWineBat + BatScriptContent + Chr(13) + Chr(10)
 		          Else
 		            Shelly.Execute("cd " + Chr(34) + InstallFromPath + Chr(34) + " ; wine " + Chr(34) + ScriptFile + Chr(34)) ' Use && Here because if path fails, then script will anyway
@@ -7596,7 +7620,7 @@ Protected Module LLMod
 		            'Accumulate into combined bat — wine will be run once at end of regen
 		            Dim BatCdPath As String = "z:" + InstallToPath.ReplaceAll("/", "\")
 		            Dim BatScriptContent As String = LoadDataFromFile(ScriptFile)
-		            CombinedWineBat = CombinedWineBat + "cd " + Chr(34) + BatCdPath + Chr(34) + Chr(13) + Chr(10)
+		            CombinedWineBat = CombinedWineBat + "cd /d " + Chr(34) + BatCdPath + Chr(34) + Chr(13) + Chr(10)
 		            CombinedWineBat = CombinedWineBat + BatScriptContent + Chr(13) + Chr(10)
 		          Else
 		            Shelly.Execute("cd " + Chr(34) + InstallToPath + Chr(34) + " ; wine " + Chr(34) + ScriptFile + Chr(34))
