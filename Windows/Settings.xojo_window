@@ -1082,9 +1082,9 @@ End
 		  'DirToCheck = Left(DirToCheck, InStrRev(DirToCheck, "/",-1)) ' Checks up one level from the LastOSLinux Store    
 		  
 		  If TargetWindows Then
-		    F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative)
+		    F = SafeFolder(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative)
 		  Else
-		    F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
+		    F = SafeFolder(DirToCheck, FolderItem.PathTypeNative)
 		  End If
 		  If F.IsFolder And F.IsReadable Then
 		    If F.Count > 0 Then

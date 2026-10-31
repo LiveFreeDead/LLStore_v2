@@ -713,7 +713,7 @@ End
 		          ScriptOut = ScriptOut + Zip + " -mtc -aoa x "+Chr(34)+ItemInn+Chr(34)+ " -o"+Chr(34) + TmpItem+Chr(34)+ExcludesIncludes + EOL
 		          Data.ScanItems.CellTextAt(I,2) = Left(ItemInn,InStrRev(ItemInn,"/")) 'Gets Parent Path
 		        Case Else'Not a compressed Item' just nab the path
-		          Data.ScanItems.CellTextAt(I,2) = Left(ItemInn,InStrRev(ItemInn,"/")-1) 'Gets Parent Path
+		          Data.ScanItems.CellTextAt(I,2) = SafeParentPath(ItemInn) 'Gets Parent Path
 		          Data.ScanItems.CellTextAt(I,2) = Left(Data.ScanItems.CellTextAt(I,2),InStrRev(Data.ScanItems.CellTextAt(I,2),"/")) 'Gets Parent Path
 		        End Select
 		      End If
@@ -1226,28 +1226,28 @@ End
 		        'Load Items Screenshot and Fader per Link
 		        'Screenshot
 		        Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileScreenshot")) =  MediaPath+UniqueName+".jpg"
-		        F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileScreenshot")), FolderItem.PathTypeNative)
+		        F = SafeFolder(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileScreenshot")), FolderItem.PathTypeNative)
 		        If Not F.Exists Then
 		          Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileScreenshot")) =  MediaPath+ItemLLItem.BuildType+".jpg"
-		          F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileScreenshot")), FolderItem.PathTypeNative)
+		          F = SafeFolder(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileScreenshot")), FolderItem.PathTypeNative)
 		          If Not F.Exists Then Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileScreenshot")) =  "" 'None
 		        End If
 		        
 		        'Fader
 		        Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader"))  =  MediaPath+UniqueName+".png"
-		        F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
+		        F = SafeFolder(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
 		        If Not F.Exists Then
 		          Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")) =  MediaPath+UniqueName+".svg"
-		          F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
+		          F = SafeFolder(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
 		          If Not F.Exists Then
 		            Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")) =  MediaPath +ItemLLItem.BuildType+".png"
-		            F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
+		            F = SafeFolder(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
 		            If Not F.Exists Then
 		              Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")) =  MediaPath+ItemLLItem.BuildType+".svg"
-		              F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
+		              F = SafeFolder(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
 		              If Not F.Exists Then 
 		                Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")) =  MediaPath +ItemLLItem.BuildType+".ico"
-		                F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
+		                F = SafeFolder(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")), FolderItem.PathTypeNative)
 		                If Not F.Exists Then
 		                  Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileFader")) =  "" 'None
 		                End If
@@ -1260,20 +1260,20 @@ End
 		        'Icon
 		        UniqueIcon = False
 		        Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")) =  MediaPath+UniqueName+".svg"
-		        F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
+		        F = SafeFolder(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
 		        If Not F.Exists Then
 		          Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")) =  MediaPath+UniqueName+".png"
-		          F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
+		          F = SafeFolder(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
 		          If Not F.Exists Then
 		            Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")) =  MediaPath +ItemLLItem.BuildType+".svg"
-		            F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
+		            F = SafeFolder(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
 		            If Not F.Exists Then
 		              Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")) =  MediaPath +ItemLLItem.BuildType+".png"
-		              F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
+		              F = SafeFolder(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
 		              If Not F.Exists Then
 		                'Disabled .ico because Linux doesn't always display them right, Re-enabled as you can build on Windows
 		                Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")) =  MediaPath +ItemLLItem.BuildType+".ico"
-		                F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
+		                F = SafeFolder(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")), FolderItem.PathTypeNative)
 		                If Not F.Exists Then 
 		                  UniqueIcon = False
 		                End If
@@ -1290,9 +1290,8 @@ End
 		          IconCount = Data.Icons.RowCount
 		          Data.Icons.AddRow
 		          FadeFile = Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon"))
-		          F = GetFolderItem(FadeFile, FolderItem.PathTypeNative)
-		          If F.Exists Then
-		            ItemIcon = Picture.Open(F)
+		          ItemIcon = LoadPictureSafe(FadeFile) 'Nil if missing or a corrupt image
+		          If ItemIcon <> Nil Then
 		            Data.Icons.RowImageAt(IconCount) = ItemIcon
 		            Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("IconRef")) = Str(IconCount)
 		          End If
@@ -1300,10 +1299,10 @@ End
 		        
 		        'Movie
 		        Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileMovie")) =  MediaPath+UniqueName+".mp4"
-		        F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileMovie")), FolderItem.PathTypeNative)
+		        F = SafeFolder(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileMovie")), FolderItem.PathTypeNative)
 		        If Not F.Exists Then
 		          Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileMovie")) =  MediaPath +ItemLLItem.BuildType+".mp4"
-		          F = GetFolderItem(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileMovie")), FolderItem.PathTypeNative)
+		          F = SafeFolder(Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileMovie")), FolderItem.PathTypeNative)
 		          If Not F.Exists Then
 		            Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileMovie")) =  "" 'None
 		          End If
@@ -1331,9 +1330,9 @@ End
 		  'Add folders with an item in it and add files that match
 		  DirToCheck = Slash(Inn)
 		  If TargetWindows Then
-		    F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative) 'When Getting items, best use correct OS paths
+		    F = SafeFolder(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative) 'When Getting items, best use correct OS paths
 		  Else
-		    F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
+		    F = SafeFolder(DirToCheck, FolderItem.PathTypeNative)
 		  End If
 		  If F.IsFolder And F.IsReadable Then
 		    If F.Count > 0 Then
@@ -1665,9 +1664,9 @@ End
 		    
 		    If Settings.SetScanLocalItems.Value = True Then
 		      If TargetWindows Then
-		        F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative)
+		        F = SafeFolder(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative)
 		      Else
-		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
+		        F = SafeFolder(DirToCheck, FolderItem.PathTypeNative)
 		      End If
 		      If F.IsFolder And F.IsReadable Then
 		        GetItemsPaths(DirToCheck)
@@ -1679,7 +1678,7 @@ End
 		    If TargetLinux Then
 		      If Settings.SetScanLocalItems.Value = True Then
 		        DirToCheck = "/media/"
-		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
+		        F = SafeFolder(DirToCheck, FolderItem.PathTypeNative)
 		        If F.IsFolder And F.IsReadable Then
 		          If F.Count > 0 Then
 		            For D = 1 To F.Count
@@ -1704,7 +1703,7 @@ End
 		      
 		      If Settings.SetScanLocalItems.Value = True Then
 		        DirToCheck = "/run/media/"
-		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
+		        F = SafeFolder(DirToCheck, FolderItem.PathTypeNative)
 		        If F.IsFolder And F.IsReadable Then
 		          If F.Count > 0 Then
 		            For D = 1 To F.Count
@@ -1729,7 +1728,7 @@ End
 		      
 		      If Settings.SetScanLocalItems.Value = True Then
 		        DirToCheck = "/mnt/"
-		        F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
+		        F = SafeFolder(DirToCheck, FolderItem.PathTypeNative)
 		        If F.IsFolder And F.IsReadable Then
 		          If F.Count > 0 Then
 		            For D = 1 To F.Count
@@ -1749,7 +1748,7 @@ End
 		        For I = 0 To 23
 		          Let = Asc("C") + I
 		          DirToCheck = Chr(Let)+":/" 'Linux Path
-		          F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative) 'This fixes the issue, yes whenever windows does folder stuff, convert it back until it returns, or it will add a backslash after the forward slash
+		          F = SafeFolder(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative) 'This fixes the issue, yes whenever windows does folder stuff, convert it back until it returns, or it will add a backslash after the forward slash
 		          
 		          If F.IsFolder And F.IsReadable Then
 		            If F.Count > 0 Then
@@ -1782,9 +1781,9 @@ End
 		      If Settings.SetScanLocalItems.Value = True Then
 		        DirToCheck = RepositoryPathLocal
 		        If TargetWindows Then
-		          F = GetFolderItem(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative)
+		          F = SafeFolder(DirToCheck.ReplaceAll("/","\"), FolderItem.PathTypeNative)
 		        Else
-		          F = GetFolderItem(DirToCheck, FolderItem.PathTypeNative)
+		          F = SafeFolder(DirToCheck, FolderItem.PathTypeNative)
 		        End If
 		        If F.IsFolder And F.IsReadable Then
 		          GetItemsPaths(DirToCheck, True)
@@ -2041,13 +2040,21 @@ End
 	#tag Method, Flags = &h0
 		Sub LoadDB(DBRootIn As String, FullPathGiven As Boolean = False)
 		  Dim F As FolderItem
-		  If FullPathGiven = True Then
-		    F = GetFolderItem(DBRootIn, FolderItem.PathTypeNative)
-		    DBRootIn = Left(DBRootIn,DBRootIn.IndexOf("00-")) 'Drop back to the Folder
-		  Else
-		    F = GetFolderItem(DBRootIn+".lldb/lldb.ini",FolderItem.PathTypeNative)
-		  End If
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    If FullPathGiven = True Then
+		      F = GetFolderItem(DBRootIn, FolderItem.PathTypeNative)
+		      Dim DashPos As Integer = DBRootIn.IndexOf("00-")
+		      If DashPos >= 0 Then DBRootIn = Left(DBRootIn,DashPos) 'Drop back to the Folder
+		    Else
+		      F = GetFolderItem(DBRootIn+".lldb/lldb.ini",FolderItem.PathTypeNative)
+		    End If
+		  Catch
+		    F = Nil
+		  End Try
+		  #Pragma BreakOnExceptions On
 		  
+		  If F = Nil Then Return 'Bad path, nothing to load
 		  If Not F.Exists Then
 		    If Debugging Then Debug("Atempted to load Database From: "+ F.NativePath)
 		    Return 'Dud file, get out of here
@@ -2122,9 +2129,8 @@ End
 		                IconCount = Data.Icons.RowCount
 		                Data.Icons.AddRow
 		                FadeFile = Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon"))
-		                F = GetFolderItem(FadeFile, FolderItem.PathTypeNative)
-		                If F.Exists Then
-		                  ItemIcon = Picture.Open(F)
+		                ItemIcon = LoadPictureSafe(FadeFile) 'Nil if missing or a corrupt image, so a bad icon can't crash the load
+		                If ItemIcon <> Nil Then
 		                  Data.Icons.RowImageAt(IconCount) = ItemIcon
 		                  Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("IconRef")) = Str(IconCount)
 		                Else
@@ -2220,7 +2226,7 @@ End
 		      InFavSp() = InFavs.Split(Chr(10))
 		      If InFavSp.Count >= 1 Then
 		        For I = 0 To InFavSp.Count - 1
-		          If InFavSp(I).Trim <> "" Then
+		          If InFavSp(I).Trim <> "" And FavCount < 2048 Then 'Favorites() is a fixed size array
 		            Favorites(FavCount) = InFavSp(I).Trim
 		            FavCount = FavCount + 1
 		          End If
@@ -2252,19 +2258,24 @@ End
 		      DataIn = LoadDataFromFile(FileIn)
 		      If DataIn.Trim <> "" Then
 		        DataSp = DataIn.Split(Chr(10))
+		        Dim PosL As Integer = Main.Left 'Start from the current (default) position and size
+		        Dim PosT As Integer = Main.Top
+		        Dim PosW As Integer = Main.Width
+		        Dim PosH As Integer = Main.Height
+		        Dim GotPos As Boolean = False
 		        For I = 0 To DataSp.Count - 1
 		          If DataSp(I).IndexOf("MainLeft=") >=0 Then
-		            LoadedPosition = True
-		            Main.Left = DataSp(I).ReplaceAll("MainLeft=", "").Trim.ToInteger
+		            GotPos = True
+		            PosL = DataSp(I).ReplaceAll("MainLeft=", "").Trim.ToInteger
 		          End If
 		          If DataSp(I).IndexOf("MainTop=") >=0 Then
-		            Main.Top = DataSp(I).ReplaceAll("MainTop=", "").Trim.ToInteger
+		            PosT = DataSp(I).ReplaceAll("MainTop=", "").Trim.ToInteger
 		          End If
 		          If DataSp(I).IndexOf("MainWidth=") >=0 Then
-		            Main.Width = DataSp(I).ReplaceAll("MainWidth=", "").Trim.ToInteger
+		            PosW = DataSp(I).ReplaceAll("MainWidth=", "").Trim.ToInteger
 		          End If
 		          If DataSp(I).IndexOf("MainHeight=") >=0 Then
-		            Main.Height = DataSp(I).ReplaceAll("MainHeight=", "").Trim.ToInteger
+		            PosH = DataSp(I).ReplaceAll("MainHeight=", "").Trim.ToInteger
 		          End If
 		          
 		          If DataSp(I).IndexOf("CatFont=") >=0 Then
@@ -2280,6 +2291,18 @@ End
 		            Main.MetaData.FontSize = DataSp(I).ReplaceAll("MetaFont=", "").Trim.ToInteger
 		          End If
 		        Next
+		        'Only use the saved window position if the window would be fully on a connected screen, else keep the default position
+		        If GotPos Then
+		          If PositionOnScreen(PosL, PosT, PosW, PosH) Then
+		            LoadedPosition = True
+		            Main.Left = PosL
+		            Main.Top = PosT
+		            Main.Width = PosW
+		            Main.Height = PosH
+		          Else
+		            If Debugging Then Debug("Saved window position is off screen, using default: " + Str(PosL) + "," + Str(PosT) + " " + Str(PosW) + "x" + Str(PosH))
+		          End If
+		        End If
 		      End If
 		    End If
 		  End If
@@ -2296,7 +2319,7 @@ End
 		  SettingsLoaded = True
 		  
 		  SettingsFile = AppPath+"LLL_Settings.ini"
-		  F = GetFolderItem(SettingsFile,FolderItem.PathTypeNative)
+		  F = SafeFolder(SettingsFile,FolderItem.PathTypeNative)
 		  If Not F.Exists Then Return 'No Settings file found
 		  Try
 		    InputStream = TextInputStream.Open(F)
@@ -2466,7 +2489,7 @@ End
 		  
 		  ImgPath = ThemePath+"Loading.png"
 		  F=GetFolderItem(ImgPath, FolderItem.PathTypeNative)
-		  DefaultLoadingWallpaper = Picture.Open(F)
+		  DefaultLoadingWallpaper = PictureOrBlank(ImgPath) 'A missing or bad theme file must not crash start up
 		  
 		  If Loading.Backdrop = Nil Then
 		    Loading.Backdrop = New Picture(Loading.Width+1,Loading.Height, 32)
@@ -2509,13 +2532,13 @@ End
 		  Main.Backdrop = DefaultMainWallpaper
 		  
 		  F=GetFolderItem(ThemePath+"Icon.png", FolderItem.PathTypeNative)
-		  DefaultFader = Picture.Open(F)
+		  DefaultFader = PictureOrBlank(ThemePath+"Icon.png")
 		  
 		  F=GetFolderItem(ThemePath+"StartButton.png", FolderItem.PathTypeNative)
-		  DefaultStartButton = Picture.Open(F)
+		  DefaultStartButton = PictureOrBlank(ThemePath+"StartButton.png")
 		  
 		  F=GetFolderItem(ThemePath+"StartButtonHover.png", FolderItem.PathTypeNative)
-		  DefaultStartButtonHover = Picture.Open(F)
+		  DefaultStartButtonHover = PictureOrBlank(ThemePath+"StartButtonHover.png")
 		  
 		  If Main.StartButton.Backdrop = Nil Then
 		    Main.StartButton.Backdrop = New Picture(Main.StartButton.Width,Main.StartButton.Height, 32)
@@ -2797,11 +2820,11 @@ End
 		        IsCompressed = IsTrue(Data.Items.CellTextAt(ItemRow, SDBColCompressed))
 		        If IsCompressed Then
 		          PatINI = Data.Items.CellTextAt(ItemRow, SDBColPathINI)
-		          PatINI = Left(PatIni, InStrRev(PatIni,"/")-1)
+		          PatINI = SafeParentPath(PatINI)
 		        Else
 		          PatINI = Data.Items.CellTextAt(ItemRow, SDBColPathINI)
-		          PatINI = Left(PatIni, InStrRev(PatIni,"/")-1)
-		          PatINI = Left(PatIni, InStrRev(PatIni,"/")-1)
+		          PatINI = SafeParentPath(PatINI)
+		          PatINI = SafeParentPath(PatINI)
 		        End If
 		        
 		        UniqueName = Data.Items.CellTextAt(ItemRow, SDBColUnique)
@@ -2815,12 +2838,12 @@ End
 		            RowParts.Append(FixEOL(Data.Items.CellTextAt(ItemRow, K)))
 		          Case 2 'FileINI → %DBPath%
 		            DataOut = Data.Items.CellTextAt(ItemRow, K)
-		            DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
+		            If PatINI <> "" Then DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
 		            DataOut = DataOut.ReplaceAll("\", "/")
 		            RowParts.Append(DataOut)
 		          Case 3 'PathINI → %URLPath%
 		            DataOut = Data.Items.CellTextAt(ItemRow, K)
-		            DataOut = DataOut.ReplaceAll(PatINI, "%URLPath%")
+		            If PatINI <> "" Then DataOut = DataOut.ReplaceAll(PatINI, "%URLPath%")
 		            DataOut = DataOut.ReplaceAll("\", "/")
 		            RowParts.Append(DataOut)
 		          Case 4 'FileIcon/FileFader/FileScreenshot
@@ -2855,7 +2878,7 @@ End
 		              'This happens when the item has no icon/image of its own (default type icon) or the copy failed.
 		              If DataOut.IndexOf(".lltemp") >= 0 Then DataOut = ""
 		            Else
-		              DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
+		              If PatINI <> "" Then DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
 		              DataOut = DataOut.ReplaceAll("\", "/")
 		            End If
 		            RowParts.Append(DataOut)
@@ -2880,11 +2903,11 @@ End
 		            IsCompressed = IsTrue(Data.Items.CellTextAt(J, SDBColCompressed))
 		            If IsCompressed Then
 		              PatINI = Data.Items.CellTextAt(J, SDBColPathINI)
-		              PatINI = Left(PatIni, InStrRev(PatIni,"/")-1)
+		              PatINI = SafeParentPath(PatINI)
 		            Else
 		              PatINI = Data.Items.CellTextAt(J, SDBColPathINI)
-		              PatINI = Left(PatIni, InStrRev(PatIni,"/")-1)
-		              PatINI = Left(PatIni, InStrRev(PatIni,"/")-1)
+		              PatINI = SafeParentPath(PatINI)
+		              PatINI = SafeParentPath(PatINI)
 		            End If
 		            
 		            UniqueName = Data.Items.CellTextAt(J, SDBColUnique)
@@ -2898,12 +2921,12 @@ End
 		                RowParts2.Append(CompPath(FixEOL(Data.Items.CellTextAt(J, K))))
 		              Case 2 'FileINI → %DBPath%
 		                DataOut = Data.Items.CellTextAt(J, K)
-		                DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
+		                If PatINI <> "" Then DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
 		                DataOut = DataOut.ReplaceAll("\", "/")
 		                RowParts2.Append(DataOut)
 		              Case 3 'PathINI → %URLPath%
 		                DataOut = Data.Items.CellTextAt(J, K)
-		                DataOut = DataOut.ReplaceAll(PatINI, "%URLPath%")
+		                If PatINI <> "" Then DataOut = DataOut.ReplaceAll(PatINI, "%URLPath%")
 		                DataOut = DataOut.ReplaceAll("\", "/")
 		                RowParts2.Append(DataOut)
 		              Case 4 'FileIcon/FileFader/FileScreenshot
@@ -2937,7 +2960,7 @@ End
 		                  'Never store a temp extraction path (.lltemp/<random>/...) in the DB - it changes every run.
 		                  If DataOut.IndexOf(".lltemp") >= 0 Then DataOut = ""
 		                Else
-		                  DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
+		                  If PatINI <> "" Then DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
 		                  DataOut = DataOut.ReplaceAll("\", "/")
 		                End If
 		                RowParts2.Append(DataOut)
@@ -3863,7 +3886,7 @@ End
 		    If Data.ScanPaths.RowCount >=1 Then
 		      For I = 0 To Data.ScanPaths.RowCount - 1
 		        If Settings.SetUseLocalDBFiles.Value = True Then
-		          F = GetFolderItem(Data.ScanPaths.CellTextAt(I,0)+".lldb/lldb.ini",FolderItem.PathTypeNative)
+		          F = SafeFolder(Data.ScanPaths.CellTextAt(I,0)+".lldb/lldb.ini",FolderItem.PathTypeNative)
 		          If F.Exists And ForceRefreshDBs = False Then
 		            ' Track row counts before loading so we can roll back if items are missing
 		            Dim DBItemStart As Integer = Data.Items.RowCount

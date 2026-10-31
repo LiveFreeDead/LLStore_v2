@@ -7074,7 +7074,9 @@ End
 		  Dim CleanTheCat As String
 		  
 		  EditingCBLnk = ComboShortcut.SelectedRowIndex
+		  If EditingCBLnk < 0 Then Return 'Nothing selected (list cleared), nothing to show
 		  EditingLnk = ComboShortcut.RowTagAt(EditingCBLnk)
+		  If EditingLnk < 0 Or EditingLnk > ItemLnk.LastIndex Then Return
 		  
 		  TextComment.Text = ItemLnk(EditingLnk).Link.Description '+1 because it's 0 based
 		  TextExecute.Text = ItemLnk(EditingLnk).Link.TargetPath
@@ -7420,7 +7422,7 @@ End
 		  ImageIn = TextMovieFile.Text
 		  If ImageIn = "" Then ImageIn = ItemLLItem.FileMovie
 		  ImageIn = ImageIn.ReplaceAll("\","/")
-		  ImageIn = Left(ImageIn,InStrRev(ImageIn,"/") -1) 'Get Parent
+		  ImageIn = SafeParentPath(ImageIn) 'Get Parent
 		  
 		  If ImageIn = "" Then ImageIn = SpecialFolder.Desktop.NativePath
 		  If TargetWindows = True Then
@@ -7456,7 +7458,7 @@ End
 		  ImageIn = NewFileFader
 		  If ImageIn = "" Then ImageIn = ItemLLItem.FileFader
 		  ImageIn = ImageIn.ReplaceAll("\","/")
-		  ImageIn = Left(ImageIn,InStrRev(ImageIn,"/") -1) 'Get Parent
+		  ImageIn = SafeParentPath(ImageIn) 'Get Parent
 		  
 		  If ImageIn = "" Then ImageIn = SpecialFolder.Desktop.NativePath
 		  If TargetWindows = True Then
@@ -7488,7 +7490,7 @@ End
 		  ImageIn = NewFileScreenshot
 		  If ImageIn = "" Then ImageIn = ItemLLItem.FileFader
 		  ImageIn = ImageIn.ReplaceAll("\","/")
-		  ImageIn = Left(ImageIn,InStrRev(ImageIn,"/") -1) 'Get Parent
+		  ImageIn = SafeParentPath(ImageIn) 'Get Parent
 		  
 		  If ImageIn = "" Then ImageIn = SpecialFolder.Desktop.NativePath
 		  If TargetWindows = True Then
@@ -7526,7 +7528,7 @@ End
 		  ImageIn = NewFileFader
 		  If ImageIn = "" Then ImageIn = ItemLLItem.FileIcon
 		  ImageIn = ImageIn.ReplaceAll("\","/")
-		  ImageIn = Left(ImageIn,InStrRev(ImageIn,"/") -1) 'Get Parent
+		  ImageIn = SafeParentPath(ImageIn) 'Get Parent
 		  
 		  If ImageIn = "" Then ImageIn = SpecialFolder.Desktop.NativePath
 		  If TargetWindows = True Then
@@ -7678,7 +7680,7 @@ End
 		  
 		  ImageIn = Slash(TextInstaller.Text)
 		  ImageIn = ImageIn.ReplaceAll("\","/")
-		  ImageIn = Left(ImageIn,InStrRev(ImageIn,"/") -1) 'Get Parent (no exe file)
+		  ImageIn = SafeParentPath(ImageIn) 'Get Parent (no exe file)
 		  
 		  If ImageIn = "" Then ImageIn = SpecialFolder.Desktop.NativePath
 		  If TargetWindows = True Then

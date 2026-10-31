@@ -806,6 +806,13 @@ End
 	#tag EndEvent
 
 	#tag Event
+		Sub KeyUp(key As String)
+		  'Only reaches here when the focused control didn't use the key. A sub window that has the focus never sends its keys to Main.
+		  HandleCtrlKeyUp(Key)
+		End Sub
+	#tag EndEvent
+
+	#tag Event
 		Sub Opening()
 		  If Debugging Then Debug("--- Starting Main Opening ---")
 		  If ForceQuit = True Then Return 'Don't bother even opening if set to quit
@@ -857,6 +864,7 @@ End
 		      If Favorites(I).Lowercase = CurTitle.Lowercase Then Return 'Don't add Existing
 		    End If
 		  Next  
+		  If FavCount >= 2048 Then Return 'Favorites() is a fixed size array
 		  Favorites(FavCount) = CurTitle
 		  FavCount = FavCount + 1
 		  Loading.SaveFavorites
@@ -1022,8 +1030,7 @@ End
 		  If WebWall = "" Or Not Exist(WebWall) Then
 		    WebWall = Slash(ThemePath) + "Icon.png" 'Default Theme Icon  used if no other given (could do Category Icons here if wanted)
 		  End If
-		  F = GetFolderItem(WebWall, FolderItem.PathTypeNative)
-		  CurrentFader = Picture.Open(F)
+		  CurrentFader = PictureOrBlank(WebWall) 'Missing or corrupt images give a blank one instead of a crash
 		  
 		  If RunningGame = True Then 
 		    RunningGame = False
@@ -2880,9 +2887,36 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function FocusInTextInput() As Boolean
+		  'True if the control that has the focus on this window is a text field or text area
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    Dim C As Object = Self.Focus
+		    If C <> Nil Then
+		      If C IsA DesktopTextField Or C IsA DesktopTextArea Then Return True
+		    End If
+		  Catch
+		  End Try
+		  #Pragma BreakOnExceptions On
+		  Return False
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub HandleCtrlKeyUp(key As String)
-		  ' Shared Ctrl+letter handler — called from both Items.KeyUp and Categories.KeyUp.
+		  ' Shared Ctrl+letter handler — called from Items.KeyUp, Categories.KeyUp and the window's own KeyUp,
+		  ' so the hotkeys work wherever the focus is on the main screen.
 		  If Not Keyboard.ControlKey Then Return
+		  If Not Self.Visible Then Return 'Main isn't being shown (Loading screen etc.)
+		  If FocusInTextInput() Then Return 'Typing in the search box or selecting/copying the description, leave the keys to that text field
+		  
+		  'The same key release can arrive from the list and then from the window, only act on it once
+		  Static LastCode As Integer
+		  Static LastTick As Double
+		  Dim KeyCode As Integer = Asc(Key)
+		  If KeyCode = LastCode And (Ticks - LastTick) < 8 Then Return 'Ticks are 1/60 of a second
+		  LastCode = KeyCode
+		  LastTick = Ticks
 		  Dim Successed As Boolean
 		  Select Case Asc(Key)
 		  Case 45 ' Ctrl + -

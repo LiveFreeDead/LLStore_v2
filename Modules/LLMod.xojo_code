@@ -476,7 +476,7 @@ Protected Module LLMod
 		      F.CopyTo(G)
 		      
 		    Catch
-		      If Debugging Then Debug("Failed to copy: "+F.NativePath+" to "+G.NativePath)
+		      If Debugging Then Debug("Failed to copy: "+FileIn+" to "+FileOut) 'F or G can be Nil here, so don't use their NativePath
 		      Return False
 		    End Try
 		    #Pragma BreakOnExceptions On
@@ -502,8 +502,12 @@ Protected Module LLMod
 		    XCopyFile(FilesIn.ReplaceAll("/","\"), FolderOut.ReplaceAll("/","\"))
 		  Else
 		    'Command = "cp -r "+Chr(34)+FilesIn+Chr(34)+" "+Chr(34)+FolderOut+Chr(34)
-		    FolderIn = Left(FilesIn, InStrRev(FilesIn,"/")-1)    'Len(FilesIn) - 
-		    FilesIn = Right(FilesIn,Len(FilesIn)-Len(FolderIn)-1)
+		    If InStrRev(FilesIn,"/") > 0 Then
+		      FolderIn = SafeParentPath(FilesIn)
+		      FilesIn = Right(FilesIn,Len(FilesIn)-Len(FolderIn)-1)
+		    Else
+		      FolderIn = "." 'No folder given, use the current one
+		    End If
 		    Command = "for i in "+Chr(34)+FolderIn+Chr(34)+"/"+ FilesIn+"; do cp "+Chr(34)+"$i"+Chr(34)+" "+Chr(34)+FolderOut+Chr(34)+"; done"
 		    If Debugging Then Debug("CopyWild: "+ Command)
 		    Sh.Execute (Command)
@@ -637,6 +641,15 @@ Protected Module LLMod
 		  If TargetWindows Then S = S.ReplaceAll("/","\") 'rmdir needs backslash in Windows
 		  
 		  S = S.Trim
+		  
+		  'Refuse anything that is a drive root or a top level folder (/home, /usr, /etc, C:\) or has no folder part at all, so an empty variable can never wipe a system folder
+		  Dim DelChk As String = NoSlash(S.ReplaceAll("\","/"))
+		  If TargetWindows Then
+		    If DelChk.Length <= 3 Then Return
+		  ElseIf DelChk.IndexOf(1,"/") < 0 Then
+		    If Debugging Then Debug("- Deltree refused top level path: " + S)
+		    Return
+		  End If
 		  'QueueDeltree = False ' Enable this line to test if Queue is causing issues
 		  
 		  If QueueDeltree Then
@@ -2148,39 +2161,34 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Function GetFileAgeInSeconds(filePath As String) As Double
-		  // Get the file as a FolderItem
-		  'Dim f As FolderItem = New FolderItem(filePath)
+		  'Returns the age in MINUTES (name kept for the callers), 999 if missing, unreadable or not from today.
 		  Dim F As FolderItem
-		  F = GetFolderItem(filePath,FolderItem.PathTypeNative)
+		  Dim ModDT As DateTime
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    F = GetFolderItem(filePath,FolderItem.PathTypeNative)
+		    If F <> Nil Then
+		      If F.Exists Then ModDT = F.ModificationDateTime
+		    End If
+		  Catch
+		    ModDT = Nil
+		  End Try
+		  #Pragma BreakOnExceptions On
 		  
-		  // Check if file exists
-		  If Not f.Exists Then
-		    'Return -1 // File doesn't exist
-		    Return 999 'Force Download DB's
-		  End If
+		  If ModDT = Nil Then Return 999 'Force Download DB's
 		  
-		  // Get current date/time
-		  Dim currentDate As DateTime = DateTime.Now
+		  Dim CurrentDate As DateTime = DateTime.Now
 		  
-		  // Calculate the difference in seconds
-		  'Dim timeDiff As Double = currentDate.SecondsFrom1970 - creationDate.SecondsFrom1970
+		  'Compare the whole date, the old code only compared the day of the month so a file 30 days old looked brand new
+		  If CurrentDate.SQLDate <> ModDT.SQLDate Then Return 999 'Force Refresh if it's over a day, ANY day.
 		  
-		  Dim timeDiff As Double
+		  Dim TimeDiff As Double = (CurrentDate.Hour - ModDT.Hour) * 60
+		  TimeDiff = TimeDiff + CurrentDate.Minute - ModDT.Minute
+		  If TimeDiff < 0 Then TimeDiff = 0 'Clock changes
 		  
-		  timeDiff = currentDate.Day - f.ModificationDateTime.Day
-		  
-		  If timeDiff >= 1 Then Return 999 'Force Refresh if it's over a day, ANY day.
-		  
-		  timeDiff = currentDate.Hour - f.ModificationDateTime.Hour
-		  
-		  timeDiff = timeDiff * 60
-		  
-		  timeDiff = timeDiff + currentDate.Minute - f.ModificationDateTime.Minute
-		  
-		  'MsgBox timeDiff.ToString
-		  
-		  Return timeDiff
+		  Return TimeDiff
 		End Function
+
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
@@ -2270,9 +2278,117 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function SafeParentPath(PathIn As String) As String
+		  'Safe parent folder (no trailing slash) of a / separated path. Returns "" when there is no separator, never a negative Left() length.
+		  Dim Pos As Integer = InStrRev(PathIn, "/")
+		  If Pos <= 1 Then Return ""
+		  Return Left(PathIn, Pos - 1)
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function LoadPictureSafe(PathIn As String) As Picture
+		  'Returns Nil, rather than crashing, if the file is missing, unreadable or not a valid image.
+		  Dim Pic As Picture
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    If PathIn.Trim <> "" Then
+		      Dim F As FolderItem = GetFolderItem(PathIn, FolderItem.PathTypeNative)
+		      If F <> Nil Then
+		        If F.Exists Then Pic = Picture.Open(F)
+		      End If
+		    End If
+		  Catch
+		    Pic = Nil
+		  End Try
+		  #Pragma BreakOnExceptions On
+		  Return Pic
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function PictureOrBlank(PathIn As String) As Picture
+		  'Same as LoadPictureSafe but returns a small transparent picture instead of Nil, so callers never dereference Nil.
+		  Dim Pic As Picture = LoadPictureSafe(PathIn)
+		  If Pic = Nil Then Pic = New Picture(32, 32)
+		  Return Pic
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function SafeFolder(PathIn As String, PathType As Integer = 1) As FolderItem
+		  'Drop in for GetFolderItem on READ ONLY checks (Exists, IsFolder, Count...). It never raises and never returns Nil:
+		  'a bad path gives a harmless FolderItem for a file that doesn't exist, so "If F.Exists" is simply False.
+		  'Do NOT use it where the FolderItem is then created, written or deleted, as the stand-in lives in the temp folder.
+		  Dim F As FolderItem
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    F = GetFolderItem(PathIn, FolderItem.PathTypeNative)
+		  Catch
+		    F = Nil
+		  End Try
+		  If F = Nil Then
+		    Try
+		      F = GetFolderItem(Slash(SpecialFolder.Temporary.NativePath) + "LLStore_NoSuchItem_" + Str(Ticks), FolderItem.PathTypeNative)
+		    Catch
+		      F = Nil
+		    End Try
+		  End If
+		  #Pragma BreakOnExceptions On
+		  Return F
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function SafeItem(Arr() As String, Idx As Integer) As String
+		  'Array read that returns "" instead of raising when the index is out of range (short or corrupt Split results).
+		  If Idx < 0 Or Idx > Arr.LastIndex Then Return ""
+		  Return Arr(Idx)
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function SafeCell(LB As DesktopListBox, Row As Integer, Col As Integer) As String
+		  'ListBox cell read that returns "" instead of raising for a missing list, row or column (GetDBHeader gives -1 for an unknown column).
+		  If LB = Nil Then Return ""
+		  If Row < 0 Or Row >= LB.RowCount Then Return ""
+		  If Col < 0 Or Col >= LB.ColumnCount Then Return ""
+		  Return LB.CellTextAt(Row, Col)
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function PositionOnScreen(L As Integer, T As Integer, W As Integer, H As Integer) As Boolean
+		  'True only if the whole window rectangle sits inside the available area (screen minus taskbar/panels) of one connected screen.
+		  'A small tolerance allows for window borders and the way some systems report maximised windows.
+		  If W < 200 Or H < 150 Then Return False
+		  Const Tol = 16
+		  Dim I As Integer
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    For I = 0 To ScreenCount - 1
+		      If L >= Screen(I).AvailableLeft - Tol And T >= Screen(I).AvailableTop - Tol And _
+		        L + W <= Screen(I).AvailableLeft + Screen(I).AvailableWidth + Tol And _
+		        T + H <= Screen(I).AvailableTop + Screen(I).AvailableHeight + Tol Then
+		        Return True
+		      End If
+		    Next
+		  Catch
+		    Return False 'Can't read the screens, so don't trust the saved position
+		  End Try
+		  #Pragma BreakOnExceptions On
+		  Return False
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function GetParent(InFile As String) As String
 		  InFile = InFile.ReplaceAll("/","\")
-		  InFile = Left(InFile,InStrRev(InFile,"\")-1)
+		  If InStrRev(InFile,"\") > 0 Then
+		    InFile = Left(InFile,InStrRev(InFile,"\")-1)
+		  Else
+		    InFile = "" 'No parent, avoids Left() with a negative length
+		  End If
 		  
 		  If TargetWindows Then
 		  Else
@@ -4281,10 +4397,12 @@ Protected Module LLMod
 		      If F <> Nil Then
 		        If F.Exists And F.IsReadable Then
 		          T = TextInputStream.Open(F)
+		          Dim FileText As String
 		          While Not T.EndOfFile 'If Empty file this skips it
-		            Return T.ReadAll
+		            FileText = T.ReadAll
 		          Wend
 		          T.Close
+		          Return FileText
 		        End If
 		      End If
 		    Catch
@@ -4468,7 +4586,7 @@ Protected Module LLMod
 		    End If
 		    
 		    If ActualIni = "" Then Return False 'Failed to set the item
-		    F = GetFolderItem(ActualIni,FolderItem.PathTypeNative)
+		    F = SafeFolder(ActualIni,FolderItem.PathTypeNative)
 		    If Not F.Exists Then Return False'Failed to set the item, did it fail to extract
 		  End If
 		  
@@ -4799,10 +4917,10 @@ Protected Module LLMod
 		  'Load Items Screenshot and Fader
 		  'Screenshot
 		  ItemLLItem.FileScreenshot =  MediaPath+UniqueName+".jpg"
-		  F = GetFolderItem(ItemLLItem.FileScreenshot, FolderItem.PathTypeNative)
+		  F = SafeFolder(ItemLLItem.FileScreenshot, FolderItem.PathTypeNative)
 		  If Not F.Exists Then
 		    ItemLLItem.FileScreenshot =  MediaPath+ItemLLItem.BuildType+".jpg"
-		    F = GetFolderItem(ItemLLItem.FileScreenshot, FolderItem.PathTypeNative)
+		    F = SafeFolder(ItemLLItem.FileScreenshot, FolderItem.PathTypeNative)
 		    If Not F.Exists Then ItemLLItem.FileScreenshot =  "" 'None
 		  End If
 		  NewFileScreenshot = ItemLLItem.FileScreenshot
@@ -4810,19 +4928,19 @@ Protected Module LLMod
 		  'Fader
 		  ItemLLItem.FileFader =  MediaPath+UniqueName+".png"
 		  'MsgBox ItemLLItem.FileFader
-		  F = GetFolderItem(ItemLLItem.FileFader, FolderItem.PathTypeNative)
+		  F = SafeFolder(ItemLLItem.FileFader, FolderItem.PathTypeNative)
 		  If Not F.Exists Then
 		    ItemLLItem.FileFader =  MediaPath+UniqueName+".svg"
-		    F = GetFolderItem(ItemLLItem.FileFader, FolderItem.PathTypeNative)
+		    F = SafeFolder(ItemLLItem.FileFader, FolderItem.PathTypeNative)
 		    If Not F.Exists Then
 		      ItemLLItem.FileFader =  MediaPath +ItemLLItem.BuildType+".png"
-		      F = GetFolderItem(ItemLLItem.FileFader, FolderItem.PathTypeNative)
+		      F = SafeFolder(ItemLLItem.FileFader, FolderItem.PathTypeNative)
 		      If Not F.Exists Then
 		        ItemLLItem.FileFader =  MediaPath+ItemLLItem.BuildType+".svg"
-		        F = GetFolderItem(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
+		        F = SafeFolder(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
 		        If Not F.Exists Then 
 		          ItemLLItem.FileFader =  MediaPath +ItemLLItem.BuildType+".ico"
-		          F = GetFolderItem(ItemLLItem.FileFader, FolderItem.PathTypeNative)
+		          F = SafeFolder(ItemLLItem.FileFader, FolderItem.PathTypeNative)
 		          If Not F.Exists Then
 		            ItemLLItem.FileFader =  "" 'None
 		            ItemIcon = Nil
@@ -4835,21 +4953,21 @@ Protected Module LLMod
 		  
 		  'Icon
 		  ItemLLItem.FileIcon =  MediaPath+UniqueName+".svg"
-		  F = GetFolderItem(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
+		  F = SafeFolder(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
 		  If Not F.Exists Then
 		    ItemLLItem.FileIcon =  MediaPath+UniqueName+".png"
-		    F = GetFolderItem(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
+		    F = SafeFolder(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
 		    If Not F.Exists Then
 		      
 		      ItemLLItem.FileIcon =  MediaPath +ItemLLItem.BuildType+".svg"
-		      F = GetFolderItem(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
+		      F = SafeFolder(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
 		      If Not F.Exists Then
 		        ItemLLItem.FileIcon =  MediaPath +ItemLLItem.BuildType+".png"
-		        F = GetFolderItem(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
+		        F = SafeFolder(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
 		        If Not F.Exists Then
 		          'Disabled .ico because Linux doesn't always display them right, Re-enabled as you can build on Windows
 		          ItemLLItem.FileIcon =  MediaPath +ItemLLItem.BuildType+".ico"
-		          F = GetFolderItem(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
+		          F = SafeFolder(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
 		          If Not F.Exists Then 
 		            
 		            ItemLLItem.FileIcon =  "" 'None
@@ -4874,10 +4992,10 @@ Protected Module LLMod
 		  
 		  'Movie
 		  ItemLLItem.FileMovie =  MediaPath+UniqueName+".mp4"
-		  F = GetFolderItem(ItemLLItem.FileMovie, FolderItem.PathTypeNative)
+		  F = SafeFolder(ItemLLItem.FileMovie, FolderItem.PathTypeNative)
 		  If Not F.Exists Then
 		    ItemLLItem.FileMovie =  MediaPath +ItemLLItem.BuildType+".mp4"
-		    F = GetFolderItem(ItemLLItem.FileMovie, FolderItem.PathTypeNative)
+		    F = SafeFolder(ItemLLItem.FileMovie, FolderItem.PathTypeNative)
 		    If Not F.Exists Then
 		      ItemLLItem.FileMovie =  "" 'None
 		    End If
