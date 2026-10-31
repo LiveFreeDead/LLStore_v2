@@ -7847,6 +7847,38 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function SaveDataToFileVerified(Data As String, FileIn As String) As Boolean
+		  'SaveDataToFile silently does nothing when the file isn't writable, so this reads the file back to confirm it really got saved.
+		  'In Windows, if the first try fails it clears Read-only/System/Hidden, takes ownership, resets the permissions, grants Administrators full control and tries once more.
+		  'Returns True only when the file contains Data afterwards.
+		  If TargetWindows Then
+		    FileIn = FileIn.ReplaceAll("/","\")
+		  Else
+		    FileIn = FileIn.ReplaceAll("\","/")
+		  End If
+		  
+		  SaveDataToFile(Data, FileIn)
+		  If Trim(LoadDataFromFile(FileIn)) = Trim(Data) Then Return True
+		  
+		  If Not TargetWindows Then Return False 'Nothing more to try in Linux here
+		  
+		  If Debugging Then Debug("* Save Failed, Forcing Write: " + FileIn)
+		  
+		  Dim Q As String = Chr(34) + FileIn + Chr(34)
+		  Dim Cmds As String
+		  Cmds = "attrib -r -s -h " + Q + Chr(10)
+		  Cmds = Cmds + "takeown /f " + Q + " /a" + Chr(10)
+		  Cmds = Cmds + "icacls " + Q + " /reset /c /q" + Chr(10)
+		  Cmds = Cmds + "icacls " + Q + " /grant *S-1-5-32-544:F /c /q" + Chr(10)
+		  Cmds = Cmds + "attrib -r -s -h " + Q + Chr(10)
+		  RunCommand(Cmds)
+		  
+		  SaveDataToFile(Data, FileIn)
+		  Return Trim(LoadDataFromFile(FileIn)) = Trim(Data)
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub SaveDesktopEnvironment()
 		  If TargetWindows Then Return 'Not needed on Windows
 		  

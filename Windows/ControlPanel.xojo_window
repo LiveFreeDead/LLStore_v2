@@ -1594,17 +1594,34 @@ End
 	#tag Method, Flags = &h0
 		Sub SetppDrives()
 		  If TargetWindows Then
+		    Dim AppSaved As Boolean = True
+		    Dim GameSaved As Boolean = True
+		    Dim Msg As String
+		    
 		    If Len(ComboppAppDrive.Text) = 2 Then
-		      SaveDataToFile (ComboppAppDrive.Text, "C:\Windows\ppAppDrive.ini")
-		      ppApps = ComboppAppDrive.Text+"\ppApps" 'Set it as active straight away
+		      AppSaved = SaveDataToFileVerified(ComboppAppDrive.Text, SysRoot + "/ppAppDrive.ini") 'Same file PopulateControlPanel reads at start up
+		      ppApps = ComboppAppDrive.Text+"/ppApps/" 'Set it as active straight away (same format as startup, forward slashes + trailing slash)
 		      ppAppsDrive = ComboppAppDrive.Text
 		    End If
 		    If Len(ComboppGameDrive.Text) = 2 Then
-		      SaveDataToFile (ComboppGameDrive.Text, "C:\Windows\ppGameDrive.ini")
-		      ppGames = ComboppGameDrive.Text+"\ppGames" 'Set it as active straight away
+		      GameSaved = SaveDataToFileVerified(ComboppGameDrive.Text, SysRoot + "/ppGameDrive.ini")
+		      ppGames = ComboppGameDrive.Text+"/ppGames/" 'Set it as active straight away (same format as startup, forward slashes + trailing slash)
 		      ppGamesDrive = ComboppGameDrive.Text
 		    End If
-		    MsgBox "Set ppApp Drive to: "+ ComboppAppDrive.Text +" and ppGame Drive to: "+ ComboppGameDrive.Text
+		    
+		    If AppSaved And GameSaved Then
+		      MsgBox "Set ppApp Drive to: "+ ComboppAppDrive.Text +" and ppGame Drive to: "+ ComboppGameDrive.Text
+		    Else
+		      Msg = "The ppDrive could not be saved, so it will go back to the old drive when LLStore restarts." + EndOfLine + EndOfLine
+		      If Not AppSaved Then Msg = Msg + "Failed to write: " + SysRoot + "\ppAppDrive.ini" + EndOfLine
+		      If Not GameSaved Then Msg = Msg + "Failed to write: " + SysRoot + "\ppGameDrive.ini" + EndOfLine
+		      If IsAdmin = False Then
+		        Msg = Msg + EndOfLine + "LLStore is not running as Administrator, restart it as Administrator and try again."
+		      Else
+		        Msg = Msg + EndOfLine + "Clearing Read-only and taking ownership did not help, something else (security software or permissions) is protecting the file."
+		      End If
+		      MsgBox Msg
+		    End If
 		  End If
 		  
 		End Sub

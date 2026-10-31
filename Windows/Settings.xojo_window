@@ -480,7 +480,7 @@ Begin DesktopWindow Settings
       TabIndex        =   21
       TabPanelIndex   =   0
       TabStop         =   True
-      Text            =   "https://raw.githubusercontent.com/LiveFreeDead/LastOSLinux_Repository/main/.lldb/lldb.ini\nhttps://www.lastos.org/linuxrepo/.lldb/lldb.ini\nhttps://www.lastos.org/linuxrepogames/.lldb/lldb.ini"
+      Text            =   "https://raw.githubusercontent.com/LiveFreeDead/LastOSLinux_Repository/main/.lldb/lldb.ini\nhttps://raw.githubusercontent.com/LiveFreeDead/LastOSLinux_Repo_Mediafire/main/.lldb/lldb.ini\nhttps://raw.githubusercontent.com/LiveFreeDead/LastOSLinux_Repo_Mediafire_Games/main/.lldb/lldb.ini\nhttps://raw.githubusercontent.com/LiveFreeDead/LastOSLinux_Repo_Mediafire_Games_2/main/.lldb/lldb.ini\n#https://www.lastos.org/linuxrepo/.lldb/lldb.ini\n#https://www.lastos.org/linuxrepogames/.lldb/lldb.ini"
       TextAlignment   =   1
       TextColor       =   &c000000
       Tooltip         =   ""
@@ -1126,7 +1126,12 @@ End
 #tag Events DefaultRepos
 	#tag Event
 		Sub Pressed()
-		  SetOnlineRepos.Text = "https://raw.githubusercontent.com/LiveFreeDead/LastOSLinux_Repository/main/.lldb/lldb.ini"+Chr(10)+"https://www.lastos.org/linuxrepo/.lldb/lldb.ini"+Chr(10)+"https://www.lastos.org/linuxrepogames/.lldb/lldb.ini"
+		  SetOnlineRepos.Text = "https://raw.githubusercontent.com/LiveFreeDead/LastOSLinux_Repository/main/.lldb/lldb.ini" + Chr(10) + _
+		  "https://raw.githubusercontent.com/LiveFreeDead/LastOSLinux_Repo_Mediafire/main/.lldb/lldb.ini" + Chr(10) + _
+		  "https://raw.githubusercontent.com/LiveFreeDead/LastOSLinux_Repo_Mediafire_Games/main/.lldb/lldb.ini" + Chr(10) + _
+		  "https://raw.githubusercontent.com/LiveFreeDead/LastOSLinux_Repo_Mediafire_Games_2/main/.lldb/lldb.ini" + Chr(10) + _
+		  "#https://www.lastos.org/linuxrepo/.lldb/lldb.ini" + Chr(10) + _
+		  "#https://www.lastos.org/linuxrepogames/.lldb/lldb.ini"
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -1164,6 +1169,14 @@ End
 		End Sub
 	#tag EndEvent
 #tag EndEvents
+#tag Events SetToldOnceImmutable
+	#tag Event
+		Sub ValueChanged()
+		  ToldOnceImmutable = Me.Value
+		  SettingsChanged = True
+		End Sub
+	#tag EndEvent
+#tag EndEvents
 #tag Events SetNoUpdateDBOnStart
 	#tag Event
 		Sub ValueChanged()
@@ -1187,14 +1200,6 @@ End
 		    End If
 		    'MsgBox Slash(AppPath)+"Themes/Theme.ini" + " Theme: "+ LastTheme
 		  End If
-		End Sub
-	#tag EndEvent
-#tag EndEvents
-#tag Events SetToldOnceImmutable
-	#tag Event
-		Sub ValueChanged()
-		  ToldOnceImmutable = Me.Value
-		  SettingsChanged = True
 		End Sub
 	#tag EndEvent
 #tag EndEvents

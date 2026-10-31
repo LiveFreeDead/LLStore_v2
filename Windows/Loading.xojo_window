@@ -265,6 +265,27 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub RefreshReposAfterUpdate(OldRepos As String)
+		  'A full update extracts a new LLL_Repos.ini, but SaveSettings writes the Settings repo text back to that file when LLStore quits,
+		  'which put the old list back over it. Load the new file into the Settings text so what gets saved is the updated list.
+		  Dim ReposFile As String = Slash(AppPath)+"LLL_Repos.ini"
+		  
+		  If Not Exist(ReposFile) Then 'The update didn't include one, put the old list back so nothing is lost
+		    If OldRepos.Trim <> "" Then SaveDataToFile(OldRepos, ReposFile)
+		    Return
+		  End If
+		  
+		  Dim NewRepos As String = LoadDataFromFile(ReposFile)
+		  NewRepos = NewRepos.ReplaceAll(Chr(13)+Chr(10), Chr(10)).ReplaceAll(Chr(10), Chr(13)) 'Text areas use Chr(13), same as when it loads at start up
+		  If NewRepos.Trim <> "" Then
+		    OnlineDBs = NewRepos.Trim
+		    Settings.SetOnlineRepos.Text = OnlineDBs
+		  End If
+		  If Debugging Then Debug("- Repo List Refreshed From Full Update: " + ReposFile)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub CheckForLLStoreUpdates()
 		  If Debugging Then Debug("- Starting Check For LLStore Updates -")
 		  ForceQuit = False ' Need to do this if using downloader as that aborts if it's set
@@ -341,6 +362,7 @@ End
 		  
 		  If MajorRemote > MajorLocal  Or ForceFullUpdate = True Then
 		    Dim Success As Boolean
+		    Dim OldRepos As String = LoadDataFromFile(Slash(AppPath)+"LLL_Repos.ini") 'Kept so it can be put back if the update has no repo list
 		    'MsgBox "Full Update - Local: "+MajorLocal.ToString+" Remote: "+MajorRemote.ToString
 		    
 		    'Updating
@@ -383,7 +405,9 @@ End
 		        
 		        
 		        'Extract full package here now I've renamed the main executable that is in use (Libraries may still crash things, we'll see)
+		        Deltree(Slash(AppPath)+"LLL_Repos.ini") 'Remove it first so the one in the update always replaces it (Full updates refresh the repo list)
 		        Success = Extract(Slash(TmpPath)+"llstore_latest.zip",AppPath, "")
+		        RefreshReposAfterUpdate(OldRepos)
 		      End If
 		      
 		    Else 'Linux
@@ -392,7 +416,9 @@ End
 		        ShellFast.Execute ("mv -f "+Chr(34)+Slash(AppPath)+"llstore"+Chr(34) + " "+Chr(34)+Slash(AppPath)+"llstoreold"+Chr(34)) 'Move
 		        
 		        'Extract full package here now I've renamed the main executable that is in use (Libraries may still crash things, we'll see)
+		        Deltree(Slash(AppPath)+"LLL_Repos.ini") 'Remove it first so the one in the update always replaces it (Full updates refresh the repo list)
 		        Success = Extract(Slash(TmpPath)+"llstore_latest.zip",AppPath, "")
+		        RefreshReposAfterUpdate(OldRepos)
 		        
 		        ShellFast.Execute ("chmod 777 "+Chr(34)+Slash(AppPath)+"llstore"+Chr(34)) 'Change Read/Write/Execute to defaults
 		      End If
@@ -2680,6 +2706,7 @@ End
 		  Dim PatIni As String
 		  Dim UniqueName As String
 		  Dim IsCompressed As Boolean
+		  Dim SanIdx As Integer 'Used by the final temp-path safety net below
 		  
 		  'Cache frequently-used column indices (pre-optimised in previous pass)
 		  Dim SDBColCompressed As Integer = Data.GetDBHeader("Compressed")
@@ -2824,6 +2851,9 @@ End
 		                  End If
 		                End If
 		              End If
+		              'Never store a temp extraction path (.lltemp/<random>/...) in the DB - it changes every run.
+		              'This happens when the item has no icon/image of its own (default type icon) or the copy failed.
+		              If DataOut.IndexOf(".lltemp") >= 0 Then DataOut = ""
 		            Else
 		              DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
 		              DataOut = DataOut.ReplaceAll("\", "/")
@@ -2833,6 +2863,10 @@ End
 		            RowParts.Append(CompPath(Data.Items.CellTextAt(ItemRow, K)))
 		          End Select
 		        Next K
+		        'Safety net: no column may ever hold a temp extraction path, it changes every run
+		        For SanIdx = 0 To RowParts.LastIndex
+		          If RowParts(SanIdx).IndexOf(".lltemp") >= 0 Then RowParts(SanIdx) = ""
+		        Next
 		        DBLines.Append(Join(RowParts, ",|,") + ",|,")
 		      Next
 		    End If
@@ -2900,7 +2934,8 @@ End
 		                      End If
 		                    End If
 		                  End If
-		                  DataOut = FixEOL(Data.Items.CellTextAt(Data.ScanItems.CellTagAt(J,0),K)) 'Preserved from original
+		                  'Never store a temp extraction path (.lltemp/<random>/...) in the DB - it changes every run.
+		                  If DataOut.IndexOf(".lltemp") >= 0 Then DataOut = ""
 		                Else
 		                  DataOut = DataOut.ReplaceAll(PatINI, "%DBPath%")
 		                  DataOut = DataOut.ReplaceAll("\", "/")
@@ -2908,6 +2943,9 @@ End
 		                RowParts2.Append(DataOut)
 		              End Select
 		            Next K
+		            For SanIdx = 0 To RowParts2.LastIndex
+		              If RowParts2(SanIdx).IndexOf(".lltemp") >= 0 Then RowParts2(SanIdx) = ""
+		            Next
 		            DBLines.Append(Join(RowParts2, ",|,") + ",|,")
 		          End If
 		        End If
