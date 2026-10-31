@@ -1537,7 +1537,7 @@ Protected Module LLMod
 		  Dim ScriptFile As String
 		  Dim SP() As String
 		  
-		  F = GetFolderItem(OrigScript, FolderItem.PathTypeNative)
+		  F = SafeFolder(OrigScript, FolderItem.PathTypeNative)
 		  
 		  'ScriptFile = Slash(FixPath(F.Parent.NativePath)+"Expanded_Registry.reg") 'Use InstallFrom Drive, not Temp
 		  ScriptFile = Slash(FixPath(TmpPath))+"Expanded_Registry.reg"
@@ -2334,6 +2334,22 @@ Protected Module LLMod
 		      F = Nil
 		    End Try
 		  End If
+		  #Pragma BreakOnExceptions On
+		  Return F
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function TryFolder(PathIn As String) As FolderItem
+		  'GetFolderItem that never raises. Returns Nil for a bad path, so the caller must check for Nil.
+		  'Use this where the FolderItem will be written to, created or deleted, SafeFolder's stand-in must not be used for that.
+		  Dim F As FolderItem
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    F = GetFolderItem(PathIn, FolderItem.PathTypeNative)
+		  Catch
+		    F = Nil
+		  End Try
 		  #Pragma BreakOnExceptions On
 		  Return F
 		End Function
@@ -3363,9 +3379,24 @@ Protected Module LLMod
 		    LogInstall("FAIL", "LoadLLFile failed for file: " + FileIn)
 		    Return False ' Couldn't Load Item
 		  End If
-		  
+
+		  'IDENTITY CHECK - Compare what the Mini Installer list says it is installing against what is ACTUALLY inside the file we just loaded.
+		  'The list row and its FileINI both come from the same Data row, so comparing them to each other can never catch a bad row,
+		  'but the title/type read from the real file can. If they differ the row's data is wrong, so refuse to install anything.
+		  If ExpectedInstallKey <> "" Then
+		    Dim LoadedKey As String = ItemLLItem.TitleName.Lowercase + ItemLLItem.BuildType.Lowercase
+		    LoadedKey = LoadedKey.ReplaceAll(" ","")
+		    If LoadedKey <> ExpectedInstallKey Then
+		      InstallMismatch = True
+		      InstallMismatchInfo = "List said '"+ExpectedInstallTitle+"' but the file contains '"+ItemLLItem.TitleName+"' ("+ItemLLItem.BuildType+"): "+FileIn
+		      If Debugging Then Debug("* BLOCKED Install, item mismatch - "+InstallMismatchInfo)
+		      LogInstall("FAIL", "Item mismatch, install blocked: " + InstallMismatchInfo)
+		      Return False
+		    End If
+		  End If
+
 		  MakeFolder(Slash(HomePath)+".local/share/applications")
-		  
+
 		  'Check for Nonething or empty PathApp and set NoInstall: no destination path means scripts-only run.
 		  If ItemLLItem.PathApp.Trim = "" Or ItemLLItem.PathApp.IndexOf("Nonething") >= 0 Then ItemLLItem.NoInstall = True 'This will not use a folder on the computer to install the item to.
 		  
@@ -4800,6 +4831,7 @@ Protected Module LLMod
 		      End If 'Only if ReadMode = 0
 		      
 		      If Right(LineID, 9) = ".desktop]" Then 'Found Shortcut
+		        If LnkCount >= 510 Then Continue 'ItemLnk() is a fixed size array, ignore any extra links in a bad file
 		        LnkCount = LnkCount + 1
 		        LnkEditing = LnkCount
 		        ItemLnk(LnkEditing).Title = Left(LineID, Len(LineID)-9)
@@ -4811,6 +4843,7 @@ Protected Module LLMod
 		      End If
 		      
 		      If Right(LineID, 5) = ".lnk]" Then 'Found Shortcut
+		        If LnkCount >= 510 Then Continue 'ItemLnk() is a fixed size array, ignore any extra links in a bad file
 		        LnkCount = LnkCount + 1
 		        LnkEditing = LnkCount
 		        ItemLnk(LnkEditing).Title = Left(LineID, Len(LineID)-5)
@@ -7302,7 +7335,7 @@ Protected Module LLMod
 		    AssemblyFile = ScriptPath+"Assembly.cmd"
 		    SaveDataToFile(ToScriptEOL(AssemblyContent, AssemblyFile), AssemblyFile)
 		    
-		    F = GetFolderItem(AssemblyFile, FolderItem.PathTypeNative)
+		    F = SafeFolder(AssemblyFile, FolderItem.PathTypeNative)
 		    If TargetWindows Then
 		      Shelly.Execute ("cd /d " + Chr(34) + InstallFromPath + Chr(34) + " && " + Chr(34) + FixPath(F.NativePath) + Chr(34)) ' Use && Here because if path fails, then script will anyway
 		    Else
@@ -7353,7 +7386,7 @@ Protected Module LLMod
 		    If TargetWindows Then
 		      SaveDataToFile(ToScriptEOL(CmdIn, ScriptFile), ScriptFile)
 		      
-		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
+		      F = SafeFolder(ScriptFile, FolderItem.PathTypeNative)
 		      If F.Exists Then
 		        'Run Script
 		        Sh.Execute (F.NativePath)
@@ -7410,7 +7443,7 @@ Protected Module LLMod
 		    If TargetWindows Then
 		      SaveDataToFile(ToScriptEOL(CmdIn, ScriptFile), ScriptFile)
 		      
-		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
+		      F = SafeFolder(ScriptFile, FolderItem.PathTypeNative)
 		      If F.Exists Then
 		        'Run Script
 		        Sh.Execute (F.NativePath)
@@ -7484,7 +7517,7 @@ Protected Module LLMod
 		    If TargetWindows Then
 		      SaveDataToFile(ToScriptEOL(CmdIn, ScriptFile), ScriptFile)
 		      
-		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
+		      F = SafeFolder(ScriptFile, FolderItem.PathTypeNative)
 		      If F.Exists Then
 		        'Run Script
 		        Sh.Execute (F.NativePath)
@@ -7563,7 +7596,7 @@ Protected Module LLMod
 		    
 		    SaveDataToFile(ToScriptEOL(CmdIn, ScriptFile), ScriptFile)
 		    
-		    F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
+		    F = SafeFolder(ScriptFile, FolderItem.PathTypeNative)
 		    If F.Exists Then
 		      'Run Script
 		      Sh.Execute (F.NativePath)
@@ -7599,7 +7632,7 @@ Protected Module LLMod
 		    If TargetWindows Then
 		      ScriptFile = ExpReg (InstallToPath + ItemLLItem.BuildType+".reg")
 		      
-		      F = GetFolderItem(ScriptFile, FolderItem.PathTypeNative)
+		      F = SafeFolder(ScriptFile, FolderItem.PathTypeNative)
 		      
 		      Shelly.Execute ("cmd.exe /c", "regedit.exe /s " + Chr(34) + FixPath(F.NativePath) + Chr(34)) 'Trying this way as it seem more compatible
 		      While Shelly.IsRunning
@@ -8790,6 +8823,22 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		InstallFromPath As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		ExpectedInstallKey As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		ExpectedInstallTitle As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		InstallMismatch As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		InstallMismatchInfo As String
 	#tag EndProperty
 
 	#tag Property, Flags = &h0

@@ -357,7 +357,12 @@ End
 		  
 		  Dim MajorRemote, MajorLocal As Double
 		  MajorLocal = App.MajorVersion
-		  MajorRemote = Val(Left(OnlineVersionS,OnlineVersionS.IndexOf(".")))
+		  Dim DotPos As Integer = OnlineVersionS.IndexOf(".")
+		  If DotPos >= 1 Then
+		    MajorRemote = Val(Left(OnlineVersionS,DotPos))
+		  Else
+		    MajorRemote = Val(OnlineVersionS) 'No "." in the online version text (bad download), Val gives 0 for junk so no update is offered
+		  End If
 		  'MajorRemote = MajorRemote + 1
 		  
 		  If MajorRemote > MajorLocal  Or ForceFullUpdate = True Then
@@ -431,10 +436,10 @@ End
 		    
 		    'ReRun the newer Store version
 		    If TargetWindows Then
-		      F = GetFolderItem(Slash(AppPath)+"llstore.exe", FolderItem.PathTypeNative)
+		      F = SafeFolder(Slash(AppPath)+"llstore.exe", FolderItem.PathTypeNative)
 		      F.Launch
 		    Else
-		      F = GetFolderItem(Slash(AppPath)+"llstore", FolderItem.PathTypeNative)
+		      F = SafeFolder(Slash(AppPath)+"llstore", FolderItem.PathTypeNative)
 		      F.Launch
 		    End If
 		    
@@ -504,10 +509,10 @@ End
 		      
 		      'ReRun the newer Store version
 		      If TargetWindows Then
-		        F = GetFolderItem(Slash(AppPath)+"llstore.exe", FolderItem.PathTypeNative)
+		        F = SafeFolder(Slash(AppPath)+"llstore.exe", FolderItem.PathTypeNative)
 		        F.Launch
 		      Else
-		        F = GetFolderItem(Slash(AppPath)+"llstore", FolderItem.PathTypeNative)
+		        F = SafeFolder(Slash(AppPath)+"llstore", FolderItem.PathTypeNative)
 		        F.Launch
 		      End If
 		      
@@ -695,7 +700,7 @@ End
 		      Else
 		        EOL = Chr(10)
 		      End If
-		      F = GetFolderItem(ItemInn,FolderItem.PathTypeNative)
+		      F = SafeFolder(ItemInn,FolderItem.PathTypeNative)
 		      If F.Exists Then
 		        Exten = Right(ItemInn,4)
 		        Exten = Exten.Lowercase
@@ -906,7 +911,7 @@ End
 		  
 		  Dim FadeFile As String
 		  
-		  F = GetFolderItem(ItemInn,FolderItem.PathTypeNative)
+		  F = SafeFolder(ItemInn,FolderItem.PathTypeNative)
 		  If F.Exists Then
 		    
 		    Exten = Right(ItemInn,4)
@@ -1340,23 +1345,23 @@ End
 		        ItemPath = Slash(FixPath(F.Item(D).NativePath))
 		        If StoreMode = 0 Then
 		          If F.Item(D).Directory Then 'Look for folders only
-		            G = GetFolderItem(ItemPath + "LLApp.lla", FolderItem.PathTypeNative)
+		            G = SafeFolder(ItemPath + "LLApp.lla", FolderItem.PathTypeNative)
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath))
 		            End If
-		            G = GetFolderItem(ItemPath + "LLGame.llg", FolderItem.PathTypeNative)
+		            G = SafeFolder(ItemPath + "LLGame.llg", FolderItem.PathTypeNative)
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath))
 		            End If
-		            G = GetFolderItem(ItemPath+ "ssApp.app", FolderItem.PathTypeNative)
+		            G = SafeFolder(ItemPath+ "ssApp.app", FolderItem.PathTypeNative)
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath))
 		            End If
-		            G = GetFolderItem(ItemPath + "ppApp.app", FolderItem.PathTypeNative)
+		            G = SafeFolder(ItemPath + "ppApp.app", FolderItem.PathTypeNative)
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath))
 		            End If
-		            G = GetFolderItem(ItemPath + "ppGame.ppg", FolderItem.PathTypeNative)
+		            G = SafeFolder(ItemPath + "ppGame.ppg", FolderItem.PathTypeNative)
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath))
 		            End If
@@ -1379,7 +1384,7 @@ End
 		            If TargetWindows Then
 		              G = GetFolderItem(Slash(F.Item(D).NativePath.ReplaceAll("/","\")) + "LLGame.llg", FolderItem.PathTypeNative)
 		            Else
-		              G = GetFolderItem(Slash(F.Item(D).NativePath) + "LLGame.llg", FolderItem.PathTypeNative)
+		              G = SafeFolder(Slash(F.Item(D).NativePath) + "LLGame.llg", FolderItem.PathTypeNative)
 		            End If
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath), ItemPath, DirToCheck) 'Instead of TmpPath use ScanedInPath for Games
@@ -1387,7 +1392,7 @@ End
 		            If TargetWindows Then
 		              G = GetFolderItem(Slash(FixPath(F.Item(D).NativePath.ReplaceAll("/","\"))) + "ppGame.ppg", FolderItem.PathTypeNative)
 		            Else
-		              G = GetFolderItem(Slash(FixPath(F.Item(D).NativePath)) + "ppGame.ppg", FolderItem.PathTypeNative)
+		              G = SafeFolder(Slash(FixPath(F.Item(D).NativePath)) + "ppGame.ppg", FolderItem.PathTypeNative)
 		            End If
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath), ItemPath, DirToCheck) 'Instead of TmpPath use ScanedInPath for Games
@@ -1819,12 +1824,11 @@ End
 		      
 		      'Make it check the root folder to LLStore, so can carry on USB stick with installed items to play - This may cause issues, needs Testing Glenn
 		      Dim GamePath As String
-		      GamePath = AppPath
-		      GamePath = Slash(Left(GamePath, Len(GamePath)-InStrRev(GamePath,"/")))
+		      GamePath = Slash(SafeParentPath(NoSlash(AppPath))) 'Parent folder of LLStore (was cutting the wrong number of characters)
 		      If GamePath <> "/opt/LastOS/" And GamePath <> "/" Then
 		        GetItemsPaths(Slash(GamePath)+"LLGames/", True)
 		      End If
-		      GamePath = Slash(Left(GamePath, Len(GamePath)-InStrRev(GamePath,"/"))) ' I check up to folders
+		      GamePath = Slash(SafeParentPath(NoSlash(GamePath))) ' I check up to folders
 		      If GamePath <> "/opt/LastOS/" And GamePath <> "/" Then
 		        GetItemsPaths(Slash(GamePath)+"LLGames/", True)
 		      End If
@@ -2113,17 +2117,40 @@ End
 		      Dim CatColDB     As Integer = Data.GetDBHeader("Categories")
 		      Dim CatalogColDB As Integer = Data.GetDBHeader("Catalog")
 		      
+		      'Real column count of the header (the header line ends with a "|" so it splits into one empty extra entry)
+		      Dim HeadCols As Integer = HeadSp.Count
+		      If HeadCols >= 1 Then
+		        If HeadSp(HeadCols - 1).Trim = "" Then HeadCols = HeadCols - 1
+		      End If
+		      
 		      For I = 1 To Sp.Count - 1 'Items in DB
+		        If Sp(I).Trim = "" Then Continue 'Blank/trailing line, it used to create an empty ghost item row
 		        ItemSP = Sp(I).Split(",|,")
+		        
+		        'DATA PROTECTION: every data line must hold exactly as many fields as the header has columns.
+		        'A truncated line, or one with an extra ",|," inside a field, shifts every following field by one column and
+		        'would put one item's FileINI/PathINI/etc onto another item's title. Skip the whole line instead of loading it.
+		        Dim LineFields As Integer = ItemSP.Count
+		        If LineFields >= 1 Then
+		          If ItemSP(LineFields - 1).Trim = "" Then LineFields = LineFields - 1 'Normal lines end with a ",|," delimiter
+		        End If
+		        If LineFields <> HeadCols Then
+		          If Debugging Then Debug("* DB line skipped, field count mismatch ("+LineFields.ToString+" fields, header has "+HeadCols.ToString+" columns) in: "+DBRootIn+" line "+I.ToString)
+		          Continue
+		        End If
+		        
 		        If ItemSp.Count >= 1 Then
+		          'Exactly ONE row is created per valid data line here, no matter what the header contains or where "RefID" sits in it.
+		          'Before, the row was only created when the "RefID" column was reached, so a DB without it (or with it not first) wrote every item over the previous item's row.
+		          ItemCount =  Data.Items.RowCount
+		          Data.Items.AddRow(Data.Items.RowCount.ToString("000000")) 'This adds the Leading 0's or prefixes it to 6 digits as it sort Alphabettical, fixed 1,10,100,2 to 001,002,010,100 for example
 		          For J = 0 To HeadSp.Count - 1
 		            
 		            DataHeadID = ColMap(J) ' O(1) array lookup — replaces O(columns) linear scan
 		            
 		            Select Case HeadSp(J)
 		            Case "RefID"
-		              ItemCount =  Data.Items.RowCount
-		              Data.Items.AddRow(Data.Items.RowCount.ToString("000000")) 'This adds the Leading 0's or prefixes it to 6 digits as it sort Alphabettical, fixed 1,10,100,2 to 001,002,010,100 for example
+		              'Row already created above, the RefID stored in the file is never used
 		            Case "IconRef" 'As the icon file is listed before this we can add it here
 		              If Data.Items.CellTextAt(ItemCount,Data.GetDBHeader("FileIcon")) <> "" Then 'If it has a file listed then it should exist
 		                IconCount = Data.Icons.RowCount
@@ -2851,8 +2878,9 @@ End
 		            DataOut = DataOut.ReplaceAll("\", "/")
 		            If IsCompressed Then
 		              If DataOut <> "" Then
-		                H = GetFolderItem(DataOut, FolderItem.PathTypeNative)
-		                G = GetFolderItem(DBOutPath+UniqueName+Right(DataOut,4), FolderItem.PathTypeNative)
+		                H = SafeFolder(DataOut, FolderItem.PathTypeNative)
+		                G = TryFolder(DBOutPath+UniqueName+Right(DataOut,4))
+		                If G = Nil Then G = H 'Bad target name, same as source so the copy is skipped and the temp path gets blanked
 		                If G.Exists Then
 		                  Try
 		                    If FixPath(H.NativePath) <> FixPath(G.NativePath) Then G.Delete
@@ -2934,8 +2962,9 @@ End
 		                DataOut = DataOut.ReplaceAll("\", "/")
 		                If IsCompressed Then
 		                  If DataOut <> "" Then
-		                    H = GetFolderItem(DataOut, FolderItem.PathTypeNative)
-		                    G = GetFolderItem(DBOutPath+UniqueName+Right(DataOut,4), FolderItem.PathTypeNative)
+		                    H = SafeFolder(DataOut, FolderItem.PathTypeNative)
+		                    G = TryFolder(DBOutPath+UniqueName+Right(DataOut,4))
+		                    If G = Nil Then G = H 'Bad target name, same as source so the copy is skipped and the temp path gets blanked
 		                    If G.Exists Then
 		                      Try
 		                        If FixPath(H.NativePath) <> FixPath(G.NativePath) Then G.Delete
@@ -3906,7 +3935,7 @@ End
 		              For CI = DBItemStart To DBItemEnd
 		                Dim ChkFI As String = Data.Items.CellTextAt(CI, ciChkFileINI)
 		                If ChkFI <> "" Then
-		                  Dim ChkF As FolderItem = GetFolderItem(ChkFI, FolderItem.PathTypeNative)
+		                  Dim ChkF As FolderItem = SafeFolder(ChkFI, FolderItem.PathTypeNative)
 		                  If Not ChkF.Exists Then
 		                    DBStale = True
 		                    Exit ' First missing item found — no need to check the rest
@@ -5056,8 +5085,8 @@ End
 		  
 		  'Make Local paths and Debug File
 		  #Pragma BreakOnExceptions Off
-		  F = GetFolderItem(Slash(RepositoryPathLocal)+".lldb", FolderItem.PathTypeNative)
-		  If Not F.Exists Then
+		  F = TryFolder(Slash(RepositoryPathLocal)+".lldb")
+		  If F <> Nil And Not F.Exists Then
 		    Try 
 		      MakeFolder(F.NativePath)
 		    Catch

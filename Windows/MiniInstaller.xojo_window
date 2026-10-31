@@ -285,6 +285,7 @@ End
 		  'Sort the Installation Order
 		  HasLinuxSudo = False
 		  For I = 0 To Data.Items.RowCount - 1
+		    BT = 9 'Reset every row, an unknown BuildType must not inherit the previous row's value
 		    Select Case Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType"))
 		    Case "LLApp"
 		      BT=1
@@ -297,8 +298,11 @@ End
 		    Case "ppGame"
 		      BT=5
 		    End Select
-		    
-		    SortCol =  Data.Items.CellTextAt(I, Data.GetDBHeader("Priority")).Val.ToString("000")+BT.ToString("00")
+
+		    Dim PriVal As Integer = Data.Items.CellTextAt(I, Data.GetDBHeader("Priority")).Val 'Clamp to 0-999 so the text sort stays in numeric order
+		    If PriVal < 0 Then PriVal = 0
+		    If PriVal > 999 Then PriVal = 999
+		    SortCol =  PriVal.ToString("000")+BT.ToString("00")
 		    Data.Items.CellTextAt(I, Data.GetDBHeader("Sorting")) = SortCol 'Add Sorting Data so it will be in the right order (Games last etc)
 		  Next
 		  
@@ -313,6 +317,19 @@ End
 		  'Build Install List to MiniInstaller
 		  MiniInstaller.Items.RemoveAllRows 'Clear List of Items to install
 		  ItemsToInstall = 0
+
+		  'Private snapshot of everything the installer needs for each queue row, taken ONCE here (after the sort).
+		  'Nothing below this point reads Data.Items by row number again, so a later re-sort/reload of the Data
+		  'list can't make a queue row point at a different item or pair a title with another item's ini file.
+		  InstFileINI.RemoveAll
+		  InstPathINI.RemoveAll
+		  InstTitle.RemoveAll
+		  InstUnique.RemoveAll
+		  InstKey.RemoveAll
+		  InstFailed.RemoveAll
+		  JobRow = -1
+		  MismatchRow = -1
+		  MismatchInfo = ""
 		  For I = 0 To Data.Items.RowCount - 1 'Get Items to Install
 		    If Data.Items.CellTextAt(I, Data.GetDBHeader("Selected")) = "T" Then
 		      
@@ -357,7 +374,19 @@ End
 		      If Left(Data.Items.CellTextAt(I, Data.GetDBHeader("BuildType")),1) = "L" Then HasLinuxSudo = True ' Only show Sudo prompt if an item needs it.
 		      
 		      MiniInstaller.Items.AddRow (ItemToAdd)
-		      MiniInstaller.Items.CellTagAt(MiniInstaller.Items.RowCount - 1, 0) = I 'Sets the TagID to the main DB so can use items from there with the Tag as Reference
+		      MiniInstaller.Items.CellTagAt(MiniInstaller.Items.RowCount - 1, 0) = I 'Display only (icons/colours) - the install itself uses the snapshot arrays below, never this tag
+
+		      'Snapshot this row's data, index matches the MiniInstaller.Items row just added
+		      Dim SnapTitle As String = Data.Items.CellTextAt(I, Data.GetDBHeader("TitleName"))
+		      Dim SnapType As String = Data.Items.CellTextAt(I, ColBuildType)
+		      InstFileINI.Add(Data.Items.CellTextAt(I, Data.GetDBHeader("FileINI")))
+		      InstPathINI.Add(Data.Items.CellTextAt(I, Data.GetDBHeader("PathINI")))
+		      InstTitle.Add(SnapTitle)
+		      InstUnique.Add(Data.Items.CellTextAt(I, Data.GetDBHeader("UniqueName")))
+		      Dim SnapKey As String = SnapTitle.Lowercase + SnapType.Lowercase 'Must be built exactly like LoadedKey in InstallLLFile
+		      SnapKey = SnapKey.ReplaceAll(" ","")
+		      InstKey.Add(SnapKey)
+		      InstFailed.Add(False)
 		      'MiniInstaller.Items.CellAlignmentAt(MiniInstaller.Items.RowCount - 1,1) = DesktopListBox.Alignments.Right ' Align Right
 		      ItemsToInstall = ItemsToInstall + 1
 		    End If
@@ -480,6 +509,8 @@ End
 		Sub StartInstaller()
 		  OldMiniUpTo = -1
 		  FileToInstallFrom = ""
+		  ExpectedInstallKey = ""
+		  ExpectedInstallTitle = ""
 		  InstallDone = False
 		  MiniSelected = -1
 		  MiniUpTo = -1 ' It's 0 Based
@@ -560,6 +591,44 @@ End
 
 	#tag Property, Flags = &h0
 		FileToInstallFrom As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		' Private per-queue-row copies of the item data (same index as MiniInstaller.Items rows), see AddInstallingItems
+		InstFailed() As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		InstFileINI() As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		InstKey() As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		InstPathINI() As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		InstTitle() As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		InstUnique() As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		' Queue row that FileToInstallFrom/ExpectedInstallKey were taken from (set together on the UI timer)
+		JobRow As Integer = -1
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		MismatchInfo As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		MismatchRow As Integer = -1
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -798,8 +867,25 @@ End
 		  If QuitInstaller = False Then 'Bypass everything if you close the form
 		    If Not Paused Then 
 		      InstallingItem = True
-		      If FileToInstallFrom <> "" Then '------------
-		        SuccessfulInstall = InstallLLFile (FileToInstallFrom)
+		      'Take a private copy of the job the UI timer queued (file, expected identity and row were set together) so
+		      'nothing can change under us while this item installs.
+		      Dim RunFile As String = FileToInstallFrom
+		      Dim RunRow As Integer = JobRow
+		      Dim RunKey As String = ExpectedInstallKey
+		      Dim RunTitle As String = ExpectedInstallTitle
+		      If RunFile <> "" Then '------------
+		        InstallMismatch = False
+		        InstallMismatchInfo = ""
+		        ExpectedInstallKey = RunKey
+		        ExpectedInstallTitle = RunTitle
+		        SuccessfulInstall = InstallLLFile (RunFile)
+		        ExpectedInstallKey = "" 'Never leave an expectation behind for any other installer call
+		        ExpectedInstallTitle = ""
+		        If InstallMismatch Then 'Blocked: the file isn't the item the list said. Tell the UI timer, the thread can't touch the UI
+		          MismatchInfo = InstallMismatchInfo
+		          MismatchRow = RunRow
+		          InstallMismatch = False
+		        End If
 		        If SuccessfulInstall = False Then 'Check for errors
 		          If Debugging Then Debug("* Error: Failed - Aborting Install")
 		        End If
@@ -835,10 +921,24 @@ End
 		  Dim InstData As String
 		  
 		  If MiniInstaller.Visible = False Then QuitInstaller = True
-		  
+
+		  'The install thread blocked an item because the file's real title/type didn't match the list row, show it and tell the user
+		  If MismatchRow >= 0 Then
+		    Dim BadRow As Integer = MismatchRow
+		    Dim BadInfo As String = MismatchInfo
+		    MismatchRow = -1
+		    MismatchInfo = ""
+		    If BadRow < InstFailed.Count Then InstFailed(BadRow) = True
+		    If BadRow < Items.RowCount Then Items.CellTextAt(BadRow, 1) = "Failed"
+		    If Debugging Then Debug("* Item mismatch, not installed: "+BadInfo)
+		    Notify ("LLStore Blocked A Wrong Item", "Not installed - "+BadInfo, "", 15000)
+		  End If
+
 		  If MiniUpTo+1 > MiniInstaller.Items.RowCount Then 'Past the end of the installer
 		    If TargetLinux Then SaveDataToFile("STOP!",BaseDir+"/stopLLStore") 'Allow the Continue Script to exit so LLStore can close 
 		    InstallDone = True ' Trigger to quit MiniInstaller
+		    ExpectedInstallKey = "" 'Never leave an expectation behind once the queue is finished
+		    ExpectedInstallTitle = ""
 		    
 		    InstallItems.Stop 'Disable the Thread Loop
 		    UpdateUI.RunMode = Timer.RunModes.Off 'Disable Redraw Timer if Quitting
@@ -985,7 +1085,15 @@ End
 		      #Pragma BreakOnExceptions Off
 		      Try
 		        If MiniUpTo - 1 >=0 Then
-		          If Items.CellTextAt(MiniUpTo-1, 1) = "Installing" Then Items.CellTextAt(MiniUpTo-1, 1) = "Installed" 'Does this work here, will test, Yes works here, except for the last item, but that doesn't matter as the form hides when it's done
+		          If Items.CellTextAt(MiniUpTo-1, 1) = "Installing" Then
+		            Dim WasFailed As Boolean = False
+		            If MiniUpTo-1 < InstFailed.Count Then WasFailed = InstFailed(MiniUpTo-1)
+		            If WasFailed Then
+		              Items.CellTextAt(MiniUpTo-1, 1) = "Failed"
+		            Else
+		              Items.CellTextAt(MiniUpTo-1, 1) = "Installed" 'Does this work here, will test, Yes works here, except for the last item, but that doesn't matter as the form hides when it's done
+		            End If
+		          End If
 		        End If
 		      Catch
 		      End Try
@@ -1015,7 +1123,7 @@ End
 		          Try
 		            If MiniUpTo + 1 <= Items.RowCount - 1 Then
 		              For I = MiniUpTo + 1 To Items.RowCount - 1 ' Skip the current item as it's already attempting to install
-		                InstData = InstData + Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(I, 0), Data.GetDBHeader("UniqueName"))+Chr(10)
+		                InstData = InstData + InstUnique(I)+Chr(10) 'From the private snapshot, not the Data list
 		              Next I
 		              SaveDataToFile (InstData, Slash(RepositoryPathLocal)+"UpTo.ini")
 		            Else
@@ -1043,14 +1151,17 @@ End
 		    #Pragma BreakOnExceptions Off
 		    Try 'This is so pre listing doesn't crash it
 		      JobInstalling = True
-		      FileToInstallFrom = Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("FileINI"))
+		      'File, expected identity and row are all taken from the private snapshot in one go, so they always belong to the same item
+		      FileToInstallFrom = InstFileINI(MiniUpTo)
+		      'ExpectedInstallKey/Title/JobRow are set just before the thread starts (below), so a download retry, give-up or a closed
+		      'installer can never leave a stale expectation behind that would wrongly block a later install from somewhere else.
 		      Dim F As FolderItem
 		      Dim DownloadAnyway As Boolean
 		      DownloadAnyway = False
 		      Try
 		        F = GetFolderItem(FileToInstallFrom, FolderItem.PathTypeNative)
 		        If F.Length <=10000 Then '10KB is pretty small
-		          If Left(Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("PathINI")), 4) = "http" Then DownloadAnyway = True 'If the File isn't online one then don't download or will cause issues
+		          If Left(InstPathINI(MiniUpTo), 4) = "http" Then DownloadAnyway = True 'If the File isn't online one then don't download or will cause issues
 		        End If
 		      Catch
 		        DownloadAnyway = True 'If the file has errors then just set it to re-download
@@ -1058,7 +1169,7 @@ End
 		      
 		      If Not Exist(FileToInstallFrom) Or DownloadAnyway = True Then 'Only if it doesn't exist or the existing file is tiny download it
 		        'Download if possible
-		        If Left(Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("PathINI")), 4) = "http" Then
+		        If Left(InstPathINI(MiniUpTo), 4) = "http" Then
 		          If SkippedInstalling = False Then
 		            ' Counter here so we abort instead of retrying a failed download forever - Glenn
 		            ' Resets whenever we move on to a different item; caps attempts at 4 for this one.
@@ -1072,7 +1183,7 @@ End
 		              If Debugging Then Debug("* Giving up after 4 failed attempts: "+FileToInstallFrom)
 		              Items.CellTextAt(MiniUpTo, 1) = "Failed"
 		              If Not TargetWindows Then
-		                Dim FailedName As String = Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("UniqueName"))
+		                Dim FailedName As String = InstUnique(MiniUpTo)
 		                RunCommand("notify-send " + Chr(34) + "Failed Download (gave up after 4 tries): " + FailedName + Chr(34))
 		              End If
 		              DownloadRetryCount = 0
@@ -1081,7 +1192,7 @@ End
 		              Return
 		            End If
 		            
-		            GetOnlineFile(Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("PathINI")), FileToInstallFrom)
+		            GetOnlineFile(InstPathINI(MiniUpTo), FileToInstallFrom)
 		            ' Set this immediately (not on the next UpdateUI tick) so the label changes
 		            ' right away even if the download finishes before Loading.DownloadTimer gets a look in.
 		            DownloadPercentage = ""
@@ -1090,7 +1201,7 @@ End
 		          End If
 		        Else
 		          Items.CellTextAt(MiniUpTo, 1) = "Failed" 'Usually due to unreadable USB or DVD
-		          If Debugging Then Debug("* Error Accessing: "+Data.Items.CellTextAt(MiniInstaller.Items.CellTagAt(MiniUpTo, 0), Data.GetDBHeader("PathINI")))
+		          If Debugging Then Debug("* Error Accessing: "+InstPathINI(MiniUpTo))
 		          MiniUpTo = MiniUpTo + 1 'Skip the item if not able to download from internet
 		          Return
 		        End If
@@ -1104,6 +1215,9 @@ End
 		      
 		      If MiniUpTo >= 0 And MiniUpTo < ItemsToInstall Then 
 		        If ThreadFinished Then
+		          ExpectedInstallKey = InstKey(MiniUpTo)
+		          ExpectedInstallTitle = InstTitle(MiniUpTo)
+		          JobRow = MiniUpTo
 		          InstallItems.Start 'Loop again Recursive
 		          'MsgBox FileToInstallFrom 'Glenn  'Mesage box needs to be below due to recursive and thread based, For Debugging, Keep
 		        End If

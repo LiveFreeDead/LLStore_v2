@@ -551,7 +551,7 @@ End
 		    Data = Data + Items.CellTextAt(ItemRow,I)+"<>"
 		    
 		  Next I
-		  Data = Left(Data,Len(Data)-2)
+		  Data = Left(Data,Max(0, Len(Data)-2))
 		  
 		  Debug("--- Data For: "+Items.CellTextAt(ItemRow,11))
 		  Debug (Data)

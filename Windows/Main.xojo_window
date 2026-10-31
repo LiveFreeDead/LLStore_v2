@@ -3251,7 +3251,7 @@ End
 		  
 		  MultiOldItem = Row
 		  
-		  If X < RowHeights Then
+		  If X < RowHeights And CurrentItemID >= 0 Then 'CurrentItemID is -1 until an item has been picked
 		    If StoreMode = 0 Then 'Select items to install
 		      If IsTrue(Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("Selected"))) Then
 		        Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("Selected")) = "F"

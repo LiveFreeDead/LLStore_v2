@@ -36,21 +36,63 @@ Inherits DesktopApplication
 
 	#tag Event
 		Function UnhandledException(error As RuntimeException) As Boolean
+		  'Log it and keep running, rather than closing the app on the first stray error.
+		  'If errors pour out in a loop (more than 25 in 5 seconds) let the app close normally instead of freezing in an endless loop.
+		  Dim ErrorMsg As String
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    ErrorMsg = "Unhandled Exception: " + error.Message + EndOfLine
+		    ErrorMsg = ErrorMsg + "Type: " + Introspection.GetType(error).Name + "  Error Number: " + Str(error.ErrorNumber) + EndOfLine
+		    ErrorMsg = ErrorMsg + "Stack: " + Join(error.Stack, EndOfLine)
+		  Catch
+		    ErrorMsg = "Unhandled Exception (details unavailable)"
+		  End Try
+		  #Pragma BreakOnExceptions On
 		  
-		  Dim errorMsg As String
-		  errorMsg = "Unhandled Exception: " + error.Message + EndOfLine
-		  errorMsg = errorMsg + "Error Number: " + Str(error.ErrorNumber) + EndOfLine
-		  errorMsg = errorMsg + "Stack: " + Join(error.Stack, EndOfLine)
+		  LogErrorEntry(ErrorMsg)
+		  If Debugging Then Debug(ErrorMsg)
 		  
-		  ' Log to file
-		  If Debugging Then Debug(errorMsg)
+		  If Ticks - ErrWindowStart > 300 Then 'Ticks are 1/60 of a second
+		    ErrWindowStart = Ticks
+		    ErrWindowCount = 0
+		  End If
+		  ErrWindowCount = ErrWindowCount + 1
+		  If ErrWindowCount > 25 Then Return False
 		  
-		  ' Optionally show user-friendly message
-		  'MessageBox("An unexpected error occurred. Please check the log file.")
-		  
+		  Return True 'Handled, carry on running
 		End Function
 	#tag EndEvent
 
+
+	#tag Method, Flags = &h0
+		Sub LogErrorEntry(Msg As String)
+		  'Always writes unhandled errors to LLStore_Errors.log in the temp folder (kept under 512KB), even when Debugging is off.
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    Dim F As FolderItem = SpecialFolder.Temporary.Child("LLStore_Errors.log")
+		    Dim T As TextOutputStream
+		    If F.Exists And F.Length < 524288 Then
+		      T = TextOutputStream.Append(F)
+		    Else
+		      T = TextOutputStream.Create(F)
+		    End If
+		    T.Write(DateTime.Now.SQLDateTime + "  " + Msg + EndOfLine + EndOfLine)
+		    T.Close
+		  Catch
+		    'Never raise from the error logger
+		  End Try
+		  #Pragma BreakOnExceptions On
+		End Sub
+	#tag EndMethod
+
+
+	#tag Property, Flags = &h0
+		ErrWindowCount As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		ErrWindowStart As Double
+	#tag EndProperty
 
 	#tag Property, Flags = &h0
 		mMutex As Mutex

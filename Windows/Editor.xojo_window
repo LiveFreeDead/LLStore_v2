@@ -6843,7 +6843,7 @@ End
 		        If Debugging Then Debug("Grab shortcut Data from: "+ ImageIn)
 		        
 		        Name = Right(ImageIn, Len(ImageIn) - InStrRev(ImageIn,"\")) 'Remove Path
-		        Name = Left(Name, Len(Name)-4) 'Remove .lnk
+		        Name = Left(Name, Max(0, Len(Name)-4)) 'Remove .lnk
 		        Exec = Right(F.NativePath, Len(F.NativePath) - InStrRev(F.NativePath,"\")) 'Remove Path
 		        
 		        If Name <> "" Then 'Add item, select it and fill data
@@ -6917,7 +6917,7 @@ End
 		        If Debugging Then Debug("Grab shortcut Data from: "+ ImageIn)
 		        
 		        Name = Right(ImageIn, Len(ImageIn) - InStrRev(ImageIn,"/")) 'Remove Path
-		        Name = Left(Name, Len(Name)-4) 'Remove .lnk
+		        Name = Left(Name, Max(0, Len(Name)-4)) 'Remove .lnk
 		        
 		        'Can't get much from shortcut in Linux yet
 		        

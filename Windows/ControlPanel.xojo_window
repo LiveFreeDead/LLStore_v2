@@ -583,7 +583,8 @@ End
 		        
 		        While Left(CleanExec, 1) = Chr(34) 'Keep removing Quotes until they are gone
 		          CleanExec = Right(CleanExec,Len(CleanExec)-1) ' Remove First Quote so can find matching one to only use the EXEC name, no arguments etc
-		          CleanExec = Left(CleanExec, CleanExec.IndexOf(Chr(34))) 'Check for matching Quote to crop out the main exe name
+		          Dim QuotePos As Integer = CleanExec.IndexOf(Chr(34))
+		          If QuotePos >= 0 Then CleanExec = Left(CleanExec, QuotePos) 'Check for matching Quote to crop out the main exe name, no matching quote just keeps what is left
 		        Wend
 		        
 		        CleanExec = CleanExec.ReplaceAll("%u", "")
@@ -967,7 +968,7 @@ End
 		          ppAppsDrive = "" 'If not found then detect where it should be or set to C:
 		        End If
 		      Else ' If Exist test it's writable
-		        F = GetFolderItem(ppAppsDrive+"\ppApps\ppWritable.ini", FolderItem.PathTypeNative)
+		        F = SafeFolder(ppAppsDrive+"\ppApps\ppWritable.ini", FolderItem.PathTypeNative)
 		        If F.IsWriteable And WritableLocation(F) Then
 		        Else
 		          ppAppsDrive = ""
@@ -1047,7 +1048,7 @@ End
 		  For I = 0 To 23
 		    Let = Asc("C") + I
 		    ScanDisk = Chr(Let)+":"
-		    F = GetFolderItem(ScanDisk+"\ppWriteTest.ini", FolderItem.PathTypeNative)
+		    F = SafeFolder(ScanDisk+"\ppWriteTest.ini", FolderItem.PathTypeNative)
 		    If F.IsWriteable Then
 		      ComboppAppDrive.AddRow(ScanDisk)
 		      ComboppGameDrive.AddRow(ScanDisk)
@@ -1106,7 +1107,7 @@ End
 		    Test = "C:\Program Files"
 		    
 		    If Debugging Then Debug ("FOUND: "+Test)
-		    F = GetFolderItem(Drive+"\ppWritable.ini", FolderItem.PathTypeNative)
+		    F = SafeFolder(Drive+"\ppWritable.ini", FolderItem.PathTypeNative)
 		    If F.IsWriteable And WritableLocation(F) Then
 		      If Debugging Then Debug ("WRITABLE: "+Test)
 		      ScanPath = Slash(Test).ReplaceAll("/","\")
@@ -1153,7 +1154,7 @@ End
 		    Test = "C:\Program Files (x86)"
 		    
 		    If Debugging Then Debug ("FOUND: "+Test)
-		    F = GetFolderItem(Drive+"\ppWritable.ini", FolderItem.PathTypeNative)
+		    F = SafeFolder(Drive+"\ppWritable.ini", FolderItem.PathTypeNative)
 		    If F.IsWriteable And WritableLocation(F) Then
 		      If Debugging Then Debug ("WRITABLE: "+Test)
 		      ScanPath = Slash(Test).ReplaceAll("/","\")
@@ -1269,7 +1270,7 @@ End
 		        If Debugging Then Debug ("Testing for: "+Test)
 		        If Exist (Test) Then
 		          If Debugging Then Debug ("FOUND: "+Test)
-		          F = GetFolderItem(Drive+"\ppWritable.ini", FolderItem.PathTypeNative)
+		          F = SafeFolder(Drive+"\ppWritable.ini", FolderItem.PathTypeNative)
 		          If F.IsWriteable And WritableLocation(F) Then
 		            If Debugging Then Debug ("WRITABLE: "+Test)
 		            
