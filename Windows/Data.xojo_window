@@ -407,6 +407,7 @@ End
 		  ScanPaths.RemoveAllRows
 		  ScanItems.RemoveAllRows
 		  Icons.RemoveAllRows
+		  IconCache = Nil 'Icon slots are gone, the cache of slot numbers must go too
 		  
 		  Items.ColumnCount = 0
 		  CurrentColumn = 0

@@ -5476,7 +5476,7 @@ End
 		        OutFile = OutFolder+BT+".7z"
 		        InFile = InFolder+BT+".7z"
 		        
-		        InputFolder = InFolder
+		        InputFolder = OutFolder 'The final archive is made from the build folder, that is where the saved ini, icon and screenshot are. (InFolder = OutFolder normally, but not when Build To is changed)
 		        OutputFile = OutFile
 		        
 		        If Debugging Then Debug ("OutFile: " + OutFile +" Include File To Test: " + InFile)
@@ -6012,24 +6012,35 @@ End
 		  
 		  
 		  'Main Window 5 - Graphics
-		  If Exist(Slash(ItemTempPath)+BT+".jpg") Then
-		    F = GetFolderItem(Slash(ItemTempPath)+BT+".jpg",FolderItem.PathTypeNative)
-		    CanvasScreenshot.Backdrop = Picture.Open (F)
+		  'LoadPictureSafe so one bad image can't throw here and leave Populating stuck on. What is shown is also what gets saved (NewFile...),
+		  'and the canvases are cleared first so the last item's pictures never show on an item that has none.
+		  Dim ShownPic As Picture
+		  CanvasScreenshot.Backdrop = Nil
+		  CanvasIcon.Backdrop = Nil
+		  CanvasFader.Backdrop = Nil
+		  
+		  ShownPic = LoadPictureSafe(Slash(ItemTempPath)+BT+".jpg")
+		  If ShownPic <> Nil Then
+		    CanvasScreenshot.Backdrop = ShownPic
+		    NewFileScreenshot = Slash(ItemTempPath)+BT+".jpg"
 		  End If
 		  
-		  If Exist(Slash(ItemTempPath)+BT+".ico") Then
-		    F = GetFolderItem(Slash(ItemTempPath)+BT+".ico",FolderItem.PathTypeNative)
-		    CanvasIcon.Backdrop = Picture.Open (F)
+		  ShownPic = LoadPictureSafe(Slash(ItemTempPath)+BT+".ico")
+		  If ShownPic <> Nil Then
+		    CanvasIcon.Backdrop = ShownPic
+		    NewFileIcon = Slash(ItemTempPath)+BT+".ico"
 		  End If
 		  
-		  If Exist(Slash(ItemTempPath)+BT+".svg") Then
-		    F = GetFolderItem(Slash(ItemTempPath)+BT+".svg",FolderItem.PathTypeNative)
-		    CanvasIcon.Backdrop = Picture.Open (F)
+		  ShownPic = LoadPictureSafe(Slash(ItemTempPath)+BT+".svg")
+		  If ShownPic <> Nil Then
+		    CanvasIcon.Backdrop = ShownPic
+		    NewFileIcon = Slash(ItemTempPath)+BT+".svg"
 		  End If
 		  
-		  If Exist(Slash(ItemTempPath)+BT+".png") Then
-		    F = GetFolderItem(Slash(ItemTempPath)+BT+".png",FolderItem.PathTypeNative)
-		    CanvasFader.Backdrop = Picture.Open (F)
+		  ShownPic = LoadPictureSafe(Slash(ItemTempPath)+BT+".png")
+		  If ShownPic <> Nil Then
+		    CanvasFader.Backdrop = ShownPic
+		    NewFileFader = Slash(ItemTempPath)+BT+".png"
 		  End If
 		  
 		  TextMovieFile.Text = ItemLLItem.FileMovie
@@ -6215,6 +6226,15 @@ End
 		    'Update Catalogs back
 		    If ItemLLItem.BuildType = "ssApp" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ppGame" Then ItemLLItem.Catalog = ItemLLItem.Catalog.ReplaceAll(";","|") ' Make it SetupS Compatible
 		    
+		    'The movie is picked with the Browse button but SaveLLFile only copies the pictures, so bring a newly chosen one in here
+		    If TextMovieFile.Text.Trim <> "" And TextMovieFile.Text.Trim <> ItemLLItem.FileMovie Then
+		      Dim MovieIn As String = FixPath(TextMovieFile.Text.Trim)
+		      Dim MovieOut As String = FixPath(BTF + BT + ".mp4")
+		      If MovieIn <> MovieOut Then
+		        If Copy(MovieIn, MovieOut) = False Then Status.Text = "Warning: Movie could not be copied"
+		      End If
+		    End If
+		    
 		    If SaveLLFile (BTF) = True Then '''''''''************************** Actual Save to file here *********************************************
 		      'Grab the name of the INI file
 		      Select Case BT
@@ -6278,12 +6298,13 @@ End
 		            Dim Q As String = Chr(34)
 		            TarScript = "#!/usr/bin/env bash" + Chr(10)
 		            'Remove existing entries (errors suppressed — member may not exist in archive)
+		            'Pictures and the movie are only removed when the build folder holds a replacement to add back below, otherwise saving from a folder without them stripped them out of the item
 		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + INIFile + Q + " 2>/dev/null" + Chr(10)
-		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".jpg" + Q + " 2>/dev/null" + Chr(10)
-		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".png" + Q + " 2>/dev/null" + Chr(10)
-		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".ico" + Q + " 2>/dev/null" + Chr(10)
-		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".svg" + Q + " 2>/dev/null" + Chr(10)
-		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".mp4" + Q + " 2>/dev/null" + Chr(10)
+		            If Exist(BTF+BT+".jpg") Then TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".jpg" + Q + " 2>/dev/null" + Chr(10)
+		            If Exist(BTF+BT+".png") Then TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".png" + Q + " 2>/dev/null" + Chr(10)
+		            If Exist(BTF+BT+".ico") Then TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".ico" + Q + " 2>/dev/null" + Chr(10)
+		            If Exist(BTF+BT+".svg") Then TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".svg" + Q + " 2>/dev/null" + Chr(10)
+		            If Exist(BTF+BT+".mp4") Then TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " " + Q + BT+".mp4" + Q + " 2>/dev/null" + Chr(10)
 		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " LLScript.sh 2>/dev/null" + Chr(10)
 		            TarScript = TarScript + "tar --delete -f " + Q + ItemLLItem.FileINI + Q + " LLScript_Sudo.sh 2>/dev/null" + Chr(10)
 		            'Add files back if they exist
@@ -7469,9 +7490,14 @@ End
 		  
 		  ImageIn = OpenDialog(iniType, "Select Fader PNG File", ImageIn) ' browse for one 
 		  If ImageIn <> "" Then
-		    NewFileFader = ImageIn
-		    F = GetFolderItem(ImageIn, FolderItem.PathTypeNative)
-		    CanvasFader.Backdrop = Picture.Open(F)
+		    'Only accept it if it really opens as an image, a bad file must never replace the good one when saving
+		    Dim NewPic As Picture = LoadPictureSafe(ImageIn)
+		    If NewPic <> Nil Then
+		      NewFileFader = ImageIn
+		      CanvasFader.Backdrop = NewPic
+		    Else
+		      MsgBox "That file could not be opened as an image, the existing one has been kept."
+		    End If
 		  End If
 		End Sub
 	#tag EndEvent
@@ -7488,7 +7514,7 @@ End
 		  iniType.Extensions = "jpg"
 		  
 		  ImageIn = NewFileScreenshot
-		  If ImageIn = "" Then ImageIn = ItemLLItem.FileFader
+		  If ImageIn = "" Then ImageIn = ItemLLItem.FileScreenshot
 		  ImageIn = ImageIn.ReplaceAll("\","/")
 		  ImageIn = SafeParentPath(ImageIn) 'Get Parent
 		  
@@ -7501,9 +7527,13 @@ End
 		  
 		  ImageIn = OpenDialog(iniType, "Select Screenshot File", ImageIn) ' browse for one 
 		  If ImageIn <> "" Then
-		    NewFileScreenshot = ImageIn
-		    F = GetFolderItem(ImageIn, FolderItem.PathTypeNative)
-		    CanvasScreenshot.Backdrop = Picture.Open(F)
+		    Dim NewPic As Picture = LoadPictureSafe(ImageIn)
+		    If NewPic <> Nil Then
+		      NewFileScreenshot = ImageIn
+		      CanvasScreenshot.Backdrop = NewPic
+		    Else
+		      MsgBox "That file could not be opened as an image, the existing one has been kept."
+		    End If
 		  End If
 		End Sub
 	#tag EndEvent
@@ -7525,7 +7555,7 @@ End
 		  iniType.MacType = "ICO"
 		  iniType.Extensions = "ico"
 		  
-		  ImageIn = NewFileFader
+		  ImageIn = NewFileIcon
 		  If ImageIn = "" Then ImageIn = ItemLLItem.FileIcon
 		  ImageIn = ImageIn.ReplaceAll("\","/")
 		  ImageIn = SafeParentPath(ImageIn) 'Get Parent
@@ -7539,9 +7569,13 @@ End
 		  
 		  ImageIn = OpenDialog(iniType, "Select Icon File", ImageIn) ' browse for one 
 		  If ImageIn <> "" Then
-		    NewFileIcon = ImageIn
-		    F = GetFolderItem(ImageIn, FolderItem.PathTypeNative)
-		    CanvasIcon.Backdrop = Picture.Open(F)
+		    Dim NewPic As Picture = LoadPictureSafe(ImageIn)
+		    If NewPic <> Nil Then
+		      NewFileIcon = ImageIn
+		      CanvasIcon.Backdrop = NewPic
+		    Else
+		      MsgBox "That file could not be opened as an image, the existing one has been kept."
+		    End If
 		  End If
 		End Sub
 	#tag EndEvent
@@ -8048,6 +8082,20 @@ End
 	#tag Event
 		Sub TextChanged()
 		  ItemLLItem.Tags = Me.Text.Trim
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events CheckKeepFolder
+	#tag Event
+		Sub ValueChanged()
+		  ItemLLItem.KeepInFolder = CheckKeepFolder.Value 'Saved as the keepinfolder flag by SaveLLFileComplete
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events CheckKeepAll
+	#tag Event
+		Sub ValueChanged()
+		  ItemLLItem.KeepAll = CheckKeepAll.Value 'Saved as the keepall flag by SaveLLFileComplete
 		End Sub
 	#tag EndEvent
 #tag EndEvents

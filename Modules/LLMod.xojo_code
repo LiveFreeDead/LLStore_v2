@@ -459,7 +459,7 @@ Protected Module LLMod
 		  If FileIn = FileOut Then Return True 'Do not run if it's the same as it will delete it below and we don't want that
 		  'I may update this routune to new methods, but works for now using Xojo method - Glenn
 		  
-		  Dim F, G As FolderItem
+		  Dim F, G, T As FolderItem
 		  
 		  If Exist(FileIn) Then
 		    #Pragma BreakOnExceptions Off
@@ -469,14 +469,31 @@ Protected Module LLMod
 		      
 		      G=GetFolderItem(FileOut, FolderItem.PathTypeNative)
 		      'MakeFolder(G.Parent.NativePath) 'Makes sure the output path parent exists before trying to copy to it. 'leaving this out for now, causes issues with Try Catch, if access denied
-		      If G.Exists And G.IsWriteable Then G.Remove
 		      
 		      'If Debugging Then Debug("Attempting copy: "+ F.NativePath +" To " + G.NativePath)
 		      
-		      F.CopyTo(G)
+		      If F.IsFolder Then
+		        If G.Exists And G.IsWriteable Then G.Remove
+		        F.CopyTo(G)
+		      Else
+		        'Files: copy to a temporary name first and only then swap it in. Removing the output first lost it when the copy then failed,
+		        'or when In and Out were the same file written two different ways (case, double slashes), as that deleted the source itself.
+		        T = G.Parent.Child(G.Name + ".llcopytmp")
+		        If T.Exists Then T.Remove
+		        F.CopyTo(T)
+		        If G.Exists And G.IsWriteable Then G.Remove
+		        T.Name = G.Name
+		      End If
 		      
 		    Catch
 		      If Debugging Then Debug("Failed to copy: "+FileIn+" to "+FileOut) 'F or G can be Nil here, so don't use their NativePath
+		      #Pragma BreakOnExceptions Off
+		      Try
+		        If T <> Nil Then
+		          If T.Exists Then T.Remove 'Don't leave the temporary copy behind
+		        End If
+		      Catch
+		      End Try
 		      Return False
 		    End Try
 		    #Pragma BreakOnExceptions On
@@ -711,6 +728,66 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub DeltreeIfEmpty(S As String)
+		  'SAFE folder removal for Start Menu folders. Only removes S when nothing is left in it except a desktop.ini (no /s, no -rf), so a folder holding anything LLStore didn't make is never touched.
+		  If S = "" Or S.Length <= 4 Then Return
+		  
+		  If TargetWindows Then S = S.ReplaceAll("/","\")
+		  S = NoSlash(S.Trim)
+		  
+		  Dim DelChk As String = NoSlash(S.ReplaceAll("\","/"))
+		  If TargetWindows Then
+		    If DelChk.Length <= 3 Then Return
+		    'Never the Start Menu Programs folders themselves
+		    If StartPathAll <> "" Then
+		      If NoSlash(S).ReplaceAll("/","\") = NoSlash(StartPathAll).ReplaceAll("/","\") Then Return
+		    End If
+		    If StartPathUser <> "" Then
+		      If NoSlash(S).ReplaceAll("/","\") = NoSlash(StartPathUser).ReplaceAll("/","\") Then Return
+		    End If
+		  ElseIf DelChk.IndexOf(1,"/") < 0 Then
+		    Return
+		  End If
+		  
+		  Dim Q As String = Chr(34)
+		  Dim Cmd As String
+		  If TargetWindows Then
+		    'If anything other than desktop.ini is in the folder (a Steam .url, another installer's shortcut, a subfolder) findstr finds it and the folder is left alone.
+		    'Otherwise drop the desktop.ini (LLStore's folder icon) and remove the folder. rmdir has no /s, so it can only ever remove an empty folder.
+		    Cmd = "dir /a /b " + Q+S+Q + " 2>nul | findstr /v /i /x " + Q+"desktop.ini"+Q + " >nul || (attrib -h -s " + Q+S+"\desktop.ini"+Q + " 2>nul & del /f /q " + Q+S+"\desktop.ini"+Q + " 2>nul & rmdir /q " + Q+S+Q + ")"
+		  Else
+		    Cmd = "rmdir " + Q+S+Q 'No -rf: refuses when the folder isn't empty
+		  End If
+		  
+		  If QueueDeltree Then
+		    'Not de-duplicated like Deltree, each item queues its own, so the last one to run is the one that finds the folder empty
+		    QueueDeltreeJobs = QueueDeltreeJobs + Cmd + Chr(10)
+		  Else
+		    Dim Sh As New Shell
+		    Sh.TimeOut = -1
+		    Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		    If Debugging Then Debug("- DeltreeIfEmpty: " + S)
+		    Sh.Execute(Cmd)
+		    While Sh.IsRunning
+		      App.DoEvents(20)
+		    Wend
+		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub RemoveOwnLinkAndEmptyFolder(FolderPath As String, LnkName As String)
+		  'Removes only this item's own shortcut from FolderPath, then removes the folder only if that leaves it empty.
+		  'Anything else in the folder (Windows default shortcuts, other installers, Steam .url files, shortcuts the user copied in) is left alone.
+		  If FolderPath.Trim = "" Or LnkName.Trim = "" Then Return
+		  
+		  FolderPath = NoSlash(FolderPath.ReplaceAll("/","\"))
+		  Deltree(FolderPath + "\" + LnkName) 'Just the one shortcut
+		  DeltreeIfEmpty(FolderPath)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub EnableSudoScript()
 		  If Debugging Then Debug("--- Starting Enable Sudo Script ---")
 		  
@@ -885,6 +962,23 @@ Protected Module LLMod
 		  FileIn = NoSlash(FileIn) ' Just so path with slashes return correctly
 		  FileIn = FileIn.Trim
 		  If FileIn = "" Then Return False
+		  
+		  'A Windows shortcut (.lnk) must NOT be opened as a FolderItem to test it: the shell follows the shortcut to its target and, when that
+		  'target is gone (a dead link), pops up its "browse for the destination" box. Ask for the file's attributes instead, that never follows it.
+		  If TargetWindows Then
+		    If Right(FileIn, 4).Lowercase = ".lnk" Then
+		      #Pragma BreakOnExceptions Off
+		      Try
+		        Declare Function GetFileAttributesW Lib "Kernel32" (lpFileName As WString) As UInt32
+		        Dim LnkAttr As UInt32 = GetFileAttributesW(FileIn.ReplaceAll("/", "\"))
+		        Return (LnkAttr <> &hFFFFFFFF)
+		      Catch
+		        Return False
+		      End Try
+		      #Pragma BreakOnExceptions On
+		    End If
+		  End If
+		  
 		  #Pragma BreakOnExceptions Off
 		  Try
 		    F = GetFolderItem(FileIn, FolderItem.PathTypeNative)
@@ -1747,6 +1841,21 @@ Protected Module LLMod
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function PreExtractedOK(OutPath As String) As Boolean
+		  'True if the batch extract (ExtractAll) really produced an item file in this folder. If it didn't (7z missing, a broken or
+		  'encrypted archive, a failed script) LoadLLFile extracts that one archive again by itself instead of losing the item.
+		  If OutPath = "" Then Return False
+		  Dim P As String = Slash(OutPath)
+		  If Exist(P + "LLApp.lla") Then Return True
+		  If Exist(P + "LLGame.llg") Then Return True
+		  If Exist(P + "ssApp.app") Then Return True
+		  If Exist(P + "ppApp.app") Then Return True
+		  If Exist(P + "ppGame.ppg") Then Return True
+		  Return False
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function Extract(Archive As String, OutPath As String, ExcludesIncludes As String) As Boolean
 		  If Debugging Then Debug("--- Starting Extract ---")
 		  Dim Commands As String
@@ -1764,6 +1873,10 @@ Protected Module LLMod
 		  Zip = Linux7z
 		  if TargetWindows Then Zip = Win7z
 		  
+		  'Close stdin for 7z so an encrypted/password protected archive fails straight away instead of waiting forever for a password
+		  Dim NoIn As String = " < /dev/null"
+		  If TargetWindows Then NoIn = " < nul"
+		  
 		  'Make sure there is a space in the excludes/includes
 		  If ExcludesIncludes <> "" Then
 		    If Left(ExcludesIncludes,1) <>" " Then ExcludesIncludes = " "+ ExcludesIncludes
@@ -1773,7 +1886,7 @@ Protected Module LLMod
 		  If Not Exist(OutPath) Then MakeFolder(OutPath)
 		  If Exist(OutPath) Then 'Only do it if somewhere to go
 		    If Right(Archive,4) = ".tar" Then
-		      Sh.Execute (Zip + " -mtc -aoa x "+Chr(34)+Archive+Chr(34)+ " -o"+Chr(34) + OutPath+Chr(34)+ExcludesIncludes)
+		      Sh.Execute (Zip + " -mtc -aoa -y x "+Chr(34)+Archive+Chr(34)+ " -o"+Chr(34) + OutPath+Chr(34)+ExcludesIncludes+NoIn)
 		      Dim ExBuf1 As String = ""
 		      Do
 		        App.DoEvents(20)
@@ -1792,11 +1905,11 @@ Protected Module LLMod
 		        ExBuf2 = ExBuf2 + Sh.ReadAll 'Capture any remaining output
 		        If Debugging Then Debug(ExBuf2)
 		      Else 'Just treat it as a standard non Linux zip, 7z etc works fine for this as it doesn't need to handle symlinks (7z can't extract tar.gz files)
-		        Commands = Zip + " -mtc -aoa x "+Chr(34)+Archive+Chr(34)+ " -o"+Chr(34) + OutPath+Chr(34)+ExcludesIncludes
+		        Commands = Zip + " -mtc -aoa -y x "+Chr(34)+Archive+Chr(34)+ " -o"+Chr(34) + OutPath+Chr(34)+ExcludesIncludes
 		        If TargetWindows Then
 		          RunCommand (Commands)
 		        Else'Linux
-		          Sh.Execute (Commands)
+		          Sh.Execute (Commands + " < /dev/null") 'Linux only here, stdin closed (see NoIn)
 		          Dim ExBuf3 As String = ""
 		          Do
 		            App.DoEvents(20)
@@ -1867,6 +1980,212 @@ Protected Module LLMod
 		    if Game = True Then CatIn = "Game; "
 		  End If
 		  Return CatIn
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function Cp1252ToUni(B As Integer) As Integer
+		  'Windows-1252 byte to Unicode code point. 0x80-0x9F differ from Latin-1, everything else is the same number
+		  Select Case B
+		  Case &h80
+		    Return &h20AC
+		  Case &h82
+		    Return &h201A
+		  Case &h83
+		    Return &h0192
+		  Case &h84
+		    Return &h201E
+		  Case &h85
+		    Return &h2026
+		  Case &h86
+		    Return &h2020
+		  Case &h87
+		    Return &h2021
+		  Case &h88
+		    Return &h02C6
+		  Case &h89
+		    Return &h2030
+		  Case &h8A
+		    Return &h0160
+		  Case &h8B
+		    Return &h2039
+		  Case &h8C
+		    Return &h0152
+		  Case &h8E
+		    Return &h017D
+		  Case &h91
+		    Return &h2018
+		  Case &h92
+		    Return &h2019
+		  Case &h93
+		    Return &h201C
+		  Case &h94
+		    Return &h201D
+		  Case &h95
+		    Return &h2022
+		  Case &h96
+		    Return &h2013
+		  Case &h97
+		    Return &h2014
+		  Case &h98
+		    Return &h02DC
+		  Case &h99
+		    Return &h2122
+		  Case &h9A
+		    Return &h0161
+		  Case &h9B
+		    Return &h203A
+		  Case &h9C
+		    Return &h0153
+		  Case &h9E
+		    Return &h017E
+		  Case &h9F
+		    Return &h0178
+		  Case Else
+		    Return B
+		  End Select
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function UniToCp1252(Cp As Integer) As Integer
+		  'Reverse of Cp1252ToUni, returns -1 if the code point has no Windows-1252 byte
+		  Dim B As Integer
+		  For B = &h80 To &hFF
+		    If Cp1252ToUni(B) = Cp Then Return B
+		  Next
+		  Return -1
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function DecodeUtf8At(MB As MemoryBlock, N As Integer, Pos As Integer, ByRef Cp As Integer, ByRef SeqLen As Integer) As Boolean
+		  'True if a valid UTF-8 character starts at Pos, giving its code point and how many bytes it uses
+		  If Pos >= N Then Return False
+		  Dim B As Integer = MB.UInt8Value(Pos)
+		  Dim Need, K, C As Integer
+		  If B < &h80 Then
+		    Cp = B
+		    SeqLen = 1
+		    Return True
+		  ElseIf B >= &hC2 And B <= &hDF Then
+		    Need = 2
+		    Cp = B And &h1F
+		  ElseIf B >= &hE0 And B <= &hEF Then
+		    Need = 3
+		    Cp = B And &h0F
+		  ElseIf B >= &hF0 And B <= &hF4 Then
+		    Need = 4
+		    Cp = B And &h07
+		  Else
+		    Return False 'Stray byte such as a lone 0x92
+		  End If
+		  If Pos + Need > N Then Return False
+		  For K = 1 To Need - 1
+		    C = MB.UInt8Value(Pos + K)
+		    If C < &h80 Or C > &hBF Then Return False
+		    Cp = (Cp * 64) + (C And &h3F)
+		  Next
+		  If Need = 3 And Cp < &h800 Then Return False 'Overlong
+		  If Need = 4 And (Cp < &h10000 Or Cp > &h10FFFF) Then Return False
+		  If Cp >= &hD800 And Cp <= &hDFFF Then Return False 'Surrogates aren't valid UTF-8
+		  SeqLen = Need
+		  Return True
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub PutCodePoint(Out As MemoryBlock, ByRef OutPos As Integer, Cp As Integer, AsciiPunct As Boolean)
+		  'Writes one code point as UTF-8, curly quotes, dashes and ellipsis become plain ASCII when AsciiPunct is True
+		  Dim Rep As String = ""
+		  Dim K As Integer
+		  If AsciiPunct Then
+		    Select Case Cp
+		    Case &h2018, &h2019, &h201A, &h201B
+		      Rep = Chr(39)
+		    Case &h201C, &h201D, &h201E
+		      Rep = Chr(34)
+		    Case &h2013, &h2014
+		      Rep = "-"
+		    Case &h2026
+		      Rep = "..."
+		    Case &hA0
+		      Rep = " "
+		    End Select
+		  End If
+		  If Rep <> "" Then
+		    For K = 1 To Len(Rep)
+		      Out.UInt8Value(OutPos) = Asc(Mid(Rep, K, 1))
+		      OutPos = OutPos + 1
+		    Next
+		  ElseIf Cp < &h80 Then
+		    Out.UInt8Value(OutPos) = Cp
+		    OutPos = OutPos + 1
+		  ElseIf Cp < &h800 Then
+		    Out.UInt8Value(OutPos) = &hC0 Or (Cp \ 64)
+		    Out.UInt8Value(OutPos + 1) = &h80 Or (Cp And &h3F)
+		    OutPos = OutPos + 2
+		  ElseIf Cp < &h10000 Then
+		    Out.UInt8Value(OutPos) = &hE0 Or (Cp \ 4096)
+		    Out.UInt8Value(OutPos + 1) = &h80 Or ((Cp \ 64) And &h3F)
+		    Out.UInt8Value(OutPos + 2) = &h80 Or (Cp And &h3F)
+		    OutPos = OutPos + 3
+		  Else
+		    Out.UInt8Value(OutPos) = &hF0 Or (Cp \ 262144)
+		    Out.UInt8Value(OutPos + 1) = &h80 Or ((Cp \ 4096) And &h3F)
+		    Out.UInt8Value(OutPos + 2) = &h80 Or ((Cp \ 64) And &h3F)
+		    Out.UInt8Value(OutPos + 3) = &h80 Or (Cp And &h3F)
+		    OutPos = OutPos + 4
+		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function CleanTextEncoding(DataIn As String, AsciiPunct As Boolean = True) As String
+		  'Rewrites text as clean, valid UTF-8 so Notepad and other tools can't mistake it for another encoding.
+		  'Fixes: a stray Windows-1252 byte (a lone 0x92 for an apostrophe) and text that was UTF-8 encoded twice (the three characters that replace a curly apostrophe).
+		  'Real UTF-8 characters (accents, Chinese etc) are kept as they are. Safe to run again on its own output.
+		  If DataIn = "" Then Return ""
+		  
+		  Dim N As Integer = DataIn.Bytes
+		  Dim MB As New MemoryBlock(N)
+		  MB.StringValue(0, N) = DataIn
+		  Dim Out As New MemoryBlock((N * 4) + 4) 'Worst case every byte becomes 4
+		  
+		  Dim I, OutPos, SeqLen, Len2, Len3 As Integer
+		  Dim Cp, Cp2, Cp3, X1, X2 As Integer
+		  I = 0
+		  OutPos = 0
+		  While I < N
+		    If MB.UInt8Value(I) < &h80 Then
+		      Out.UInt8Value(OutPos) = MB.UInt8Value(I)
+		      OutPos = OutPos + 1
+		      I = I + 1
+		      Continue
+		    End If
+		    
+		    If DecodeUtf8At(MB, N, I, Cp, SeqLen) Then
+		      If Cp = &hE2 Then 'Could be the start of a double encoded 3 byte character (E2 xx xx turned into 3 separate characters)
+		        If DecodeUtf8At(MB, N, I + SeqLen, Cp2, Len2) Then
+		          If DecodeUtf8At(MB, N, I + SeqLen + Len2, Cp3, Len3) Then
+		            X1 = UniToCp1252(Cp2)
+		            X2 = UniToCp1252(Cp3)
+		            If X1 >= &h80 And X1 <= &hBF And X2 >= &h80 And X2 <= &hBF Then
+		              Cp = &h2000 + ((X1 And &h3F) * 64) + (X2 And &h3F) 'Put the original character back together
+		              SeqLen = SeqLen + Len2 + Len3
+		            End If
+		          End If
+		        End If
+		      End If
+		      PutCodePoint(Out, OutPos, Cp, AsciiPunct)
+		      I = I + SeqLen
+		    Else 'Not valid UTF-8, treat it as a Windows-1252 byte
+		      PutCodePoint(Out, OutPos, Cp1252ToUni(MB.UInt8Value(I)), AsciiPunct)
+		      I = I + 1
+		    End If
+		  Wend
+		  
+		  Return DefineEncoding(Out.StringValue(0, OutPos), Encodings.UTF8)
 		End Function
 	#tag EndMethod
 
@@ -2428,7 +2747,11 @@ Protected Module LLMod
 		      
 		      
 		      Dim lnkObj As OLEObject
-		      Dim scriptShell As New OLEObject("{F935DC22-1CF0-11D0-ADB9-00C04FD58A0B}")
+		      'Reuse the shared WScript.Shell object (creating a new one per link is slow), same as CreateShortcut does
+		      If WScriptShell = Nil Then
+		        WScriptShell = New OLEObject("{F935DC22-1CF0-11D0-ADB9-00C04FD58A0B}")
+		      End If
+		      Dim scriptShell As OLEObject = WScriptShell
 		      
 		      If scriptShell <> Nil then
 		        lnkObj = scriptShell.CreateShortcut(LnkFile)
@@ -4527,7 +4850,7 @@ Protected Module LLMod
 		    Success = True
 		  Case ".tar"
 		    ItemLLItem.PathINI = ItemInn
-		    If InnTmp <>"" Then
+		    If InnTmp <>"" And PreExtractedOK(InnTmp) Then
 		      TmpItem = InnTmp
 		      Success = True
 		    Else
@@ -4543,7 +4866,7 @@ Protected Module LLMod
 		    Compressed = True
 		  Case".apz"
 		    ItemLLItem.PathINI = ItemInn
-		    If InnTmp <>"" Then
+		    If InnTmp <>"" And PreExtractedOK(InnTmp) Then
 		      TmpItem = InnTmp
 		      Success = True
 		    Else
@@ -4560,7 +4883,7 @@ Protected Module LLMod
 		  Case ".pgz"
 		    ItemLLItem.PathINI = ItemInn
 		    ItemLLItem.BuildType = "ppGame"
-		    If InnTmp <>"" Then
+		    If InnTmp <>"" And PreExtractedOK(InnTmp) Then
 		      TmpItem = InnTmp
 		      Success = True
 		    Else
@@ -4970,7 +5293,7 @@ Protected Module LLMod
 		      F = SafeFolder(ItemLLItem.FileFader, FolderItem.PathTypeNative)
 		      If Not F.Exists Then
 		        ItemLLItem.FileFader =  MediaPath+ItemLLItem.BuildType+".svg"
-		        F = SafeFolder(ItemLLItem.FileIcon, FolderItem.PathTypeNative)
+		        F = SafeFolder(ItemLLItem.FileFader, FolderItem.PathTypeNative) 'Was checking FileIcon here by mistake
 		        If Not F.Exists Then 
 		          ItemLLItem.FileFader =  MediaPath +ItemLLItem.BuildType+".ico"
 		          F = SafeFolder(ItemLLItem.FileFader, FolderItem.PathTypeNative)
@@ -5011,7 +5334,7 @@ Protected Module LLMod
 		    End If
 		  End If
 		  NewFileIcon = ""
-		  If Right(ItemLLItem.FileIcon,4) = ".ico" Then 'Don't allow png or svg Icons, they dont work with windows purposes and Linux doesn't need the Icon
+		  If Right(ItemLLItem.FileIcon,4) = ".ico" Or Right(ItemLLItem.FileIcon,4) = ".svg" Then 'Keep ico and svg so a save carries them across (SaveLLFile writes both). png is left out, it is the Fader's name
 		    NewFileIcon = ItemLLItem.FileIcon
 		  End If
 		  
@@ -5452,7 +5775,15 @@ Protected Module LLMod
 		    end if
 		    
 		    If TargetWindows Then 'Only windows has the stupid shell bug, so only it needs an external script called instead
+		      'Every link in a start menu folder asked for the folder again, and each ask ran a script plus a recursive icacls. Once a folder has been
+		      'made and opened up this session (and is still there) there is nothing left to do for it, so don't run it again.
+		      Dim FolderKey As String = NoSlash(Path).Lowercase
+		      If MadeFolders Is Nil Then MadeFolders = New Dictionary
+		      If MadeFolders.HasKey(FolderKey) Then
+		        If Exist(Path) Then Return
+		      End If
 		      Res = RunCommandResults (S + Chr(10) + "icacls "+Chr(34)+ NoSlash(Path)+Chr(34)+ " /grant "+ "Users:F /t /c /q") 'Using Chr(10) instead of ; as scripts don't allow them, only the prompt does
+		      MadeFolders.Value(FolderKey) = True
 		      If Debugging Then Debug ("- Make Folder: "+Path+" = " + Res)
 		    Else
 		      Sh.Execute(S)
@@ -5985,16 +6316,9 @@ Protected Module LLMod
 		        ItemLnk(I).Title = ItemLnk(I).Title.ReplaceAll("{#1}", "") 'Remove Dual Arch leftovers
 		        ItemLnk(I).Title = ItemLnk(I).Title.Trim ' Need to trim away the space so can use it for the Link Name
 		        
-		        'Make sure it's part of Shortcut Names Keep if that is used, else just skip making that Link
-		        
-		        If ItemLLItem.ShortCutNamesKeep <> "" Then
-		          If ItemLLItem.ShortCutNamesKeep.IndexOf(ItemLnk(I).Title) >=0 Then
-		          Else
-		            If ItemLLItem.Flags.IndexOf("keepall") < 0 Then 'If KeepAll is set then keep every single shortcut, the ShortcutsToKeep is more for removing them off the desktop :)
-		              Continue 'If Keep Shortcuts is used and the title of the current shortcut isn't in the list, skip over it.
-		            End If
-		          End If
-		        End If
+		        'Every [*.lnk] header in the .app/.ppg is made and cleaned up, same as ppApps and ppGames always were.
+		        'ShortCutNamesKeep used to skip any header not named in it, so with ShortCutNamesKeep=Chess only Chess was ever moved/cleaned and FreeCell, Hearts etc. were left behind in the old Start Menu folder.
+		        'ShortCutNamesKeep is still used by the MoveLinks job to pick up the installer's own shortcuts (and clear them off the desktop), it just no longer hides the .app's own links.
 		        
 		        
 		        ItemLnk(I).Link.IconLocation = ExpPath(ItemLnk(I).Link.IconLocation)
@@ -6022,6 +6346,9 @@ Protected Module LLMod
 		        
 		        'Do Link Catalog
 		        StartDestTemp = ItemLnk(I).Categories
+		        'A ppGame often only has Category= and no Catalog=, so the link Categories is empty here and it would drop into Other
+		        If StartDestTemp.Trim = "" Then StartDestTemp = ItemLLItem.Catalog 'Fall back to the main item's Catalog first
+		        If StartDestTemp.Trim = "" Then StartDestTemp = ItemLLItem.Categories 'Then the main item's Category= line (Platform; Game; etc), only use Other if both are empty
 		        
 		        If ItemLLItem.BuildType = "ppGame" Then 'Remove Game from Catalog if a ppGame and more than one catalog set
 		          StartDestTemp = StartDestTemp.ReplaceAll("ppGame", "Game") ' Fix this here
@@ -6181,6 +6508,20 @@ Protected Module LLMod
 		    End If 'End of Windows Section
 		  End If
 		  
+		  'KeepInFolder: move the whole Start Menu folder (all its links and sub folders) to the current sort location.
+		  'This has to be outside the If LnkCount > 0 block above, an ssApp that just keeps its own folder (eg Java) has no [*.lnk] headers so LnkCount is 0.
+		  If TargetWindows Then
+		    If Not SkipCleanup Then
+		      If ItemLLItem.Flags.IndexOf("keepinfolder") >= 0 Then
+		        If AdminEnabled Then
+		          MakeLinksMoveKeepFolder(StartPathAll, StartPathUser) 'User one is also checked so it gets gathered up into All Users
+		        Else
+		          MakeLinksMoveKeepFolder(StartPathUser, "")
+		        End If
+		      End If
+		    End If
+		  End If
+		  
 		  'Delete all items at once, MUCH faster
 		  If QueueDeltreeMajor = False Then
 		    QueueDeltree = False
@@ -6207,13 +6548,37 @@ Protected Module LLMod
 		  If Debugging Then Debug ("StartMenuStylesCount: "+StartMenuStylesCount.ToString)
 		  
 		  Dim N, O As Integer
+		  Dim Pass As Integer
+		  Dim CleanCat As String
+		  Dim CatFound As Boolean
+		  Dim IsGame As Boolean = (ItemLLItem.BuildType = "ppGame")
 		  
 		  Dim LinkOutPathSet As String = LinkOutPath
+		  Dim KeepFolder As Boolean = (ItemLLItem.Flags.IndexOf("keepinfolder") >= 0)
+		  Dim OwnLnk As String = ItemLnk(I).Title + ".lnk"
 		  
 		  For N = 0 To StartMenuStylesCount
-		    For O = 0 To StartMenuLocationsCount(N)
-		      If Catalog = StartMenuLocations(O, N).Catalog Then Exit ' O will be the match
-		    Next
+		    'Find where this style put it, using the same catalog fallbacks as when the link was made (Unsorted passes the raw catalog, e.g. Card instead of Game Card)
+		    CatFound = False
+		    For Pass = 0 To 3
+		      If Pass = 0 Then
+		        CleanCat = Catalog
+		      ElseIf Pass = 1 Then
+		        If IsGame Then CleanCat = "Game " + Catalog Else Continue
+		      ElseIf Pass = 2 Then
+		        If IsGame Then CleanCat = ReFixGameCats(Catalog) Else Continue
+		      Else
+		        If IsGame Then CleanCat = "Game Other" Else CleanCat = "Other"
+		      End If
+		      For O = 0 To StartMenuLocationsCount(N)
+		        If CleanCat = StartMenuLocations(O, N).Catalog Then
+		          CatFound = True
+		          Exit ' O will be the match
+		        End If
+		      Next
+		      If CatFound Then Exit
+		    Next Pass
+		    If Not CatFound Then O = StartMenuLocationsCount(N) + 1 'Same as before, nothing matched
 		    
 		    LinkOutPath = StartPath + StartMenuLocations(O, N).Path ' StartPath is where Writable
 		    
@@ -6235,56 +6600,237 @@ Protected Module LLMod
 		    If N = StartMenuUsed Then LinkOutPath = "" ' Don't remove current sorting style
 		    
 		    If LinkOutPath <> "" Then
-		      If ItemLLItem.Flags.IndexOf("keepinfolder") < 0 Then
-		        LinkOutPath = LinkOutPath + "\" + ItemLnk(I).Title + ".lnk" ' One Item
+		      If Not KeepFolder Then
+		        LinkOutPath = LinkOutPath + "\" + OwnLnk ' One Item
 		      End If
 		      
 		      LinkOutPath = LinkOutPath.ReplaceAll("/","\")
 		      
-		      'If Debugging Then Debug("Delete Start Menu: " + LinkOutPath)
-		      
 		      ' Don't delete if part of the main tree
 		      If Not Exist("C:\windows\ssTek\Menu\" + LinkOutPath.ReplaceAll(StartPath, "")) Then 
-		        ''If Exist(LinkOutPath) Then Deltree(LinkOutPath) ' Delete Old Link Sorting
-		        'If Exist(LinkOutPath) = True Then 
-		        Deltree(LinkOutPath)
+		        If KeepFolder Then
+		          'SAFETY: LinkOutPath is the item's folder here. Only remove this item's own shortcut, and the folder only if that leaves it empty. Never the whole folder, it can hold shortcuts LLStore didn't make
+		          RemoveOwnLinkAndEmptyFolder(LinkOutPath, OwnLnk)
+		        Else
+		          Deltree(LinkOutPath) 'This is the single shortcut file
+		        End If
 		      End If
 		      
 		      If StartPathAlt <> "" Then 
-		        'If Exist(LinkOutPath.Replace(StartPath, StartPathUser)) = True Then 
-		        Deltree(LinkOutPath.Replace(StartPath, StartPathUser))
+		        If KeepFolder Then
+		          RemoveOwnLinkAndEmptyFolder(LinkOutPath.Replace(StartPath, StartPathUser), OwnLnk)
+		        Else
+		          Deltree(LinkOutPath.Replace(StartPath, StartPathUser))
+		        End If
 		      End If
+		      
 		      If MenuStyle <> "UnSorted" Then
-		        ''If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") Then Deltree (StartPath + "Games\"+ItemLnk(I).Title +".lnk")'Delete Unsorted Game Link
-		        'If Exist(StartPath + "Games\"+ItemLnk(I).Title +".lnk") = True Then 
-		        Deltree(StartPath + "Games\"+ItemLnk(I).Title +".lnk")
-		        If StartPathAlt <> "" Then Deltree(StartPathAlt + "Games\"+ItemLnk(I).Title +".lnk")
+		        'Delete Unsorted Game Link, just this item's own shortcut
+		        Deltree(StartPath + "Games\" + OwnLnk)
+		        If StartPathAlt <> "" Then Deltree(StartPathAlt + "Games\" + OwnLnk)
 		        
-		        ''If Exist (StartPath + ItemLLItem.TitleName) Then Deltree (StartPath + ItemLLItem.TitleName) 'Delete Unsorted Apps (They use Title Name to make the folder)
-		        'If Exist(StartPath + ItemLLItem.TitleName) = True Then 
-		        Deltree(StartPath + ItemLLItem.TitleName)
-		        If StartPathAlt <> "" Then  Deltree(StartPathAlt + ItemLLItem.TitleName)
+		        'SAFETY: The Unsorted folders (Games, the Title folder, the SourcePath folder) can hold shortcuts LLStore didn't make: Windows default games, other installers, Steam, ones the user copied in.
+		        'They used to be wiped whole (the Windows default links have a SourcePath of "Games", so the whole Games folder went). Now only this item's own shortcut goes, and the folder only goes if that leaves it empty.
+		        If ItemLLItem.TitleName <> "" Then 'Never build a path from nothing, it would point at the Start Menu root
+		          RemoveOwnLinkAndEmptyFolder(StartPath + ItemLLItem.TitleName, OwnLnk)
+		          If StartPathAlt <> "" Then RemoveOwnLinkAndEmptyFolder(StartPathAlt + ItemLLItem.TitleName, OwnLnk)
+		        End If
 		        
 		        If ItemLLItem.StartMenuSourcePath <> "" Then
-		          ''If Exist (StartPath + ItemLLItem.StartMenuSourcePath) Then Deltree (StartPath + ItemLLItem.StartMenuSourcePath) 'Delete Unsorted Apps Folders
-		          'If Exist(StartPath + ItemLLItem.StartMenuSourcePath) = True Then 
-		          Deltree(StartPath + ItemLLItem.StartMenuSourcePath)
-		          If StartPathAlt <> "" Then
-		            Deltree(StartPathAlt + ItemLLItem.StartMenuSourcePath+"\"+ItemLnk(I).Title +".lnk") ' This is only the Alt Path, meaning just the User one gets removed
-		            Deltree(StartPathAlt + ItemLLItem.StartMenuSourcePath)
-		          End If
+		          RemoveOwnLinkAndEmptyFolder(StartPath + ItemLLItem.StartMenuSourcePath, OwnLnk)
+		          If StartPathAlt <> "" Then RemoveOwnLinkAndEmptyFolder(StartPathAlt + ItemLLItem.StartMenuSourcePath, OwnLnk) 'Only the Alt Path, meaning just the User one gets removed
 		        End If
 		      End If
 		    End If
 		    
 		    If StartPathAlt <> "" Then
-		      ''Deltree(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") 'This should remove the User Link if in Admin Mode to remake it
-		      'If Exist(Slash(FixPath(LinkOutPathSet)).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk") = True Then 
-		      Deltree(Slash(LinkOutPath).ReplaceAll(StartPath, StartPathAlt)+ItemLnk(I).Title+".lnk")
+		      Deltree(Slash(LinkOutPath).ReplaceAll(StartPath, StartPathAlt) + OwnLnk)
 		    End If
 		    
 		    
 		  Next
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub MakeLinksMoveKeepFolder(StartPath As String, StartPathAlt As String)
+		  'KeepInFolder for a folder of links (eg ssApp Java): moves the item's whole Start Menu folder, with every link and sub folder still in it,
+		  'to the Catalog location of the current menu style (or the Start Menu root when Unsorted).
+		  'Every other style's location (and the root, and the User Start Menu when making All Users) is checked for the folder, so a folder left
+		  'behind by an aborted sort, or sitting in more than one place, is gathered up into the one right place.
+		  If Debugging Then Debug ("--- Move Keep Folder ---")
+		  If Not TargetWindows Then Return
+		  
+		  Dim FolderName As String = NoSlash(ItemLLItem.StartMenuSourcePath.ReplaceAll("/", "\")).Trim
+		  If FolderName = "" Then Return 'Never build a path from nothing, it would point at the Start Menu root
+		  If FolderName.IndexOf("..") >= 0 Or FolderName.IndexOf(":") >= 0 Then Return 'Must be a plain relative folder name
+		  If StartPath.Trim = "" Then Return
+		  
+		  Dim IsGame As Boolean = (ItemLLItem.BuildType = "ppGame")
+		  Dim Base As String = Slash(StartPath).ReplaceAll("/", "\") 'Always ends with one slash
+		  Dim BaseAlt As String = ""
+		  If StartPathAlt <> "" Then BaseAlt = Slash(StartPathAlt).ReplaceAll("/", "\")
+		  
+		  Dim I, J, K, N, O As Integer
+		  
+		  '------------------------------------------------ Work out the destination folder (the Catalog location) ------------------------------------------------
+		  Dim DestParent As String = "" 'Folder the item's folder is placed inside
+		  Dim DestCatPath As String = "" 'The menu style's own path for that Catalog (used for the folder icon)
+		  
+		  If StartMenuUsed >= 0 Then
+		    Dim CatText As String = ItemLLItem.Catalog
+		    If CatText.Trim = "" Then CatText = ItemLLItem.Categories
+		    CatText = CatText.ReplaceAll("|", ";") 'Catalog= uses | in the files, links use ;
+		    Dim Cats() As String = CatText.Split(";")
+		    
+		    Dim Found As Boolean = False
+		    Dim CurCat, GCat, FCat As String
+		    For J = 0 To Cats.Count - 1 'First Catalog that exist in this menu style wins, a folder can only live in one place
+		      CurCat = Cats(J).Trim
+		      If CurCat = "" Then Continue
+		      If CurCat = "ppGame" Then CurCat = "Game"
+		      GCat = "Game " + CurCat
+		      FCat = ""
+		      If IsGame Then FCat = ReFixGameCats(CurCat)
+		      For K = 0 To StartMenuLocationsCount(StartMenuUsed)
+		        If CurCat = StartMenuLocations(K, StartMenuUsed).Catalog Or GCat = StartMenuLocations(K, StartMenuUsed).Catalog Or (FCat <> "" And FCat = StartMenuLocations(K, StartMenuUsed).Catalog) Then
+		          DestCatPath = StartMenuLocations(K, StartMenuUsed).Path
+		          Found = True
+		          Exit
+		        End If
+		      Next K
+		      If Found Then Exit
+		    Next J
+		    
+		    If Not Found Then 'Nothing matched, same fallback the links use
+		      Dim OtherCat As String = "Other"
+		      If IsGame Then OtherCat = "Game Other"
+		      For K = 0 To StartMenuLocationsCount(StartMenuUsed)
+		        If StartMenuLocations(K, StartMenuUsed).Catalog = OtherCat Then
+		          DestCatPath = StartMenuLocations(K, StartMenuUsed).Path
+		          Found = True
+		          Exit
+		        End If
+		      Next K
+		    End If
+		    
+		    If Not Found Then
+		      If Debugging Then Debug ("* Keep Folder: No Catalog location found in menu style, leaving folder alone")
+		      Return 'Don't guess, leave it where it is
+		    End If
+		    
+		    DestParent = Base + DestCatPath.ReplaceAll("/", "\")
+		  Else 'Unsorted
+		    If IsGame Then
+		      DestParent = Base + "Games"
+		    Else
+		      DestParent = Base 'Folder goes back to the Start Menu root
+		    End If
+		  End If
+		  
+		  DestParent = NoSlash(DestParent.ReplaceAll("/", "\"))
+		  Dim DestFolder As String = DestParent + "\" + FolderName 'Where the folder has to end up
+		  If Debugging Then Debug ("Keep Folder Destination: " + DestFolder)
+		  
+		  '------------------------------------------------ Find every other place the folder could be ------------------------------------------------
+		  Dim Sources() As String
+		  Dim Bases() As String
+		  Bases.Add(Base)
+		  If BaseAlt <> "" And BaseAlt.Lowercase <> Base.Lowercase Then Bases.Add(BaseAlt)
+		  
+		  Dim Cand As String
+		  Dim Rel As String
+		  Dim Already As Boolean
+		  Dim IsCatFolder As Boolean
+		  Dim CatTest As String
+		  
+		  For I = 0 To Bases.Count - 1
+		    'Root of the Start Menu, where an unsorted install puts it
+		    Sources.Add(Bases(I) + FolderName)
+		    'And every Catalog location in every menu style
+		    For N = 0 To StartMenuStylesCount
+		      For O = 0 To StartMenuLocationsCount(N)
+		        If StartMenuLocations(O, N).Path <> "" Then Sources.Add(Bases(I) + NoSlash(StartMenuLocations(O, N).Path.ReplaceAll("/", "\")) + "\" + FolderName)
+		      Next O
+		    Next N
+		    If IsGame Then Sources.Add(Bases(I) + "Games\" + FolderName)
+		  Next I
+		  
+		  Dim Done() As String 'Stops the same folder being moved twice, a location can appear in more than one style
+		  
+		  For I = 0 To Sources.Count - 1
+		    Cand = NoSlash(Sources(I).ReplaceAll("/", "\"))
+		    If Cand.Lowercase = DestFolder.Lowercase Then Continue 'Already in the right place
+		    
+		    Already = False
+		    For J = 0 To Done.Count - 1
+		      If Done(J) = Cand.Lowercase Then
+		        Already = True
+		        Exit
+		      End If
+		    Next J
+		    If Already Then Continue
+		    Done.Add(Cand.Lowercase)
+		    
+		    'SAFETY: never move a folder that IS one of the menu's own Catalog folders (eg the item's folder name is "Games" or "Accessories")
+		    IsCatFolder = False
+		    For N = 0 To StartMenuStylesCount
+		      For O = 0 To StartMenuLocationsCount(N)
+		        If StartMenuLocations(O, N).Path <> "" Then
+		          For K = 0 To Bases.Count - 1
+		            CatTest = Bases(K) + StartMenuLocations(O, N).Path
+		            CatTest = NoSlash(CatTest.ReplaceAll("/", "\"))
+		            If Cand.Lowercase = CatTest.Lowercase Then IsCatFolder = True
+		          Next K
+		        End If
+		      Next O
+		    Next N
+		    If IsCatFolder Then
+		      If Debugging Then Debug ("Keep Folder Skipped, is a menu Catalog folder: " + Cand)
+		      Continue
+		    End If
+		    
+		    'Don't move anything that is part of the main menu tree, same rule MakeLinksCleanOtherStyles uses
+		    Rel = ""
+		    For K = 0 To Bases.Count - 1
+		      If Left(Cand, Len(Bases(K))).Lowercase = Bases(K).Lowercase Then
+		        Rel = Mid(Cand, Len(Bases(K)) + 1)
+		        Exit
+		      End If
+		    Next K
+		    If Rel <> "" Then
+		      If Exist("C:\windows\ssTek\Menu\" + Rel) Then
+		        If Debugging Then Debug ("Keep Folder Skipped, part of main menu tree: " + Cand)
+		        Continue
+		      End If
+		    End If
+		    
+		    If Exist(Cand) Then
+		      If Debugging Then Debug ("Moving Keep Folder: " + Cand + " => " + DestFolder)
+		      MakeFolder(DestParent)
+		      
+		      'xcopy merges into the destination if it already has some of the links (a re-sort, or links just made above), then the old folder goes
+		      RunCommand("xcopy.exe /E /C /I /H /Q /R /Y " + Chr(34) + Cand + Chr(34) + " " + Chr(34) + DestFolder + Chr(34))
+		      
+		      If Exist(DestFolder) Then 'Only remove the old one once the copy is really there
+		        Deltree(Cand)
+		      Else
+		        If Debugging Then Debug ("* Keep Folder Copy failed, old folder left in place: " + Cand)
+		      End If
+		    End If
+		  Next I
+		  
+		  'Give the Catalog folder its icon, same as when links are made there
+		  If StartMenuUsed >= 0 And DestCatPath <> "" Then
+		    If Exist(DestFolder) Then
+		      For K = 0 To StartMenuLocationsCount(StartMenuUsed)
+		        If StartMenuLocations(K, StartMenuUsed).Path = DestCatPath Then
+		          MakePathIcon(Base + DestCatPath, StartMenuLocations(K, StartMenuUsed).IconFile, StartMenuLocations(K, StartMenuUsed).IconIndex, False)
+		          Exit
+		        End If
+		      Next K
+		    End If
+		  End If
 		End Sub
 	#tag EndMethod
 
@@ -6439,10 +6985,22 @@ Protected Module LLMod
 		  DesktopINI = Slash(FolderIn) + "desktop.ini"
 		  DesktopINI = DesktopINI.ReplaceAll("/", "\")
 		  
+		  'This folder already got exactly this icon earlier in this run (every link in it asks again): nothing to redo, it saves a file write
+		  'and two attrib commands per link. The callers add CommandReturned to their batch, so it must not be left holding an old command.
+		  Dim IconKey As String = FolderIn.Lowercase + "|" + IconPathFile.Lowercase + "|" + IconIndex
+		  If MadeFolderIcons Is Nil Then MadeFolderIcons = New Dictionary
+		  If MadeFolderIcons.HasKey(IconKey) Then
+		    If Exist(DesktopINI) Then
+		      CommandReturned = ""
+		      Return
+		    End If
+		  End If
+		  
 		  'As this isn't important to the functioning, I'll capture any errors and ignore doing it.
 		  #Pragma BreakOnExceptions Off
 		  Try
 		    If Exist(FolderIn) Then
+		      MadeFolderIcons.Value(IconKey) = True
 		      Data = "[.ShellClassInfo]" + Chr(13) + "ConfirmFileOp=0" + Chr(13) + "IconFile=" + IconPathFile + Chr(13) + "IconIndex=" + IconIndex + Chr(13)
 		      SaveDataToFile(Data, DesktopINI)
 		      
@@ -8145,7 +8703,8 @@ Protected Module LLMod
 		  
 		  PicInFile = FixPath(NewFileFader) 'FixPath(Slash(SaveToPath)+ItemLLItem.BuildType+".png")
 		  PicOutFile = FixPath(Slash(SaveToPath)+ItemLLItem.BuildType+".png")
-		  If PicInFile <> PicOutFile Then
+		  'Only a real png goes out as .png. A fader that was found as .svg or .ico is already in the folder under its own name, writing it as .png gave it the wrong extension and it then failed to load
+		  If PicInFile <> PicOutFile And Right(PicInFile,4).Lowercase = ".png" Then
 		    Suc = Copy(PicInFile,PicOutFile)
 		  End If
 		  
@@ -8372,6 +8931,7 @@ Protected Module LLMod
 		  End If
 		  
 		  If DataOut <> "" Then
+		    DataOut = CleanTextEncoding(DataOut, BType = "SS") 'Fix stray cp1252 bytes and double encoded quotes so Notepad doesn't show it as Chinese, SetupS (Windows) files also get plain ASCII quotes
 		    SaveDataToFile(DataOut, LLFileOut) 'This should work, I may need to check here or somewhere (Editor) if I need to update a pre compressed item using the temp paths
 		    Return True ' Success
 		  Else
@@ -8842,6 +9402,14 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		DefaultDescriptionText As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		IconCache As Dictionary
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		InstallingItem As Boolean
 	#tag EndProperty
 
@@ -8931,6 +9499,14 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		LoadPresetFile As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		MadeFolders As Dictionary
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		MadeFolderIcons As Dictionary
 	#tag EndProperty
 
 	#tag Property, Flags = &h0

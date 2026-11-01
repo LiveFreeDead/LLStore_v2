@@ -508,6 +508,7 @@ End
 	#tag Method, Flags = &h0
 		Sub StartInstaller()
 		  OldMiniUpTo = -1
+		  CancelDownloading = False 'A stale cancel from an earlier run would make the UpdateUI timer return forever
 		  FileToInstallFrom = ""
 		  ExpectedInstallKey = ""
 		  ExpectedInstallTitle = ""
@@ -949,6 +950,10 @@ End
 		    Data.Items.SortingColumn = Data.GetDBHeader("RefID")
 		    Data.Items.Sort ()
 		    
+		    'Re-check which items are installed now so the green installed marker in the list is up to date (a quick check of each item's folder)
+		    Loading.CheckInstalled
+		    If Main.Visible Then Main.Items.Refresh
+		    
 		    'Select None, Also need to recheck installed items etc (may be better to rescan for items instead)
 		    Main.SelectsCount = 0
 		    For I = 0 To Data.Items.RowCount - 1 ' Unselect everything
@@ -1161,7 +1166,8 @@ End
 		      Try
 		        F = GetFolderItem(FileToInstallFrom, FolderItem.PathTypeNative)
 		        If F.Length <=10000 Then '10KB is pretty small
-		          If Left(InstPathINI(MiniUpTo), 4) = "http" Then DownloadAnyway = True 'If the File isn't online one then don't download or will cause issues
+		          'A small file that was downloaded successfully a moment ago is the real file, don't download it again and again until the retries run out
+		          If Left(InstPathINI(MiniUpTo), 4) = "http" And Not WasFetched(FileToInstallFrom) Then DownloadAnyway = True 'If the File isn't online one then don't download or will cause issues
 		        End If
 		      Catch
 		        DownloadAnyway = True 'If the file has errors then just set it to re-download

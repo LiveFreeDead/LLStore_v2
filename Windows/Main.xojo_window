@@ -964,6 +964,70 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Sub ShowDefaultInfo()
+		  ' Puts the title, description, screenshot and icon back to the defaults shown when the program starts. Used when the item list is
+		  ' empty, so the panel isn't left showing the details of an item that is no longer in the list.
+		  If FirstRun = False Then Return 'Still loading, the startup code sets the defaults itself
+		  If DefaultDescriptionText = "" Then Return
+		  
+		  CurrentItemID = -1 'Nothing is selected now, so nothing can act on the old item
+		  ScreenShotCounter = 0
+		  
+		  'Title, same text the form gets when it opens
+		  Dim DefTitle As String = "LLStore v"+ Str(App.MajorVersion)+"."+Str(App.MinorVersion)
+		  If TargetWindows Then
+		    DefTitle = DefTitle + " (Win)" + " " + SysDesktopEnvironment + " " + SysPackageManager
+		    If IsAdmin Then DefTitle = DefTitle + " ~Admin"
+		  End If
+		  If TargetLinux Then DefTitle = DefTitle + " (Linux)" + " "  + SysDesktopEnvironment + " " + SysPackageManager
+		  TitleLabel.Text = DefTitle
+		  
+		  'Default screenshot
+		  Dim WebWall As String = Slash(ThemePath) + "Screenshot.jpg"
+		  If TargetWindows Then
+		    WebWall = WebWall.ReplaceAll("/","\")
+		  Else
+		    WebWall = WebWall.ReplaceAll("\","/")
+		  End If
+		  LoadScreenShot(WebWall)
+		  
+		  'Default icon
+		  CurrentFader = PictureOrBlank(Slash(ThemePath) + "Icon.png")
+		  #Pragma BreakOnExceptions Off
+		  If ItemFaderPic.Backdrop <> Nil And Main.Backdrop <> Nil Then
+		    Try
+		      ItemFaderPic.Backdrop.Graphics.DrawPicture(Main.Backdrop,0,0,ItemFaderPic.Width, ItemFaderPic.Height, ItemFaderPic.Left, ItemFaderPic.Top, ItemFaderPic.Width, ItemFaderPic.Height)
+		      ItemFaderPic.Backdrop.Graphics.DrawPicture(CurrentFader,0,0,ItemFaderPic.Width, ItemFaderPic.Height,0,0,CurrentFader.Width, CurrentFader.Height)
+		      ItemFaderPic.Refresh
+		    Catch
+		    End Try
+		  End If
+		  
+		  'Default description (the text saved when the startup description was built), with the key words coloured again
+		  Description.Bold = BoldDescription
+		  Description.FontName = FontDescription
+		  Description.TextColor = ColDescription
+		  Description.Text = DefaultDescriptionText
+		  Try
+		    Description.StyledText.TextColor(0, Len(Description.Text)) = ColDescription
+		    If StoreMode = 0 Then
+		      Dim TriggerWords() As String = Array("LLApps","LLGames","ssApps", "ppApps", "ppGames")
+		      Dim WordColors() As Color = Array(&C80B0FF, &Cff55ff, &CFFFFFF, &CFFFF50, &CAAFF40)
+		      Dim W As Integer
+		      For W = 0 To TriggerWords.LastIndex
+		        Dim P As Integer = Instr(Description.Text, TriggerWords(W))
+		        If P > 0 Then Description.StyledText.TextColor(P - 1, Len(TriggerWords(W))) = WordColors(W)
+		      Next
+		    End If
+		  Catch
+		  End Try
+		  #Pragma BreakOnExceptions On
+		  
+		  MetaData.RemoveAllRows 'The details table belongs to the item that was showing
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub ChangeItem(CurrentItemIn As Integer)
 		  ScreenShotCounter = 0 ' Always Reset this
 		  
@@ -1832,6 +1896,8 @@ End
 		    If FirstItem <> -1 Then
 		      Items.RowSelectedAt(FirstItem) = True
 		      ChangeItem(Items.CellTagAt(FirstItem,0))
+		    Else
+		      ShowDefaultInfo 'Nothing in this list (empty category or no search results), don't leave the last item's details showing
 		    End If
 		  End If
 		End Sub
@@ -2484,6 +2550,7 @@ End
 		  Dim SSScale As Double
 		  Dim RealSSHeight, RealSSWidth, X, Y As Integer
 		  
+		  IconInScreenShot = False 'Screenshot is being drawn, so the icon is no longer showing in there
 		  
 		  If ScreenShotCurrent = Nil Or AvailableWidth < Screen(0).AvailableWidth Then
 		    ScreenShotCurrent = New Picture(Screen(0).AvailableWidth,Screen(0).AvailableHeight, 32)
@@ -2975,6 +3042,10 @@ End
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		IconInScreenShot As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		HideInstalled As Boolean = False
 	#tag EndProperty
 
@@ -3131,6 +3202,8 @@ End
 		  Dim PColSel As Integer = Data.GetDBHeader("Selected")
 		  Dim PColBT  As Integer = Data.GetDBHeader("BuildType")
 		  Dim PColRef As Integer = Data.GetDBHeader("IconRef")
+		  Dim PColInst As Integer = Data.GetDBHeader("Installed")
+		  Dim PColPath As Integer = Data.GetDBHeader("PathINI")
 		  
 		  Try
 		    If IsTrue(Data.Items.CellTextAt(CLI, PColSel)) Then g.Bold = Not BoldList 'Make Selected Items Bold oppsite to default items
@@ -3154,7 +3227,7 @@ End
 		        End Select
 		      End If
 		    End If
-		    g.DrawText(Items.CellTextAt(row, column), g.Height+2, g.Height-Pos)
+		    g.DrawText(Items.CellTextAt(row, column), g.Height+4, g.Height-Pos) 'Moved 2 pixels right with the icon so the status bar never covers either
 		  Catch
 		  End Try
 		  
@@ -3162,8 +3235,30 @@ End
 		  Try
 		    RefIcon = Val(Data.Items.CellTextAt(CLI, PColRef))
 		    icon = Data.Icons.RowImageAt(RefIcon)
-		    g.DrawPicture(icon, 1, 1, g.Height-2,g.Height-2, _
+		    'Starts 2 pixels in, clear of the status bar
+		    g.DrawPicture(icon, 3, 1, g.Height-2,g.Height-2, _
 		    0, 0, icon.Width, icon.Height)
+		  Catch
+		  End Try
+		  
+		  'Status marker down the left edge of the row. "Installed" is already worked out once when the list loads (and again after an
+		  'install finishes), and an online item is one whose PathINI is a web address, so this only reads two cells and costs nothing extra.
+		  'Drawn last so it sits on top of the icon.
+		  '  Installed                    = 2 pixel mid green bar
+		  '  Not installed and online     = 2 pixel red bar (needs downloading)
+		  '  Not installed and local      = nothing
+		  Try
+		    If Column = 0 And CLI >= 0 And PColInst >= 0 Then
+		      If Data.Items.CellTextAt(CLI, PColInst) = "T" Then
+		        g.DrawingColor = &c2EA043
+		        g.FillRectangle(0, 0, 2, g.Height)
+		      ElseIf PColPath >= 0 Then
+		        If Left(Data.Items.CellTextAt(CLI, PColPath), 4) = "http" Then
+		          g.DrawingColor = &cE5372F
+		          g.FillRectangle(0, 0, 2, g.Height)
+		        End If
+		      End If
+		    End If
 		  Catch
 		  End Try
 		  
@@ -3408,10 +3503,12 @@ End
 		  End Try
 		  
 		  If CurrentCat <> "" Then ChangeCat(CurrentCat)
+		  #Pragma BreakOnExceptions Off
 		  Try
 		    Items.SelectedRowIndex = 0 'Reset highlight, but keep focus in Categories
 		  Catch
 		  End Try
+		  #Pragma BreakOnExceptions On
 		End Function
 	#tag EndEvent
 	#tag Event
@@ -3514,14 +3611,25 @@ End
 		  
 		  If Keyboard.ControlKey Then 'Holding Ctrl shows debugger
 		    Data.Show
+		  ElseIf IconInScreenShot Then 'Icon is already showing, 2nd click puts the screenshot back
+		    #Pragma BreakOnExceptions Off
+		    Try
+		      ScaleScreenShot 'Redraws the screenshot and clears IconInScreenShot
+		      ScreenShot.Refresh
+		    Catch
+		    End Try
+		    #Pragma BreakOnExceptions On
 		  Else 'Draw Fader into Screenshot area at full size
 		    Dim Cent As Integer
+		    Dim CentY As Integer
 		    #Pragma BreakOnExceptions Off
 		    Try
 		      Cent = (ScreenShot.Width / 2)- (CurrentFader.Width/2)
+		      CentY = (ScreenShot.Height / 2)- (CurrentFader.Height/2) 'Centre vertically as well
 		      ScreenShot.Backdrop.Graphics.DrawPicture(Main.Backdrop,0,0,ScreenShot.Width, ScreenShot.Height, ScreenShot.Left, ScreenShot.Top, ScreenShot.Width, ScreenShot.Height)
-		      ScreenShot.Backdrop.Graphics.DrawPicture(CurrentFader,Cent,0,CurrentFader.Width, CurrentFader.Height,0,0,CurrentFader.Width, CurrentFader.Height)
+		      ScreenShot.Backdrop.Graphics.DrawPicture(CurrentFader,Cent,CentY,CurrentFader.Width, CurrentFader.Height,0,0,CurrentFader.Width, CurrentFader.Height)
 		      ScreenShot.Refresh
+		      IconInScreenShot = True
 		    Catch
 		    End Try
 		    #Pragma BreakOnExceptions On

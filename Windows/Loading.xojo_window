@@ -375,8 +375,14 @@ End
 		    
 		    GetOnlineFile ("https://github.com/LiveFreeDead/LastOSLinux_Repository/raw/refs/heads/main/llstore_latest.zip",Slash(TmpPath)+"llstore_latest.zip")
 		    
+		    Dim UpdWaitStart As Double = System.Microseconds
 		    While Downloading 'Wait for download to finish
 		      App.DoEvents(20)
+		      
+		      If System.Microseconds - UpdWaitStart > 1800000000 Then 'Backstop, 30 minutes
+		        CancelDownloading = True
+		        Exit
+		      End If
 		      
 		      If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
 		        Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
@@ -464,8 +470,14 @@ End
 		        If TargetWindows = True Then GetOnlineFile ("https://github.com/LiveFreeDead/LLStore_v2/raw/refs/heads/main/llstore.exe",Slash(TmpPath)+"llstore.exe")
 		      End If
 		      
+		      Dim ExeWaitStart As Double = System.Microseconds
 		      While Downloading 'Wait for download to finish
 		        App.DoEvents(20)
+		        
+		        If System.Microseconds - ExeWaitStart > 1800000000 Then 'Backstop, 30 minutes
+		          CancelDownloading = True
+		          Exit
+		        End If
 		        
 		        If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
 		          Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
@@ -654,6 +666,14 @@ End
 		  Dim ScriptOut As String 
 		  Dim ScriptOutMkDir As String
 		  
+		  'Speed + safety for the extract script:
+		  ' - stdin is closed for every 7z, so an encrypted/password protected archive fails straight away instead of waiting forever for a password
+		  ' - on Linux up to 4 archives extract at the same time (each one is mostly CPU/decompress bound), the script waits for each batch to finish
+		  Dim ExTail As String = " < /dev/null"
+		  If TargetWindows Then ExTail = " < nul"
+		  Dim ExParallel As Boolean = Not TargetWindows
+		  Dim ExRunning As Integer = 0
+		  
 		  Dim ScriptOutFile As String = Slash(TmpPath)+"ExtractAll.sh"
 		  
 		  Dim ScriptOutMkDirFile As String = Slash(TmpPath)+"MakeDirAll.sh"
@@ -684,7 +704,7 @@ End
 		  
 		  If Data.ScanItems.RowCount >=1 Then
 		    For I = 0 To Data.ScanItems.RowCount - 1
-		      Loading.Status.Text = "Processing Item: "+ Str(I)+"/"+Str(Data.ScanItems.RowCount - 1)
+		      If (I Mod 10) = 0 Then Loading.Status.Text = "Processing Item: "+ Str(I)+"/"+Str(Data.ScanItems.RowCount - 1) 'Label refresh every item is slow on big catalogs
 		      ItemInn = Data.ScanItems.CellTextAt(I,0)
 		      
 		      ItemInn = ItemInn.ReplaceAll("\","/") 'Linux Paths
@@ -709,13 +729,33 @@ End
 		          ScriptOutMkDir = ScriptOutMkDir + S + Chr(34)+TmpItem+Chr(34) + EOL 'Make Dir in the script before extraction command
 		          ScriptOutMkDir = ScriptOutMkDir + EOL'Blank Line between items so they don't duplicate wrong
 		          ExcludesIncludes = " LLApp.lla LLGame.llg LLScript.sh LLScript_Sudo.sh LLFile.sh LLApp.jpg LLApp.png LLApp.ico LLApp.svg LLGame.jpg LLGame.png LLGame.ico LLGame.svg LLApp1.jpg LLGame1.jpg LLApp2.jpg LLGame2.jpg LLApp3.jpg LLGame3.jpg LLApp4.jpg LLGame4.jpg LLApp5.jpg LLGame5.jpg LLApp6.jpg LLGame6.jpg"
-		          ScriptOut = ScriptOut + Zip + " -mtc -aoa x "+Chr(34)+ItemInn+Chr(34)+ " -o"+Chr(34) + TmpItem+Chr(34)+ExcludesIncludes + EOL
+		          ScriptOut = ScriptOut + Zip + " -mtc -aoa -y x "+Chr(34)+ItemInn+Chr(34)+ " -o"+Chr(34) + TmpItem+Chr(34)+ExcludesIncludes + ExTail
+		          If ExParallel Then
+		            ScriptOut = ScriptOut + " &" + EOL
+		            ExRunning = ExRunning + 1
+		            If ExRunning >= 4 Then
+		              ScriptOut = ScriptOut + "wait" + EOL 'Let this batch finish before starting more
+		              ExRunning = 0
+		            End If
+		          Else
+		            ScriptOut = ScriptOut + EOL
+		          End If
 		          Data.ScanItems.CellTextAt(I,2) = Left(ItemInn,InStrRev(ItemInn,"/")) 'Gets Parent Path
 		        Case ".apz", ".pgz"
 		          ScriptOutMkDir = ScriptOutMkDir + S + Chr(34)+TmpItem+Chr(34) + EOL 'Make Dir in the script before extraction command
 		          ScriptOutMkDir = ScriptOutMkDir + EOL'Blank Line between items so they don't duplicate wrong
 		          ExcludesIncludes = " ssApp.app ppApp.app ppGame.ppg ssApp.jpg ppApp.jpg ssApp.png ppApp.png ssApp.ico ppApp.ico ppGame.jpg ppGame.png ppGame.ico ppGame1.jpg ppGame2.jpg ppGame3.jpg ppGame4.jpg ppGame5.jpg ppGame6.jpg ppApp1.jpg ppApp2.jpg ppApp3.jpg ppApp4.jpg ppApp5.jpg ppApp6.jpg ssApp1.jpg ssApp2.jpg ssApp3.jpg ssApp4.jpg ssApp5.jpg ssApp6.jpg"
-		          ScriptOut = ScriptOut + Zip + " -mtc -aoa x "+Chr(34)+ItemInn+Chr(34)+ " -o"+Chr(34) + TmpItem+Chr(34)+ExcludesIncludes + EOL
+		          ScriptOut = ScriptOut + Zip + " -mtc -aoa -y x "+Chr(34)+ItemInn+Chr(34)+ " -o"+Chr(34) + TmpItem+Chr(34)+ExcludesIncludes + ExTail
+		          If ExParallel Then
+		            ScriptOut = ScriptOut + " &" + EOL
+		            ExRunning = ExRunning + 1
+		            If ExRunning >= 4 Then
+		              ScriptOut = ScriptOut + "wait" + EOL 'Let this batch finish before starting more
+		              ExRunning = 0
+		            End If
+		          Else
+		            ScriptOut = ScriptOut + EOL
+		          End If
 		          Data.ScanItems.CellTextAt(I,2) = Left(ItemInn,InStrRev(ItemInn,"/")) 'Gets Parent Path
 		        Case Else'Not a compressed Item' just nab the path
 		          Data.ScanItems.CellTextAt(I,2) = SafeParentPath(ItemInn) 'Gets Parent Path
@@ -723,6 +763,8 @@ End
 		        End Select
 		      End If
 		    Next
+		    
+		    If ExParallel And ExRunning > 0 Then ScriptOut = ScriptOut + "wait" + EOL 'Make sure the last batch is finished before the script ends
 		    
 		    F = GetFolderItem(ScriptOutFile, FolderItem.PathTypeNative)
 		    If F <> Nil Then
@@ -1327,6 +1369,7 @@ End
 	#tag Method, Flags = &h0
 		Sub GetItems(Inn As String)
 		  Dim F, G As FolderItem
+		  Dim Child As FolderItem 'F.Item(D) re-reads the folder every call, so fetch each entry once
 		  Dim D As Integer
 		  Dim DirToCheck As String
 		  Dim Exten As String
@@ -1342,9 +1385,11 @@ End
 		  If F.IsFolder And F.IsReadable Then
 		    If F.Count > 0 Then
 		      For D = 1 To F.Count
-		        ItemPath = Slash(FixPath(F.Item(D).NativePath))
+		        Child = F.Item(D)
+		        If Child = Nil Then Continue 'Unreadable entry (vanished or broken), skip it
+		        ItemPath = Slash(FixPath(Child.NativePath))
 		        If StoreMode = 0 Then
-		          If F.Item(D).Directory Then 'Look for folders only
+		          If Child.Directory Then 'Look for folders only
 		            G = SafeFolder(ItemPath + "LLApp.lla", FolderItem.PathTypeNative)
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath))
@@ -1366,33 +1411,33 @@ End
 		              Data.ScanItems.AddRow(FixPath(G.NativePath))
 		            End If
 		          Else 'Check if it's a Compressed Item
-		            Exten = Right(FixPath(F.Item(D).NativePath),4)
+		            Exten = Right(FixPath(Child.NativePath),4)
 		            If Len(Exten) >=4 Then
 		              Exten = Exten.Lowercase
 		              Select Case Exten
 		              Case ".tar"
-		                Data.ScanItems.AddRow(FixPath(F.Item(D).NativePath))
+		                Data.ScanItems.AddRow(FixPath(Child.NativePath))
 		              Case".apz"
-		                Data.ScanItems.AddRow(FixPath(F.Item(D).NativePath))
+		                Data.ScanItems.AddRow(FixPath(Child.NativePath))
 		              Case".pgz"
-		                Data.ScanItems.AddRow(FixPath(F.Item(D).NativePath))
+		                Data.ScanItems.AddRow(FixPath(Child.NativePath))
 		              End Select
 		            End If
 		          End If
 		        ElseIf StoreMode = 1 Then 'Launcher
-		          If F.Item(D).Directory Then 'Look for folders only
+		          If Child.Directory Then 'Look for folders only
 		            If TargetWindows Then
-		              G = GetFolderItem(Slash(F.Item(D).NativePath.ReplaceAll("/","\")) + "LLGame.llg", FolderItem.PathTypeNative)
+		              G = GetFolderItem(Slash(Child.NativePath.ReplaceAll("/","\")) + "LLGame.llg", FolderItem.PathTypeNative)
 		            Else
-		              G = SafeFolder(Slash(F.Item(D).NativePath) + "LLGame.llg", FolderItem.PathTypeNative)
+		              G = SafeFolder(Slash(Child.NativePath) + "LLGame.llg", FolderItem.PathTypeNative)
 		            End If
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath), ItemPath, DirToCheck) 'Instead of TmpPath use ScanedInPath for Games
 		            End If
 		            If TargetWindows Then
-		              G = GetFolderItem(Slash(FixPath(F.Item(D).NativePath.ReplaceAll("/","\"))) + "ppGame.ppg", FolderItem.PathTypeNative)
+		              G = GetFolderItem(Slash(FixPath(Child.NativePath.ReplaceAll("/","\"))) + "ppGame.ppg", FolderItem.PathTypeNative)
 		            Else
-		              G = SafeFolder(Slash(FixPath(F.Item(D).NativePath)) + "ppGame.ppg", FolderItem.PathTypeNative)
+		              G = SafeFolder(Slash(FixPath(Child.NativePath)) + "ppGame.ppg", FolderItem.PathTypeNative)
 		            End If
 		            If G.Exists Then
 		              Data.ScanItems.AddRow(FixPath(G.NativePath), ItemPath, DirToCheck) 'Instead of TmpPath use ScanedInPath for Games
@@ -1425,6 +1470,7 @@ End
 		    Next I
 		  End If
 		  
+		  If ScannedRootFoldersCount >= 1024 Then Return 'ScannedRootFolders() is a fixed size array, don't run past the end
 		  ScannedRootFoldersCount = ScannedRootFoldersCount + 1
 		  ScannedRootFolders(ScannedRootFoldersCount) = Inn
 		  
@@ -1507,9 +1553,8 @@ End
 		      UniqueName = UniqueName.ReplaceAll(".","")
 		      UniqueName = "00-"+UniqueName+".lldbini"
 		      
-		      If ForceNoOnlineDBUpdates = False Then
-		        If Exist(Slash(RepositoryPathLocal)+UniqueName) Then Deltree(Slash(RepositoryPathLocal)+UniqueName) 'Remove Cached download
-		      End If
+		      'The previous cached copy is kept until a new one has downloaded successfully (it replaces it then), so a failed download
+		      'falls back to the last good database instead of leaving none at all.
 		      
 		      CurrentDBURL = Sp(I).ReplaceAll(".lldb/lldb.ini", "") 'Only want the parent, not the sub path and file
 		      DBURLs(DBCount)        = Sp(I)
@@ -1521,96 +1566,155 @@ End
 		    ' --- Pass 2: Download (parallel if curl supports it, sequential fallback) ---
 		    If ForceNoOnlineDBUpdates = False And DBCount > 0 Then
 		      
-		      Dim UseParallel As Boolean = False
-		      
-		      If DBCount > 1 Then 'No point parallelising a single file
-		        ' Check curl version supports --parallel (needs 7.66.0+, released Sep 2019)
-		        ' Use the resolved curl path (WinCurl/LinuxCurl) set at startup - not bare "curl"
-		        ' which won't be in PATH on Windows unless it's the Win10 system one.
-		        Dim CurlBin As String = LinuxCurl
-		        If TargetWindows Then CurlBin = WinCurl
-		        Dim cvSh As New Shell
-		        cvSh.TimeOut = -1
-		        cvSh.ExecuteMode = Shell.ExecuteModes.Asynchronous
-		        cvSh.Execute(CurlBin + " --version 2>&1")
-		        Dim cvBuf As String = ""
-		        While cvSh.IsRunning
-		          App.DoEvents(10)
-		          cvBuf = cvBuf + cvSh.ReadAll
-		        Wend
-		        cvBuf = cvBuf + cvSh.ReadAll.Trim
-		        Dim cvParts() As String = cvBuf.Split(" ")
-		        If cvParts.Count >= 2 Then
-		          Dim vp() As String = cvParts(1).Split(".")
-		          If vp.Count >= 2 Then
-		            If Val(vp(0)) > 7 Or (Val(vp(0)) = 7 And Val(vp(1)) >= 66) Then UseParallel = True
-		          End If
-		        End If
-		      End If
-		      
-		      If UseParallel Then
-		        ' === PARALLEL: fire all DB downloads simultaneously in one curl command ===
-		        Dim DoneFlag As String = Slash(RepositoryPathLocal)+"AllDBsDone"
-		        Deltree(DoneFlag)
+		      ' All the databases are downloaded at the same time: one curl per repository (at most 8 running at once). Each one reports its own
+		      ' result in its own flag file, so a slow or failed repository can't spoil the others and an unfinished download is never used.
+		      ' This no longer depends on the curl version (the single "--parallel" command needed curl 7.66 or newer).
+		      Dim DlFailed As Boolean = False
+		      #Pragma BreakOnExceptions Off
+		      Try
+		        Dim DlShell(1024) As Shell
+		        Dim DlStarted(1024) As Boolean
+		        Dim DlFinished(1024) As Boolean
+		        Dim DlNext As Integer = 0
+		        Dim DlRunning As Integer = 0
+		        Dim DlDoneCount As Integer = 0
+		        Dim DlAborted As Boolean = False
+		        Dim DlI As Integer
+		        Dim DlLimit As Double = System.Microseconds + (30 * 1000000) '30s total for all databases together
 		        
-		        Dim ParallelShell As New Shell
-		        ParallelShell.TimeOut = -1
-		        ParallelShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		        If CheckingForDatabases Then UpdateLoading("Databases: Downloading " + DBCount.ToString + " in parallel...")
 		        
-		        StartParallelDownload(DBURLs, DBLocals, DBCount, DoneFlag, ParallelShell)
-		        
-		        Dim ParallelTimeout As Double = System.Microseconds + (30 * 1000000) '30s total for all DBs together
-		        If CheckingForDatabases Then UpdateLoading("Databases: Downloading (parallel)...") 'Set once - not inside the loop to avoid flicker
-		        Dim ParBuf As String = ""
-		        While ParallelShell.IsRunning
-		          App.DoEvents(20)
-		          ParBuf = ParBuf + ParallelShell.ReadAll 'Drain pipe to prevent buffer deadlock
-		          If System.Microseconds >= ParallelTimeout Then
-		            ParallelShell.Close
-		            Exit While
-		          End If
-		          If ForceQuit Or CancelDownloading Then
-		            ParallelShell.Close
-		            CancelDownloading = False
-		            Exit While
-		          End If
-		        Wend
-		        ParBuf = ParBuf + ParallelShell.ReadAll 'Final drain
-		        
-		        ' Rename all .partial -> final
-		        Dim renameSh As New Shell
-		        For I = 0 To DBCount - 1
-		          If Exist(DBLocals(I)+".partial") Then
-		            If Exist(DBLocals(I)) Then Deltree(DBLocals(I))
-		            If TargetWindows Then
-		              renameSh.Execute("move /y "+Chr(34)+DBLocals(I).ReplaceAll("/","\")+ ".partial"+Chr(34)+" "+Chr(34)+DBLocals(I).ReplaceAll("/","\")+Chr(34))
+		        While DlDoneCount < DBCount
+		          'Start more downloads while there is room
+		          While DlNext < DBCount And DlRunning < 8
+		            DlI = DlNext
+		            DlNext = DlNext + 1
+		            If DBURLs(DlI).Trim = "" Then
+		              DlFinished(DlI) = True
+		              DlDoneCount = DlDoneCount + 1
 		            Else
-		              renameSh.Execute("mv "+Chr(34)+DBLocals(I)+".partial"+Chr(34)+" "+Chr(34)+DBLocals(I)+Chr(34))
-		            End If
-		            While renameSh.IsRunning
-		              App.DoEvents(5)
-		            Wend
-		          End If
-		        Next
-		        Deltree(DoneFlag)
-		        
-		      Else
-		        ' === SEQUENTIAL FALLBACK: original one-at-a-time logic, untouched ===
-		        For I = 0 To DBCount - 1
-		          GetOnlineFile(DBURLs(I), DBLocals(I))
-		          TimeOut = System.Microseconds + (15 *1000000) 'Set Timeout after 15 seconds
-		          CancelDownloading = False
-		          While Downloading
-		            App.DoEvents(20)
-		            If System.Microseconds >= TimeOut Then
-		              CancelDownloading = True
-		              Exit While 'Timeout after 15 seconds, incase net is slow, I give extra seconds to skip each of them
-		            End If
-		            If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
-		              Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
-		              Exit While
+		              If Exist(DBLocals(DlI) + ".partial") Then Deltree(DBLocals(DlI) + ".partial")
+		              If Exist(DBLocals(DlI) + ".flag") Then Deltree(DBLocals(DlI) + ".flag")
+		              DlShell(DlI) = New Shell
+		              DlShell(DlI).TimeOut = -1
+		              DlShell(DlI).ExecuteMode = Shell.ExecuteModes.Asynchronous
+		              DlShell(DlI).Execute(BuildDownloadCommand(DBURLs(DlI), DBLocals(DlI) + ".partial", DBLocals(DlI) + ".flag", 25))
+		              DlStarted(DlI) = True
+		              DlRunning = DlRunning + 1
 		            End If
 		          Wend
+		          
+		          App.DoEvents(20)
+		          
+		          'See which ones have finished
+		          For DlI = 0 To DBCount - 1
+		            If DlStarted(DlI) And Not DlFinished(DlI) Then
+		              Dim DlDrain As String = DlShell(DlI).ReadAll 'Drain the pipe so a shell can never block on a full buffer
+		              If Not DlShell(DlI).IsRunning Then
+		                DlFinished(DlI) = True
+		                DlRunning = DlRunning - 1
+		                DlDoneCount = DlDoneCount + 1
+		              End If
+		            End If
+		          Next DlI
+		          
+		          If ForceQuit Or CancelDownloading Or System.Microseconds >= DlLimit Then
+		            If CancelDownloading Then CancelDownloading = False
+		            DlAborted = True
+		            Exit While
+		          End If
+		        Wend
+		        
+		        'Anything still running (timed out or cancelled) is stopped and its unfinished file removed
+		        If DlAborted Then
+		          For DlI = 0 To DBCount - 1
+		            If DlStarted(DlI) And Not DlFinished(DlI) Then
+		              StopCurl(DlShell(DlI), DBLocals(DlI) + ".partial")
+		              DlFinished(DlI) = True
+		            End If
+		          Next DlI
+		        End If
+		        
+		        'Keep only the downloads curl reported as successful, that are not empty and not a web page in disguise
+		        Dim DlMove As New Shell
+		        For DlI = 0 To DBCount - 1
+		          If DlStarted(DlI) Then
+		            Dim DlOK As Boolean = False
+		            Dim DlFlagTxt As String = ""
+		            If Exist(DBLocals(DlI) + ".flag") Then
+		              DlFlagTxt = LoadDataFromFile(DBLocals(DlI) + ".flag").Trim
+		            End If
+		            If DlFlagTxt <> "" Then
+		              DlOK = (DlFlagTxt.IndexOf("done") >= 0)
+		            Else
+		              DlOK = False 'Never finished, or was stopped
+		            End If
+		            
+		            If DlOK And Exist(DBLocals(DlI) + ".partial") Then
+		              If DownloadLooksValid(DBLocals(DlI) + ".partial") Then
+		                If Exist(DBLocals(DlI)) Then Deltree(DBLocals(DlI))
+		                If TargetWindows Then
+		                  'Windows needs backslashes here. This used to strip the slashes out completely ("/" to ""), so the path was mangled,
+		                  'the move failed and the finished download was left behind as ".partial".
+		                  DlMove.Execute("move /y " + Chr(34) + DBLocals(DlI).ReplaceAll("/","\") + ".partial" + Chr(34) + " " + Chr(34) + DBLocals(DlI).ReplaceAll("/","\") + Chr(34))
+		                Else
+		                  DlMove.Execute("mv -f " + Chr(34) + DBLocals(DlI) + ".partial" + Chr(34) + " " + Chr(34) + DBLocals(DlI) + Chr(34))
+		                End If
+		                'Never assume the move worked. If the shell command didn't do it, rename the file directly (same folder, so just a name change)
+		                If Not Exist(DBLocals(DlI)) Then
+		                  #Pragma BreakOnExceptions False
+		                  Try
+		                    Dim RenSrc As FolderItem = GetFolderItem(DBLocals(DlI) + ".partial", FolderItem.PathTypeNative)
+		                    Dim RenDst As FolderItem = GetFolderItem(DBLocals(DlI), FolderItem.PathTypeNative)
+		                    If RenSrc <> Nil And RenDst <> Nil Then
+		                      If RenSrc.Exists Then RenSrc.Name = RenDst.Name
+		                    End If
+		                  Catch
+		                  End Try
+		                  #Pragma BreakOnExceptions True
+		                End If
+		                If Exist(DBLocals(DlI)) Then
+		                  MarkFetched(DBLocals(DlI))
+		                Else
+		                  If Debugging Then Debug("* Database download finished but could not be renamed: " + DBLocals(DlI))
+		                  If Exist(DBLocals(DlI) + ".partial") Then Deltree(DBLocals(DlI) + ".partial")
+		                End If
+		              Else
+		                If Debugging Then Debug("* Database download was not valid, ignored: " + DBURLs(DlI))
+		                Deltree(DBLocals(DlI) + ".partial")
+		              End If
+		            Else
+		              If Debugging Then Debug("* Database download failed: " + DBURLs(DlI))
+		              If Exist(DBLocals(DlI) + ".partial") Then Deltree(DBLocals(DlI) + ".partial")
+		            End If
+		            If Exist(DBLocals(DlI) + ".flag") Then Deltree(DBLocals(DlI) + ".flag")
+		          End If
+		        Next DlI
+		      Catch
+		        DlFailed = True
+		      End Try
+		      #Pragma BreakOnExceptions On
+		      
+		      If DlFailed Then
+		        'Something unexpected went wrong with the parallel downloads, use the one at a time method for any database still missing
+		        If Debugging Then Debug("* Parallel database download failed, using one at a time")
+		        For I = 0 To DBCount - 1
+		          If Not Exist(DBLocals(I)) Then
+		            GetOnlineFile(DBURLs(I), DBLocals(I))
+		            TimeOut = System.Microseconds + (15 *1000000) 'Set Timeout after 15 seconds
+		            CancelDownloading = False
+		            While Downloading
+		              App.DoEvents(20)
+		              If System.Microseconds >= TimeOut Then
+		                If Downloading Then CancelDownloading = True
+		                Exit While
+		              End If
+		              If Exist(Slash(RepositoryPathLocal)+"FailedDownload") Then
+		                Deltree(Slash(RepositoryPathLocal)+"FailedDownload")
+		                Exit While
+		              End If
+		            Wend
+		          End If
 		        Next
 		      End If
 		      
@@ -3771,9 +3875,7 @@ End
 		        ' via Items.Refresh — this preserves ScrollPosition and SelectedRowIndex
 		        ' automatically, so the list position is never lost.
 		        If CurrentItemID >= 0 Then
-		          Dim NewIconIdx As Integer = Data.Icons.RowCount
-		          Data.Icons.AddRow
-		          Data.Icons.RowImageAt(NewIconIdx) = CurrentFader
+		          Dim NewIconIdx As Integer = AddIconToCache(UN, CurrentFader) 'Reuses the existing slot instead of adding a duplicate every call
 		          Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("IconRef")) = Str(NewIconIdx)
 		          Main.Items.Refresh ' Repaint rows — does NOT reset scroll or selection
 		        End If
@@ -3787,37 +3889,126 @@ End
 
 	#tag Method, Flags = &h0
 		Sub StartIconDownload(URL As String, LocalPath As String)
-		  ' Downloads a .png icon/fader using an async curl shell.
-		  ' DownloadScreenAndIcon timer polls IsRunning and calls ShowDownloadImages on completion.
-		  Try
-		    If ShellIcon <> Nil And ShellIcon.IsRunning Then ShellIcon.Close
-		    ShellIcon = New Shell
-		    ShellIcon.TimeOut = -1
-		    ShellIcon.ExecuteMode = Shell.ExecuteModes.Asynchronous
-		    Dim CurlBin As String = LinuxCurl
-		    If TargetWindows Then CurlBin = WinCurl
-		    ShellIcon.Execute(CurlBin + " -L -s --connect-timeout 15 -o " + Chr(34) + LocalPath + Chr(34) + " " + Chr(34) + URL + Chr(34))
-		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Multiple
-		  Catch
-		  End Try
+		  ' Queues a .png icon/fader download. Every download is tracked on its own (see QueueImageJob), so clicking another item
+		  ' never cancels it, and when it finishes the icon is applied to the item it belongs to, not whichever item is selected then.
+		  QueueImageJob(URL, LocalPath)
 		End Sub
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
 		Sub StartScreenshotDownload(URL As String, LocalPath As String)
-		  ' Downloads a .jpg screenshot using an async curl shell.
-		  ' DownloadScreenAndIcon timer polls IsRunning and calls ShowDownloadImages on completion.
+		  ' Queues a .jpg screenshot download, tracked on its own exactly like icons (see QueueImageJob).
+		  QueueImageJob(URL, LocalPath)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function AddIconToCache(UN As String, Pic As Picture) As Integer
+		  ' Puts an icon into the shared Data.Icons store ONCE per item name and returns its slot number, so showing or re-downloading
+		  ' the same icon never adds duplicates. The cache is reset in Data.ClearData because that empties Data.Icons.
+		  If IconCache Is Nil Then IconCache = New Dictionary
+		  If IconCache.HasKey(UN) Then
+		    Dim OldIdx As Integer = IconCache.Value(UN).IntegerValue
+		    If OldIdx >= 0 And OldIdx < Data.Icons.RowCount Then
+		      Data.Icons.RowImageAt(OldIdx) = Pic 'Same item, refresh the image in its existing slot
+		      Return OldIdx
+		    End If
+		  End If
+		  Dim Idx As Integer = Data.Icons.RowCount
+		  Data.Icons.AddRow
+		  Data.Icons.RowImageAt(Idx) = Pic
+		  IconCache.Value(UN) = Idx
+		  Return Idx
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub ApplyIconsToRows(Done As Dictionary)
+		  ' Done maps an item's universal name (title+type) to its icon slot in Data.Icons. ONE pass over the item list sets the icon on every
+		  ' matching online item, whether or not it is the one currently selected, then the visible list is repainted once.
+		  If Done Is Nil Then Return
+		  If Done.KeyCount = 0 Then Return
+		  Dim ColTitle As Integer = Data.GetDBHeader("TitleName")
+		  Dim ColType As Integer = Data.GetDBHeader("BuildType")
+		  Dim ColRef As Integer = Data.GetDBHeader("IconRef")
+		  Dim ColPath As Integer = Data.GetDBHeader("PathINI")
+		  If ColTitle < 0 Or ColType < 0 Or ColRef < 0 Or ColPath < 0 Then Return
+		  Dim I As Integer
+		  For I = 0 To Data.Items.RowCount - 1
+		    If Left(Data.Items.CellTextAt(I, ColPath), 4) <> "http" Then Continue 'Only online items get their icon from these downloads
+		    Dim K As String = UniversalName(Data.Items.CellTextAt(I, ColTitle) + Data.Items.CellTextAt(I, ColType))
+		    If Done.HasKey(K) Then Data.Items.CellTextAt(I, ColRef) = Str(Done.Value(K).IntegerValue)
+		  Next
+		  If Main.Visible Then Main.Items.Refresh 'Repaints the visible rows only, scroll position and selection are kept
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function ImageJobName(FilePath As String) As String
+		  ' ".../.lldb/firefoxllapp.png" gives "firefoxllapp", the same universal name ChangeItem used to build the file name
+		  Dim P As String = FilePath.ReplaceAll("\", "/")
+		  P = Mid(P, InStrRev(P, "/") + 1)
+		  If Len(P) > 4 Then P = Left(P, Len(P) - 4)
+		  Return P
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub QueueImageJob(URL As String, LocalPath As String)
+		  ' Adds an icon/screenshot download to the job list. The DownloadScreenAndIcon timer starts them (4 at a time) and finishes them.
+		  #Pragma BreakOnExceptions Off
 		  Try
-		    If ShellScreenshot <> Nil And ShellScreenshot.IsRunning Then ShellScreenshot.Close
-		    ShellScreenshot = New Shell
-		    ShellScreenshot.TimeOut = -1
-		    ShellScreenshot.ExecuteMode = Shell.ExecuteModes.Asynchronous
-		    Dim CurlBin As String = LinuxCurl
-		    If TargetWindows Then CurlBin = WinCurl
-		    ShellScreenshot.Execute(CurlBin + " -L -s --connect-timeout 15 -o " + Chr(34) + LocalPath + Chr(34) + " " + Chr(34) + URL + Chr(34))
+		    Dim I As Integer
+		    For I = 0 To ImgJobPath.LastIndex
+		      If ImgJobPath(I) = LocalPath Then Return 'Already downloading, or waiting for its turn, for this exact file
+		    Next
+		    ImgJobURL.Add(URL)
+		    ImgJobPath.Add(LocalPath)
+		    ImgJobShell.Add(Nil)
 		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Multiple
 		  Catch
 		  End Try
+		  #Pragma BreakOnExceptions On
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub FinishImageJob(FinalPath As String, Done As Dictionary, CurUN As String, ByRef ShowCurrent As Boolean)
+		  ' A download curl has ended. It was written to FinalPath+".partial", so a half-finished file can never be mistaken for the real one.
+		  ' Keep it only if it has data and (for icons) really is an image, then give it its final name.
+		  Dim PartPath As String = FinalPath + ".partial"
+		  Dim IsOK As Boolean = False
+		  Dim IsPng As Boolean = (Right(FinalPath, 4).Lowercase = ".png")
+		  Dim UN As String = ImageJobName(FinalPath)
+		  Dim Pic As Picture
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    If Exist(PartPath) Then
+		      Dim PF As FolderItem = GetFolderItem(PartPath, FolderItem.PathTypeNative)
+		      If PF <> Nil Then
+		        If PF.Length > 0 Then IsOK = True
+		      End If
+		      If IsOK And IsPng Then
+		        Pic = LoadPictureSafe(PartPath)
+		        If Pic Is Nil Then IsOK = False
+		      End If
+		      If IsOK Then
+		        If Exist(FinalPath) Then Deltree(FinalPath)
+		        Dim DF As FolderItem = GetFolderItem(FinalPath, FolderItem.PathTypeNative)
+		        PF.Name = DF.Name 'Same folder, so renaming is all that is needed
+		        If Not Exist(FinalPath) Then IsOK = False
+		      End If
+		      If Not IsOK Then
+		        If Exist(PartPath) Then Deltree(PartPath) 'Failed or not an image, remove it so the next click tries again
+		      End If
+		    End If
+		  Catch
+		    IsOK = False
+		  End Try
+		  #Pragma BreakOnExceptions On
+		  If Not IsOK Then Return
+		  If IsPng And Pic <> Nil Then Done.Value(UN) = AddIconToCache(UN, Pic)
+		  If UN = CurUN Then ShowCurrent = True 'It is for the item being looked at right now, so the big picture needs updating too
 		End Sub
 	#tag EndMethod
 
@@ -3829,6 +4020,18 @@ End
 		End Sub
 	#tag EndMethod
 
+
+	#tag Property, Flags = &h0
+		ImgJobPath() As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		ImgJobShell() As Shell
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
+		ImgJobURL() As String
+	#tag EndProperty
 
 	#tag Property, Flags = &h0
 		Regenerate As Boolean
@@ -3948,6 +4151,9 @@ End
 		              ' Roll back all items and icons that LoadDB just added
 		              For CI = Data.Items.RowCount - 1 DownTo DBItemStart
 		                Data.Items.RemoveRowAt(CI)
+		              Next
+		              For CI = Data.Icons.RowCount - 1 DownTo DBIconStart 'Also drop the icons LoadDB added for those items (they were left behind before)
+		                Data.Icons.RemoveRowAt(CI)
 		              Next
 		              ' Nuke the stale .lldb folder if the path is writable.
 		              ' Do NOT set ForceRefreshDBs — that would force ALL other scan paths to
@@ -4171,6 +4377,7 @@ End
 		      End Try
 		      
 		    End If
+		    DefaultDescriptionText = Main.Description.Text 'Kept so Main.ShowDefaultInfo can put it back when the item list is empty
 		    #Pragma BreakOnExceptions True
 		    '--------------
 		    
@@ -4321,7 +4528,26 @@ End
 		  Static TotalBytes As Int64          ' Content-Length of current item, 0 = unknown
 		  Static SizeShell As Shell           ' Extra HEAD-only shell used by ST_SIZECHECK
 		  Static SizeBuffer As String         ' Accumulated ST_SIZECHECK output
+		  Static LastDLState As Integer = -1  ' Watchdog: the state we saw on the previous tick
+		  Static StateStart As Double         ' Watchdog: when the current state was entered (System.Microseconds)
+		  Static LastBytes As Int64           ' Watchdog: .partial size at the last progress check
+		  Static LastGrow As Double           ' Watchdog: when the .partial file last changed size
+		  Static DLOK As Boolean              ' True when curl reported success for the current item
+		  Static ErrCount As Integer          ' Consecutive errors caught inside this state machine
+		  Static MagicPath As Boolean         ' True = this item is validated by the magic-byte check (Linux archives), False = HEAD check
 		  
+		  ' Watchdog limits (seconds). A state that sits longer than this is abandoned so the queue can never wedge.
+		  Const ValTimeoutSecs = 70
+		  Const SizeTimeoutSecs = 20
+		  Const StallTimeoutSecs = 240
+		  
+		  If DLState <> LastDLState Then
+		    LastDLState = DLState
+		    StateStart = System.Microseconds
+		  End If
+		  
+		  #Pragma BreakOnExceptions False
+		  Try
 		  Select Case DLState
 		    
 		    ' --------------------------------------------------------
@@ -4334,6 +4560,7 @@ End
 		    If Exist(Slash(RepositoryPathLocal) + "FailedDownload") Then Deltree(Slash(RepositoryPathLocal) + "FailedDownload")
 		    QueueUpTo = 0
 		    GrepChecked = False
+		    ErrCount = 0
 		    DLState = ST_PREPARE
 		    ' Fall through to PREPARE in the same tick
 		    
@@ -4360,6 +4587,12 @@ End
 		    
 		    ' Clean any leftover .partial from a previous failed attempt
 		    If Exist(QueueLocal(QueueUpTo) + ".partial") Then Deltree(QueueLocal(QueueUpTo) + ".partial")
+		    
+		    ' Make sure the folder the file is going into exists, curl can't create it and would just fail
+		    Dim OutDir As String = SafeParentPath(QueueLocal(QueueUpTo))
+		    If OutDir <> "" And OutDir <> "/" Then
+		      If Not Exist(OutDir) Then MakeFolder(OutDir)
+		    End If
 		    
 		    TotalBytes = 0 ' Reset for this item - filled in from the HEAD/validation response below
 		    GetURL = QueueURL(QueueUpTo)
@@ -4408,6 +4641,11 @@ End
 		      End If
 		    End If
 		    
+		    ' Resolved curl (WinCurl/LinuxCurl) for the validation requests too, not a bare "curl" that may not be in PATH
+		    Dim ValCurl As String = LinuxCurl
+		    If TargetWindows Then ValCurl = WinCurl
+		    If ValCurl.Trim = "" Then ValCurl = "curl"
+		    
 		    ' Kick off async validation shell
 		    ValidationFallback = False
 		    ValBuffer = ""
@@ -4415,13 +4653,15 @@ End
 		    ValShell.TimeOut = -1
 		    ValShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
 		    
-		    If IsArchive And UseGrep Then
+		    ' The magic-byte pipe uses "LC_ALL=C grep", which only exists in sh. cmd can't run it, so in Windows it always failed over to the HEAD check anyway.
+		    MagicPath = (IsArchive And UseGrep And Not TargetWindows)
+		    If MagicPath Then
 		      ' Path A: Magic-byte check (first 512 bytes)
-		      ValShell.Execute("curl -sL -r 0-511 --connect-timeout 9 " + Chr(34) + GetURL + Chr(34) + _
+		      ValShell.Execute(ValCurl + " -sL -r 0-511 --connect-timeout 9 --max-time 25 " + Chr(34) + GetURL + Chr(34) + _
 		      " | LC_ALL=C " + GrepPath + " -aqP " + Chr(34) + "\x37\x7a\xbc\xaf|\x1f\x8b|ustar" + Chr(34))
 		    Else
 		      ' Path C: Standard HEAD check for .ini, .bat, non-archives etc.
-		      ValShell.Execute("curl --head --silent --connect-timeout 9 " + Chr(34) + GetURL + Chr(34))
+		      ValShell.Execute(ValCurl + " --head --silent --connect-timeout 9 --max-time 25 " + Chr(34) + GetURL + Chr(34))
 		    End If
 		    
 		    DLState = ST_VALIDATING
@@ -4444,6 +4684,17 @@ End
 		      Return
 		    End If
 		    
+		    ' Watchdog: a validation that never answers is a failed validation, not a reason to sit here forever
+		    If System.Microseconds - StateStart > ValTimeoutSecs * 1000000 Then
+		      If ValShell <> Nil Then
+		        If ValShell.IsRunning Then ValShell.Close
+		      End If
+		      If Debugging Then Debug("* Validation timed out: " + GetURL)
+		      SaveDataToFile("Failed Validation (timed out): " + GetURL, Slash(RepositoryPathLocal) + "FailedDownload")
+		      DLState = ST_ADVANCE
+		      Return
+		    End If
+		    
 		    ' Drain output buffer each tick to prevent pipe deadlock
 		    If ValShell <> Nil Then ValBuffer = ValBuffer + ValShell.ReadAll
 		    
@@ -4455,7 +4706,7 @@ End
 		    
 		    Dim Validated As Boolean = False
 		    
-		    If IsArchive And Not ValidationFallback Then
+		    If MagicPath And Not ValidationFallback Then
 		      ' Magic-byte result: grep exit code 0 = correct bytes found
 		      If ValShell <> Nil And ValShell.ExitCode = 0 Then
 		        Validated = True
@@ -4464,10 +4715,13 @@ End
 		        If Debugging Then Debug("! Magic-byte check failed, trying HEAD fallback: " + GetURL)
 		        ValidationFallback = True
 		        ValBuffer = ""
+		        Dim ValCurl2 As String = LinuxCurl
+		        If TargetWindows Then ValCurl2 = WinCurl
+		        If ValCurl2.Trim = "" Then ValCurl2 = "curl"
 		        ValShell = New Shell
 		        ValShell.TimeOut = -1
 		        ValShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
-		        ValShell.Execute("curl --head --silent --connect-timeout 9 " + Chr(34) + GetURL + Chr(34))
+		        ValShell.Execute(ValCurl2 + " --head --silent --connect-timeout 9 --max-time 25 " + Chr(34) + GetURL + Chr(34))
 		        Return  ' Stay in ST_VALIDATING for the fallback
 		      End If
 		    Else
@@ -4506,7 +4760,10 @@ End
 		      If SizeShell Is Nil Then SizeShell = New Shell
 		      SizeShell.TimeOut = -1
 		      SizeShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
-		      SizeShell.Execute("curl --head --silent --connect-timeout 5 " + Chr(34) + GetURL + Chr(34))
+		      Dim SizeCurl As String = LinuxCurl
+		      If TargetWindows Then SizeCurl = WinCurl
+		      If SizeCurl.Trim = "" Then SizeCurl = "curl"
+		      SizeShell.Execute(SizeCurl + " --head --silent --connect-timeout 5 --max-time 15 " + Chr(34) + GetURL + Chr(34))
 		      DLState = ST_SIZECHECK
 		      Return
 		    End If
@@ -4518,24 +4775,14 @@ End
 		    ' Silent curl download - no stdout progress meter to parse.
 		    ' Progress is tracked separately in ST_DOWNLOADING by polling the .partial file size.
 		    ' Uses the resolved curl path (WinCurl/LinuxCurl) set at startup, same as validation.
-		    Dim CurlBin As String = LinuxCurl
-		    If TargetWindows Then CurlBin = WinCurl
-		    
-		    Dim Commands As String
-		    If TargetWindows Then
-		      Commands = CurlBin + " -L -s --retry 3 --connect-timeout 9 -o " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + _
-		      " " + Chr(34) + GetURL + Chr(34) + _
-		      " && echo done > " + Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
-		    Else
-		      Commands = CurlBin + " -L -s --retry 3 --connect-timeout 9 -o " + _
-		      Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + " " + _
-		      Chr(34) + GetURL + Chr(34) + " ; echo done > " + _
-		      Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
-		    End If
+		    Dim Commands As String = BuildDownloadCommand(GetURL, QueueLocal(QueueUpTo) + ".partial", Slash(RepositoryPathLocal) + "DownloadDone")
 		    
 		    If DLShell Is Nil Then DLShell = New Shell
 		    DLShell.TimeOut = -1
 		    DLShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		    DLOK = False
+		    LastBytes = -1
+		    LastGrow = System.Microseconds
 		    DLShell.Execute(Commands)
 		    DLState = ST_DOWNLOADING
 		    Return
@@ -4559,7 +4806,15 @@ End
 		    End If
 		    
 		    If SizeShell <> Nil Then SizeBuffer = SizeBuffer + SizeShell.ReadAll
-		    If SizeShell <> Nil And SizeShell.IsRunning Then Return
+		    If SizeShell <> Nil Then
+		      If SizeShell.IsRunning Then
+		        If System.Microseconds - StateStart > SizeTimeoutSecs * 1000000 Then
+		          SizeShell.Close 'The size is only for the progress display, carry on and download without it
+		        Else
+		          Return
+		        End If
+		      End If
+		    End If
 		    If SizeShell <> Nil Then SizeBuffer = SizeBuffer + SizeShell.ReadAll
 		    
 		    Dim SCPos As Integer = SizeBuffer.Lowercase.IndexOf("content-length:")
@@ -4574,24 +4829,14 @@ End
 		    If Debugging Then Debug("Validated! Starting download: " + GetURL)
 		    If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
 		    
-		    Dim CurlBin As String = LinuxCurl
-		    If TargetWindows Then CurlBin = WinCurl
-		    
-		    Dim Commands As String
-		    If TargetWindows Then
-		      Commands = CurlBin + " -L -s --retry 3 --connect-timeout 9 -o " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + _
-		      " " + Chr(34) + GetURL + Chr(34) + _
-		      " && echo done > " + Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
-		    Else
-		      Commands = CurlBin + " -L -s --retry 3 --connect-timeout 9 -o " + _
-		      Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + " " + _
-		      Chr(34) + GetURL + Chr(34) + " ; echo done > " + _
-		      Chr(34) + Slash(RepositoryPathLocal) + "DownloadDone" + Chr(34)
-		    End If
+		    Dim Commands As String = BuildDownloadCommand(GetURL, QueueLocal(QueueUpTo) + ".partial", Slash(RepositoryPathLocal) + "DownloadDone")
 		    
 		    If DLShell Is Nil Then DLShell = New Shell
 		    DLShell.TimeOut = -1
 		    DLShell.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		    DLOK = False
+		    LastBytes = -1
+		    LastGrow = System.Microseconds
 		    DLShell.Execute(Commands)
 		    DLState = ST_DOWNLOADING
 		    Return
@@ -4603,12 +4848,8 @@ End
 		  Case ST_DOWNLOADING
 		    ' Skip/cancel: kill curl immediately and move on
 		    If ForceQuit Or CancelDownloading Then
-		      If DLShell <> Nil And DLShell.IsRunning Then DLShell.Close
-		      If TargetWindows Then
-		        If KillShell Is Nil Then KillShell = New Shell
-		        KillShell.Execute("TaskKill /IM curl.exe /F")
-		      End If
-		      If Exist(QueueLocal(QueueUpTo) + ".partial") Then Deltree(QueueLocal(QueueUpTo) + ".partial")
+		      StopCurl(DLShell, QueueLocal(QueueUpTo) + ".partial") 'Stops this curl (and removes the .partial), then clear the status flag too
+		      If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
 		      If Exist(QueueLocal(QueueUpTo)) Then Deltree(QueueLocal(QueueUpTo))
 		      CancelDownloading = False
 		      DownloadPercentage = ""
@@ -4632,6 +4873,10 @@ End
 		      Dim PF As FolderItem = GetFolderItem(QueueLocal(QueueUpTo) + ".partial", FolderItem.PathTypeNative)
 		      If PF <> Nil Then
 		        Dim CurrentBytes As Int64 = PF.Length
+		        If CurrentBytes <> LastBytes Then 'Still receiving data, remember when it last moved
+		          LastBytes = CurrentBytes
+		          LastGrow = System.Microseconds
+		        End If
 		        If TotalBytes > 0 Then
 		          Dim Pct As Integer = CType(CurrentBytes / TotalBytes * 100, Integer)
 		          If Pct > 100 Then Pct = 100
@@ -4652,15 +4897,41 @@ End
 		    If CheckingForUpdates Then UpdateLoading("Update: " + DownloadPercentage)
 		    If CheckingForDatabases Then UpdateLoading("Database: " + DownloadPercentage)
 		    
-		    ' Check for done file (normal completion) or shell exited (error)
-		    If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then
-		      DLState = ST_FINALIZE
+		    ' Watchdog: no data for StallTimeoutSecs means the connection is dead. Curl has its own speed limit, this is the backstop
+		    If System.Microseconds - LastGrow > StallTimeoutSecs * 1000000 Then
+		      If Debugging Then Debug("* Download stalled, giving up: " + GetURL)
+		      StopCurl(DLShell, QueueLocal(QueueUpTo) + ".partial")
+		      If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
+		      SaveDataToFile("Failed Download (stalled): " + GetURL, Slash(RepositoryPathLocal) + "FailedDownload")
+		      DownloadPercentage = ""
+		      DLState = ST_ADVANCE
 		      Return
 		    End If
-		    If DLShell <> Nil And Not DLShell.IsRunning Then
-		      Dim trailing As String = DLShell.ReadAll  ' drain remaining buffer
-		      DLState = ST_FINALIZE 
-		      Return
+		    
+		    ' Status flag: "done" = curl succeeded, "fail" = curl failed. An empty flag means it is still being written, check again next tick.
+		    If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then
+		      Dim FlagTxt As String = ""
+		      #Pragma BreakOnExceptions False
+		      Try
+		        FlagTxt = LoadDataFromFile(Slash(RepositoryPathLocal) + "DownloadDone").Trim
+		      Catch
+		        FlagTxt = "" 'Still being written, look again next tick
+		      End Try
+		      #Pragma BreakOnExceptions True
+		      If FlagTxt <> "" Then
+		        DLOK = (FlagTxt.IndexOf("done") >= 0)
+		        DLState = ST_FINALIZE
+		        Return
+		      End If
+		    End If
+		    ' The shell ended without writing a flag (it was killed or crashed): only trust it if curl exited cleanly
+		    If DLShell <> Nil Then
+		      If Not DLShell.IsRunning Then
+		        Dim trailing As String = DLShell.ReadAll  ' drain remaining buffer
+		        DLOK = (DLShell.ExitCode = 0)
+		        DLState = ST_FINALIZE
+		        Return
+		      End If
 		    End If
 		    Return  ' Still running - come back next tick
 		    
@@ -4669,7 +4940,15 @@ End
 		    ' --------------------------------------------------------
 		  Case ST_FINALIZE
 		    DownloadPercentage = ""
-		    If Exist(QueueLocal(QueueUpTo) + ".partial") Then
+		    Dim PartialPath As String = QueueLocal(QueueUpTo) + ".partial"
+		    Dim GoodDownload As Boolean = False
+		    ' Only a download curl reported as successful, that is not empty and not a web page in disguise, becomes the real file.
+		    ' (Before, whatever was in the .partial was renamed even when curl had failed part way, leaving a broken file that was then reused.)
+		    If DLOK And Exist(PartialPath) Then
+		      If DownloadLooksValid(PartialPath) Then GoodDownload = True
+		    End If
+		    
+		    If GoodDownload Then
 		      If Exist(QueueLocal(QueueUpTo)) Then Deltree(QueueLocal(QueueUpTo))
 		      If MoveShell Is Nil Then MoveShell = New Shell
 		      If TargetWindows Then
@@ -4677,20 +4956,29 @@ End
 		        Dim winDest As String = QueueLocal(QueueUpTo).ReplaceAll("/", "\")
 		        MoveShell.Execute("move /y " + Chr(34) + winSrc + Chr(34) + " " + Chr(34) + winDest + Chr(34))
 		      Else
-		        MoveShell.Execute("mv -f " + Chr(34) + QueueLocal(QueueUpTo) + ".partial" + Chr(34) + _
+		        MoveShell.Execute("mv -f " + Chr(34) + PartialPath + Chr(34) + _
 		        " " + Chr(34) + QueueLocal(QueueUpTo) + Chr(34))
 		      End If
-		      If Debugging Then Debug("Download successful: " + GetURL)
-		      Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
-		    Else
-		      ' .partial missing - wget exited without writing anything
-		      If Debugging Then Debug("* Download error: .partial not found: " + GetURL)
-		      SaveDataToFile("Failed Finding Local: " + QueueLocal(QueueUpTo) + ".partial", Slash(RepositoryPathLocal) + "FailedDownload")
+		      If Exist(QueueLocal(QueueUpTo)) Then
+		        If Debugging Then Debug("Download successful: " + GetURL)
+		        MarkFetched(QueueLocal(QueueUpTo))
+		        ErrCount = 0
+		      Else
+		        GoodDownload = False 'The rename failed, so it is not there for the installer
+		      End If
+		    End If
+		    
+		    If Not GoodDownload Then
+		      ' Failed, broken or not the file we asked for - never leave a partial or garbage file behind
+		      If Debugging Then Debug("* Download error, not saved: " + GetURL)
+		      If Exist(PartialPath) Then Deltree(PartialPath)
+		      SaveDataToFile("Failed Download: " + QueueLocal(QueueUpTo), Slash(RepositoryPathLocal) + "FailedDownload")
 		      If Not TargetWindows Then
 		        Dim LocalName As String = Replace(QueueLocal(QueueUpTo), Slash(RepositoryPathLocal), "")
 		        RunCommand("notify-send " + Chr(34) + "Failed Download: " + LocalName + Chr(34))
 		      End If
 		    End If
+		    If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
 		    DLState = ST_ADVANCE
 		    Return
 		    
@@ -4710,11 +4998,18 @@ End
 		    ' DONE: Reset all state, turn off the timer.
 		    ' --------------------------------------------------------
 		  Case ST_DONE
+		    ' A job queued in the moment between the last item finishing and this tick must not be thrown away.
+		    If Not ForceQuit And ErrCount < 5 And QueueUpTo < QueueCount Then
+		      DLState = ST_PREPARE
+		      Return
+		    End If
 		    QueueUpTo = 0
 		    QueueCount = 0
 		    Downloading = False
+		    CancelDownloading = False 'A stale cancel left set after the queue ended would freeze the Mini Installer's UpdateUI timer
 		    DownloadPercentage = ""
 		    GrepChecked = False
+		    ErrCount = 0
 		    DLState = ST_IDLE
 		    DownloadTimer.RunMode = Timer.RunModes.Off  ' Stop polling until next GetOnlineFile call
 		    If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
@@ -4733,6 +5028,28 @@ End
 		    
 		  End Select
 		  
+		  Catch Err As RuntimeException
+		    If Err IsA EndException Or Err IsA ThreadEndException Then Raise Err 'Let the app quit normally
+		    ' Anything unexpected in here must never leave the queue wedged on the same step: log it, drop the current item and carry on.
+		    ErrCount = ErrCount + 1
+		    If Debugging Then Debug("* Download state machine error in state " + DLState.ToString + ": " + Err.Message)
+		    #Pragma BreakOnExceptions False
+		    Try
+		      If Downloading Then
+		        If QueueUpTo >= 0 And QueueUpTo < QueueCount Then StopCurl(DLShell, QueueLocal(QueueUpTo) + ".partial")
+		      End If
+		    Catch
+		    End Try
+		    #Pragma BreakOnExceptions True
+		    If Not Downloading Then
+		      DLState = ST_IDLE
+		    ElseIf ErrCount >= 5 Then
+		      DLState = ST_DONE
+		    Else
+		      DLState = ST_ADVANCE
+		    End If
+		  End Try
+		  #Pragma BreakOnExceptions True
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -5663,32 +5980,74 @@ End
 #tag Events DownloadScreenAndIcon
 	#tag Event
 		Sub Action()
-		  ' Poll both curl shells independently.
-		  ' Each calls ShowDownloadImages the moment its shell finishes - no fixed wait.
-		  ' Timer shuts itself off once both shells are done (or were never started).
-		  Var AnyRunning As Boolean = False
+		  ' Runs the icon/screenshot download jobs. Every job has its own curl shell, up to 4 at once, so nothing is cancelled when you click
+		  ' another item. Each finished job is applied to ITS OWN item: all the finished icons are set on the item list in one pass and
+		  ' the list is repainted once. Only the big picture/icon panel is updated if the finished job is for the item currently selected.
+		  Dim I As Integer
+		  Dim Running As Integer = 0
+		  Dim Done As New Dictionary
+		  Dim ShowCurrent As Boolean = False
+		  Dim CurUN As String = ""
 		  
-		  If ShellScreenshot <> Nil Then
-		    If ShellScreenshot.IsRunning Then
-		      AnyRunning = True
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    If CurrentItemID >= 0 Then CurUN = UniversalName(Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("TitleName")) + Data.Items.CellTextAt(CurrentItemID, Data.GetDBHeader("BuildType")))
+		  Catch
+		  End Try
+		  
+		  'Finish the jobs whose curl has ended
+		  I = 0
+		  While I <= ImgJobPath.LastIndex
+		    If ImgJobShell(I) Is Nil Then
+		      I = I + 1 'Waiting for its turn
+		    ElseIf ImgJobShell(I).IsRunning Then
+		      Running = Running + 1
+		      I = I + 1
 		    Else
-		      ShellScreenshot = Nil
-		      If Main.Visible And Not InstallingItem Then ShowDownloadImages
+		      Dim FinishedPath As String = ImgJobPath(I)
+		      ImgJobShell.RemoveAt(I)
+		      ImgJobPath.RemoveAt(I)
+		      ImgJobURL.RemoveAt(I)
+		      FinishImageJob(FinishedPath, Done, CurUN, ShowCurrent) 'Index stays the same, the next job slid into it
 		    End If
-		  End If
+		  Wend
 		  
-		  If ShellIcon <> Nil Then
-		    If ShellIcon.IsRunning Then
-		      AnyRunning = True
+		  'Start waiting jobs while there is room (4 at a time)
+		  I = 0
+		  While I <= ImgJobPath.LastIndex And Running < 4
+		    If ImgJobShell(I) Is Nil Then
+		      Try
+		        Dim OutDir As String = SafeParentPath(ImgJobPath(I))
+		        If OutDir <> "" And OutDir <> "/" Then
+		          If Not Exist(OutDir) Then MakeFolder(OutDir) 'curl can't create the folder
+		        End If
+		        If Exist(ImgJobPath(I) + ".partial") Then Deltree(ImgJobPath(I) + ".partial")
+		        Dim Sh As New Shell
+		        Sh.TimeOut = -1
+		        Sh.ExecuteMode = Shell.ExecuteModes.Asynchronous
+		        Dim CurlBin As String = LinuxCurl
+		        If TargetWindows Then CurlBin = WinCurl
+		        If CurlBin.Trim = "" Then CurlBin = "curl"
+		        Sh.Execute(CurlBin + " -L -s --fail --connect-timeout 15 --max-time 120 -o " + Chr(34) + ImgJobPath(I) + ".partial" + Chr(34) + " " + Chr(34) + ImgJobURL(I) + Chr(34))
+		        ImgJobShell(I) = Sh
+		        Running = Running + 1
+		        I = I + 1
+		      Catch
+		        ImgJobShell.RemoveAt(I) 'Couldn't even start it, drop the job
+		        ImgJobPath.RemoveAt(I)
+		        ImgJobURL.RemoveAt(I)
+		      End Try
 		    Else
-		      ShellIcon = Nil
-		      If Main.Visible And Not InstallingItem Then ShowDownloadImages
+		      I = I + 1
 		    End If
-		  End If
+		  Wend
+		  #Pragma BreakOnExceptions On
 		  
-		  If Not AnyRunning Then
-		    DownloadScreenAndIcon.RunMode = Timer.RunModes.Off
-		  End If
+		  'Apply what finished
+		  If Done.KeyCount > 0 Then ApplyIconsToRows(Done)
+		  If ShowCurrent And Main.Visible And Not InstallingItem Then ShowDownloadImages
+		  
+		  If ImgJobPath.Count = 0 Then DownloadScreenAndIcon.RunMode = Timer.RunModes.Off
 		End Sub
 	#tag EndEvent
 #tag EndEvents

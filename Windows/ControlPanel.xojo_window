@@ -173,7 +173,7 @@ Begin DesktopWindow ControlPanel
       TabIndex        =   5
       TabPanelIndex   =   0
       TabStop         =   True
-      Tooltip         =   "Removes Empty Folders"
+      Tooltip         =   "Removes Empty Folders and shortcuts to programs (.exe .cmd .bat) that no longer exist"
       Top             =   96
       Transparent     =   False
       Underline       =   False
@@ -686,75 +686,178 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub CleanStartMenu()
-		  Dim I, J As Integer
+		Sub RemoveDeadLinks()
+		  ' Windows only. Deletes Start Menu shortcuts (All Users and the current user) whose target is a .exe, .cmd or .bat that no longer exists.
+		  ' Everything else is left alone on purpose: web/URL links, folders, documents, network paths, links with an unknown target, anything in the
+		  ' Windows folder (a 32-bit program is shown a different System32 there), and links on a drive that is not connected right now (a USB stick
+		  ' that is unplugged only looks dead).
+		  If Not TargetWindows Then Return
+		  
 		  Dim StartUser, StartAll As String
 		  Dim Res As String
-		  Dim Sp(), Sp2() As String
-		  Dim Found As Boolean
-		  Dim DelCount As Integer
+		  Dim Sp() As String
+		  Dim I As Integer
+		  Dim LnkPath, Target, Ext, DriveRoot As String
+		  Dim Link As Shortcut
 		  Dim DelCommand As String
+		  Dim DelCount As Integer
 		  
 		  StartAll = Slash(StartPathAll).ReplaceAll("/","\") 'All Users
-		  StartUser = Slash(StartPathUser).ReplaceAll("/","\") ' Used to delete User Link if making System Wide Link
+		  StartUser = Slash(StartPathUser).ReplaceAll("/","\")
 		  
 		  ShellFast.Execute("dir /s /a /b "+Chr(34)+StartAll+Chr(34)+"*.lnk")
 		  Res = ShellFast.Result
 		  ShellFast.Execute("dir /s /a /b "+Chr(34)+StartUser+Chr(34)+"*.lnk")
-		  Res = Res + ShellFast.Result
-		  Res = Res.ReplaceAll(Chr(10),Chr(13))
-		  Res = Res.ReplaceAll(Chr(13)+Chr(13),Chr(13)) 'Reduce Duplicated Line Ends
+		  Res = Res + Chr(10) + ShellFast.Result
+		  Res = Res.ReplaceAll(Chr(13),Chr(10))
+		  Res = Res.ReplaceAll(Chr(10)+Chr(10),Chr(10)) 'Reduce Duplicated Line Ends
+		  Sp() = Res.Split(Chr(10))
+		  If Sp.Count = 0 Then Return
 		  
-		  Sp() = Res.Split(Chr(13))
-		  If Sp.Count >=1 Then
+		  'Don't let Windows pop up "There is no disk in the drive" while testing drives
+		  Declare Function SetErrorMode Lib "Kernel32" (mode As Integer) As Integer
+		  Const SEM_FAILCRITICALERRORS = &h1
+		  Dim OldErrMode As Integer = SetErrorMode(SEM_FAILCRITICALERRORS)
+		  
+		  #Pragma BreakOnExceptions Off
+		  Try
 		    For I = 0 To Sp.Count - 1
-		      If Sp(I) <> "" Then
-		        Sp(I) = GetParent(Sp(I))
-		        'MsgBox Sp(I)
-		      End If
+		      LnkPath = Sp(I).Trim
+		      If LnkPath = "" Then Continue
+		      If Right(LnkPath, 4).Lowercase <> ".lnk" Then Continue
+		      
+		      Link = GetShortcut(LnkPath) 'Reads the link without following it, so a dead link can't raise the "browse for the destination" box
+		      Target = Link.TargetPath 'A fixed length field, so cut it at the first empty padding character before using it
+		      Dim NulPos As Integer = Target.IndexOf(Chr(0))
+		      If NulPos >= 0 Then Target = Left(Target, NulPos)
+		      Target = Target.Trim
+		      Target = Target.ReplaceAll(Chr(34), "")
+		      If Target = "" Then Continue 'Unknown target (an installer shortcut for example), keep it
+		      If Target.IndexOf("%") >= 0 Then Continue 'Holds a variable we haven't expanded, keep it
+		      If Target.IndexOf("://") >= 0 Then Continue 'A URL, keep it
+		      If Left(Target, 2) = "\\" Then Continue 'Network path, not tested here
+		      If Target.Length < 6 Then Continue
+		      If Mid(Target, 2, 2) <> ":\" Then Continue 'Only full local paths
+		      
+		      Ext = Right(Target, 4).Lowercase
+		      If Ext <> ".exe" And Ext <> ".cmd" And Ext <> ".bat" Then Continue 'Only programs and scripts
+		      
+		      If Target.Lowercase.IndexOf("\windows\") >= 0 Then Continue 'Never judge anything in the Windows folder
+		      
+		      DriveRoot = Left(Target, 3)
+		      If Not Exist(DriveRoot) Then Continue 'Drive isn't connected, the target may just be offline
+		      If Exist(Target) Then Continue 'It's there, keep it
+		      
+		      If Debugging Then Debug("Dead link removed: " + LnkPath + " -> " + Target)
+		      DelCommand = DelCommand + "del /f /q " + Chr(34) + LnkPath + Chr(34) + Chr(10)
+		      DelCount = DelCount + 1
 		    Next
-		  End If
+		  Catch
+		  End Try
+		  #Pragma BreakOnExceptions On
 		  
-		  'dir /s /aD /b *
-		  
-		  ShellFast.Execute("dir /s /aD /b "+Chr(34)+StartAll+Chr(34)+"*")
-		  Res = ShellFast.Result
-		  ShellFast.Execute("dir /s /aD /b "+Chr(34)+StartUser+Chr(34)+"*")
-		  Res = Res + ShellFast.Result
-		  Res = Res.ReplaceAll(Chr(10),Chr(13))
-		  Res = Res.ReplaceAll(Chr(13)+Chr(13),Chr(13)) 'Reduce Duplicated Line Ends
-		  
-		  Sp2() = Res.Split(Chr(13))
-		  If Sp2.Count >=1 Then
-		    For I = 0 To Sp2.Count - 1
-		      If Sp2(I) <> "" Then
-		        Found = False
-		        For J = 0 To Sp.Count - 1
-		          If Sp(J) <> "" Then
-		            If Sp(J).IndexOf(Sp2(I)) >= 0 Then 'If the path to the Link is within the Scanned folders then keep it
-		              Found = True
-		              Exit
-		            End If
-		          End If
-		        Next
-		        If Found = False Then
-		          'Msgbox "Delete: "+ Sp2(I)
-		          If Sp2(I).IndexOf("StartUp")<0 Then 'Don't remove this folder, even if empty, it will be 0 or greater if so, making this false and not ran
-		            DelCommand = DelCommand+"rmdir /q /s " + Chr(34)+Sp2(I)+Chr(34)+Chr(10)
-		            DelCount = DelCount + 1
-		          Else 'It is startup, check the attribs are correct while here
-		            ShellFast.Execute("attrib "+Chr(34)+StartPathAll+"Startup\desktop.ini"+Chr(34)+" +h +s") 'Ini is hidden and system so doesn't open the ini on startup 'enforced
-		            ShellFast.Execute("attrib "+Chr(34)+StartPathUser+"Startup\desktop.ini"+Chr(34)+" +h +s") 'Ini is hidden and system so doesn't open the ini on startup 'enforced
-		          End If
-		        End If
-		      End If
-		    Next
-		  End If
-		  
-		  'MsgBox DelCount.ToString
+		  Call SetErrorMode(OldErrMode)
 		  
 		  If DelCommand <> "" Then
-		    'MsgBox DelCommand
+		    If Debugging Then Debug("Removing " + DelCount.ToString + " dead links")
+		    RunCommand(DelCommand) 'Delete the lot at once
+		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub CleanStartMenu()
+		  ' SAFE tidy of leftover Start Menu folders (All Users and the current user).
+		  ' A folder is only removed when it holds nothing at all (a desktop.ini or empty sub folders that are also being removed don't count).
+		  ' Anything else in it (shortcuts of any kind, Steam .url files, documents, other installers' files) keeps the folder, and it is never removed with /s, so nothing inside a folder can ever be deleted by this.
+		  Dim I, D, MaxDepth As Integer
+		  Dim StartUser, StartAll As String
+		  Dim Res, Entry, FileName, P As String
+		  Dim Sp() As String
+		  Dim Folders() As String
+		  Dim Depths() As Integer
+		  Dim IsDir As New Dictionary
+		  Dim HasContent As New Dictionary
+		  Dim DelCommand As String
+		  Dim DelCount As Integer
+		  Dim Q As String = Chr(34)
+		  
+		  RemoveDeadLinks() 'First drop shortcuts to programs that no longer exist, so the empty-folder tidy below removes the folders they leave behind
+		  
+		  StartAll = Slash(StartPathAll).ReplaceAll("/","\") 'All Users
+		  StartUser = Slash(StartPathUser).ReplaceAll("/","\") 'Current User
+		  
+		  'Every sub folder
+		  ShellFast.Execute("dir /s /aD /b "+Q+StartAll+Q+"*")
+		  Res = ShellFast.Result
+		  ShellFast.Execute("dir /s /aD /b "+Q+StartUser+Q+"*")
+		  Res = Res + Chr(10) + ShellFast.Result
+		  Res = Res.ReplaceAll(Chr(13),Chr(10))
+		  Sp() = Res.Split(Chr(10))
+		  For I = 0 To Sp.Count - 1
+		    Entry = Sp(I).Trim
+		    If Entry <> "" Then
+		      IsDir.Value(Entry.Lowercase) = True
+		      Folders.Add(Entry)
+		    End If
+		  Next
+		  If Folders.Count = 0 Then Return
+		  
+		  'Everything (files and folders, including hidden and system ones), anything that isn't a folder is a file that counts as content, apart from desktop.ini
+		  ShellFast.Execute("dir /s /a /b "+Q+StartAll+Q+"*")
+		  Res = ShellFast.Result
+		  ShellFast.Execute("dir /s /a /b "+Q+StartUser+Q+"*")
+		  Res = Res + Chr(10) + ShellFast.Result
+		  Res = Res.ReplaceAll(Chr(13),Chr(10))
+		  Sp() = Res.Split(Chr(10))
+		  For I = 0 To Sp.Count - 1
+		    Entry = Sp(I).Trim
+		    If Entry = "" Then Continue
+		    If IsDir.HasKey(Entry.Lowercase) Then Continue 'A folder, handled by what is inside it
+		    
+		    FileName = Entry
+		    If InStrRev(Entry, "\") > 0 Then FileName = Mid(Entry, InStrRev(Entry, "\") + 1)
+		    If FileName.Lowercase = "desktop.ini" Then Continue 'LLStore's folder icon file, doesn't make a folder worth keeping
+		    
+		    'This file means its folder, and every folder above it, is in use
+		    P = GetParent(Entry)
+		    While P <> "" And IsDir.HasKey(P.Lowercase)
+		      If HasContent.HasKey(P.Lowercase) Then Exit 'Already marked, so the ones above are too
+		      HasContent.Value(P.Lowercase) = True
+		      P = GetParent(P)
+		    Wend
+		  Next
+		  
+		  'Folders with nothing in them (and nothing below them) are the only ones that can go. Never the Startup folder.
+		  For I = Folders.Count - 1 DownTo 0
+		    If Folders(I).IndexOf("StartUp") >= 0 Then 'It is startup, check the attribs are correct while here
+		      ShellFast.Execute("attrib "+Q+StartPathAll+"Startup\desktop.ini"+Q+" +h +s") 'Ini is hidden and system so doesn't open the ini on startup 'enforced
+		      ShellFast.Execute("attrib "+Q+StartPathUser+"Startup\desktop.ini"+Q+" +h +s") 'Ini is hidden and system so doesn't open the ini on startup 'enforced
+		      Folders.RemoveAt(I)
+		    ElseIf HasContent.HasKey(Folders(I).Lowercase) Then
+		      Folders.RemoveAt(I) 'In use, keep it
+		    End If
+		  Next
+		  
+		  'Deepest first, so a folder that only held empty folders is empty by the time it is reached
+		  For I = 0 To Folders.Count - 1
+		    D = Folders(I).Split("\").Count
+		    Depths.Add(D)
+		    If D > MaxDepth Then MaxDepth = D
+		  Next
+		  For D = MaxDepth DownTo 0
+		    For I = 0 To Folders.Count - 1
+		      If Depths(I) = D Then
+		        If Debugging Then Debug("Removing empty Start Menu folder: " + Folders(I))
+		        DelCommand = DelCommand + "attrib -h -s " + Q+Folders(I)+"\desktop.ini"+Q + " 2>nul" + Chr(10)
+		        DelCommand = DelCommand + "del /f /q " + Q+Folders(I)+"\desktop.ini"+Q + " 2>nul" + Chr(10)
+		        DelCommand = DelCommand + "rmdir /q " + Q+Folders(I)+Q + Chr(10) 'No /s, it can only ever remove an empty folder
+		        DelCount = DelCount + 1
+		      End If
+		    Next
+		  Next
+		  
+		  If DelCommand <> "" Then
 		    RunCommand(DelCommand) 'Delete the lot at once
 		  End If
 		End Sub
@@ -1512,6 +1615,7 @@ End
 		  Dim D As Integer
 		  Dim Suc As Boolean
 		  Dim F As FolderItem
+		  Dim Child As FolderItem 'F.Item(D) re-reads the whole folder every call, fetch each entry once
 		  Dim ItemToCheck As String
 		  Dim LLFile As String
 		  
@@ -1522,23 +1626,25 @@ End
 		    If F.Count > 0 Then
 		      For D = 1 To F.Count
 		        RegenPathIn = ""
-		        If F.Item(D).Directory Then 'Look for Valid Items only
-		          RegenPathIn = F.Item(D).NativePath 'This is use by ExpPath to make sure the Link are pointing to the actual path, not the Set pp Drives etc
-		          LLFile = F.Item(D).NativePath+"ssApp.app"
+		        Child = F.Item(D)
+		        If Child = Nil Then Continue 'Unreadable entry, skip it
+		        If Child.Directory Then 'Look for Valid Items only
+		          RegenPathIn = Child.NativePath 'This is use by ExpPath to make sure the Link are pointing to the actual path, not the Set pp Drives etc
+		          LLFile = Child.NativePath+"ssApp.app"
 		          If Exist (LLFile) Then
 		            'MsgBox LLFile
 		            Suc = LoadLLFile(LLFile, "",False,True) 'True Skips loading icons, screenshots etc
 		            If Suc = True Then MakeLinks (True) 'This will make and remove links for loaded item
 		            Continue
 		          End If
-		          LLFile = F.Item(D).NativePath+"ppApp.app"
+		          LLFile = Child.NativePath+"ppApp.app"
 		          If Exist (LLFile) Then
 		            'MsgBox LLFile
 		            Suc = LoadLLFile(LLFile, "",False,True) 'True Skips loading icons, screenshots etc
 		            If Suc = True Then MakeLinks (True) 'This will make and remove links for loaded item
 		            Continue
 		          End If
-		          LLFile = F.Item(D).NativePath+"ppGame.ppg"
+		          LLFile = Child.NativePath+"ppGame.ppg"
 		          If Exist (LLFile) Then
 		            'MsgBox LLFile
 		            Suc = LoadLLFile(LLFile, "",False,True) 'True Skips loading icons, screenshots etc
@@ -1824,8 +1930,14 @@ End
 		  
 		  'If Found Defaults process them
 		  If StartMenuDefaultsCount >= 1 Then
+		    'MakeLinks and its cleanup read Flags, BuildType, KeepInFolder, ShortCutNamesKeep, Startup etc. from ItemLLItem and ItemLnk, so wipe whatever the last loaded item left in them
+		    For I = 0 To 512 'ItemLnk is dimmed to 512
+		      ItemLnk(I) = BlankItemLnk
+		    Next I
 		    LnkCount = 0
 		    For I = 1 To StartMenuDefaultsCount
+		      
+		      ItemLLItem = BlankItem 'Each default starts clean, so nothing is inherited from the last loaded item
 		      
 		      'Make ItemLLItem contain the link data so can use MakeLinks routine to do the task of cleaning from other menu styles etc
 		      If StartMenuDefaults(I).Shortcut = "" Then
