@@ -296,14 +296,98 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Sub ChMod(FileIn As String, Codes As String)
+		  'Linux with a plain 3 digit code (775, 664): set it in-process, no shell. Anything else (-R 777, +x, Windows, Mac) or any failure keeps the old shell call.
+		  If TargetLinux Then
+		    If ChModNative(FileIn, Codes) Then Return
+		  End If
 		  ShellFast.Execute("chmod "+Codes+" "+Chr(34)+FileIn+Chr(34))
 		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function ChModNative(FileIn As String, Codes As String) As Boolean
+		  'Sets the permissions of ONE file or folder with FolderItem.Permissions. Returns True only when it is done (or there is nothing there to change).
+		  'Returns False for anything it won't handle or if the permissions did not read back as asked, so the caller can use the shell instead.
+		  Codes = Codes.Trim
+		  If Len(Codes) <> 3 Then Return False
+		  Dim I As Integer
+		  For I = 1 To 3
+		    If InStr("01234567", Mid(Codes, I, 1)) = 0 Then Return False
+		  Next
+		  If Left(FileIn.Trim, 1) <> "/" Then Return False 'Absolute paths only
+		  
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    Dim Want As Integer = Val("&o" + Codes)
+		    Dim F As FolderItem = GetFolderItem(FileIn.Trim, FolderItem.PathTypeNative)
+		    If F Is Nil Then Return False
+		    If Not F.Exists Then Return True 'chmod would only complain, nothing to change
+		    If BitAnd(F.Permissions, &o777) <> Want Then F.Permissions = Want
+		    Return (BitAnd(F.Permissions, &o777) = Want)
+		  Catch
+		    Return False
+		  End Try
+		  #Pragma BreakOnExceptions On
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
 		Sub ChModSudo(FileIn As String, Codes As String)
 		  RunSudo ("chmod "+Codes+" "+Chr(34)+FileIn+Chr(34))
 		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function StripLeadingExe(CmdIn As String) As String
+		  'Takes LLStore's own path off the front of the command line, whole, so the rest can be split safely.
+		  'Windows gives it quoted with spaces ("C:\Program Files\LLStore\llstore.exe") and the Admin relaunch puts it on a second time, so it is removed every time it is there.
+		  'Only the program's own path is removed, a file the user gave that is in C:\Program Files (Java etc) is left alone.
+		  'If something was removed, "app " is put back in front as a stand-in for element 0, which the argument loop skips.
+		  Dim Cmd As String = CmdIn.Trim
+		  Dim ExePath As String = ""
+		  Dim ExeName As String = ""
+		  If App.ExecutableFile <> Nil Then
+		    ExePath = App.ExecutableFile.NativePath
+		    ExeName = App.ExecutableFile.Name.Lowercase
+		  End If
+		  Dim First As Boolean = True
+		  Dim Again As Boolean = True
+		  Dim Stripped As Boolean
+		  Dim AnyStripped As Boolean = False
+		  Dim QEnd As Integer
+		  Dim Piece As String
+		  
+		  While Again
+		    Again = False
+		    Stripped = False
+		    
+		    If Left(Cmd, 1) = Chr(34) Then 'Quoted path
+		      QEnd = InStr(2, Cmd, Chr(34))
+		      If QEnd > 0 Then
+		        Piece = Mid(Cmd, 2, QEnd - 2).Lowercase
+		        'The first item is always the program, after that only if it is the program again
+		        If First Or (ExeName <> "" And Right(Piece, Len(ExeName)) = ExeName) Then
+		          Cmd = Mid(Cmd, QEnd + 1).Trim
+		          Stripped = True
+		        End If
+		      End If
+		    ElseIf Len(ExePath) > 0 Then 'Not quoted, but still might be the full path to the program
+		      If Left(Cmd, Len(ExePath)).Lowercase = ExePath.Lowercase Then
+		        Cmd = Mid(Cmd, Len(ExePath) + 1).Trim
+		        Stripped = True
+		      End If
+		    End If
+		    
+		    If Stripped Then
+		      First = False
+		      AnyStripped = True
+		      Again = True 'Check for it being there a second time
+		    End If
+		  Wend
+		  
+		  If AnyStripped Then Return "app " + Cmd
+		  Return CmdIn.Trim 'Nothing matched (eg Linux gives the link name), leave it for the loop to skip element 0 like it always did
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
@@ -505,6 +589,9 @@ Protected Module LLMod
 
 	#tag Method, Flags = &h0
 		Sub CopyWild(FilesIn As String, FolderOut As String)
+		  'Copies the files matching a pattern (folder/*.jpg) into FolderOut. Done in-process first, no shell, no script file.
+		  'Only if that could not do it all (odd paths, a copy failed) does the old shell/xcopy way run, and it just copies everything again over the top.
+		  If CopyWildNative(FilesIn, FolderOut) Then Return
 		  
 		  Dim Sh As New Shell
 		  Sh.TimeOut = -1 'Give it All the time it needs
@@ -534,6 +621,122 @@ Protected Module LLMod
 		    If Debugging Then Debug(Sh.ReadAll)
 		  End If
 		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function CopyWildNative(FilesIn As String, FolderOut As String) As Boolean
+		  'Returns True when everything that matched was copied (no match at all is fine and common, e.g. no .mp4 in this item). False = use the shell way.
+		  Dim Sep As String = "/"
+		  If TargetWindows Then Sep = "\"
+		  
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    Dim InP As String = FilesIn.Trim
+		    Dim OutP As String = FolderOut.Trim
+		    If TargetWindows Then
+		      InP = InP.ReplaceAll("/", "\")
+		      OutP = OutP.ReplaceAll("/", "\")
+		    End If
+		    If InP = "" Or OutP = "" Then Return False
+		    
+		    Dim Pos As Integer = InStrRev(InP, Sep)
+		    If Pos <= 0 Then Return False 'No folder part, leave it to the old way
+		    Dim DirP As String = Left(InP, Pos) 'Keeps the trailing slash so a drive/root works
+		    Dim Pat As String = Mid(InP, Pos + 1)
+		    If Pat = "" Then Return False
+		    
+		    'Absolute paths only, and no wildcards in the folder part
+		    If TargetWindows Then
+		      If Mid(DirP, 2, 1) <> ":" And Left(DirP, 2) <> "\\" Then Return False
+		    Else
+		      If Left(DirP, 1) <> "/" Then Return False
+		    End If
+		    If InStr(DirP, "*") > 0 Or InStr(DirP, "?") > 0 Or InStr(DirP, "%") > 0 Then Return False
+		    If InStr(OutP, "*") > 0 Or InStr(OutP, "?") > 0 Or InStr(OutP, "%") > 0 Then Return False
+		    
+		    Dim Src As FolderItem = GetFolderItem(DirP, FolderItem.PathTypeNative)
+		    Dim Dst As FolderItem = GetFolderItem(OutP, FolderItem.PathTypeNative)
+		    If Src Is Nil Or Dst Is Nil Then Return False
+		    If Not Src.Exists Or Not Src.IsFolder Then Return False
+		    If Not Dst.Exists Or Not Dst.IsFolder Then Return False 'Not there yet: the old way decides what that means
+		    
+		    Dim DstPath As String = Dst.NativePath
+		    If Right(DstPath, 1) <> Sep Then DstPath = DstPath + Sep
+		    
+		    Dim Failed As Boolean = False
+		    
+		    If InStr(Pat, "*") > 0 Or InStr(Pat, "?") > 0 Then
+		      For Each Child As FolderItem In Src.Children
+		        If Child <> Nil Then
+		          If Not Child.IsFolder Then
+		            Dim Nm As String = Child.Name
+		            Dim Skip As Boolean = False
+		            If TargetLinux And Left(Nm, 1) = "." Then Skip = True 'A shell *.jpg doesn't match hidden files either
+		            If Not Skip Then
+		              If WildMatch(Nm, Pat, TargetWindows) Then 'Windows names ignore case, Linux ones don't
+		                If Not Copy(Child.NativePath, DstPath + Nm) Then Failed = True
+		              End If
+		            End If
+		          End If
+		        End If
+		      Next
+		    Else
+		      'One named file
+		      Dim One As FolderItem = GetFolderItem(DirP + Pat, FolderItem.PathTypeNative)
+		      If One Is Nil Then Return False
+		      If One.Exists Then
+		        If One.IsFolder Then Return False
+		        If Not Copy(One.NativePath, DstPath + One.Name) Then Failed = True
+		      End If
+		    End If
+		    
+		    If Debugging Then Debug("CopyWild (native): " + FilesIn + " To " + FolderOut + " Failed = " + Failed.ToString)
+		    Return Not Failed
+		  Catch
+		    Return False
+		  End Try
+		  #Pragma BreakOnExceptions On
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function WildMatch(Txt As String, Pat As String, IgnoreCase As Boolean) As Boolean
+		  'Simple * and ? matching of one file name against a pattern. Case sensitive unless IgnoreCase.
+		  If IgnoreCase Then
+		    Txt = Txt.Lowercase
+		    Pat = Pat.Lowercase
+		  End If
+		  
+		  Dim TL As Integer = Len(Txt)
+		  Dim PL As Integer = Len(Pat)
+		  Dim T As Integer = 1
+		  Dim P As Integer = 1
+		  Dim StarP As Integer = 0
+		  Dim StarT As Integer = 0
+		  
+		  While T <= TL
+		    If P <= PL And (Mid(Pat, P, 1) = "?" Or StrComp(Mid(Pat, P, 1), Mid(Txt, T, 1), 0) = 0) Then
+		      T = T + 1
+		      P = P + 1
+		    ElseIf P <= PL And Mid(Pat, P, 1) = "*" Then
+		      StarP = P
+		      StarT = T
+		      P = P + 1
+		    ElseIf StarP > 0 Then
+		      StarT = StarT + 1
+		      T = StarT
+		      P = StarP + 1
+		    Else
+		      Return False
+		    End If
+		  Wend
+		  
+		  While P <= PL And Mid(Pat, P, 1) = "*"
+		    P = P + 1
+		  Wend
+		  
+		  Return (P > PL)
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
@@ -703,6 +906,9 @@ Protected Module LLMod
 		  Else
 		    If Debugging Then Debug("- Deltree: " + S)
 		    
+		    'A plain file (or nothing at all) is dealt with in-process, no shells. Folders, wildcards, shortcuts that won't go and anything that fails still take the shell route below.
+		    If DeltreeQuickFile(S) Then Return
+		    
 		    'Delete Folders
 		    If TargetWindows Then
 		      Sh.Execute ("rmdir /q /s " + Chr(34)+S+Chr(34)) 'Don't use RunCommand or it becomes recursive as it uses this routine to clean up
@@ -725,6 +931,55 @@ Protected Module LLMod
 		    Wend
 		  End If
 		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function DeltreeQuickFile(S As String) As Boolean
+		  'Returns True when S is gone (it was a plain file and was removed, or it wasn't there). False = not handled here, use the shell.
+		  'Never touches folders, wildcards, relative paths, %variables%, or (on Linux) symlinks, as FolderItem would follow a link and remove what it points at where rm removes only the link.
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    If InStr(S, "*") > 0 Or InStr(S, "?") > 0 Or InStr(S, "%") > 0 Or InStr(S, "$") > 0 Or InStr(S, "`") > 0 Then Return False
+		    If Right(S, 1) = "/" Or Right(S, 1) = "\" Then Return False 'Written as a folder
+		    
+		    If TargetWindows Then
+		      Dim W As String = S.ReplaceAll("/", "\")
+		      If Mid(W, 2, 1) <> ":" And Left(W, 2) <> "\\" Then Return False 'Absolute only
+		      
+		      If Right(W, 4).Lowercase = ".lnk" Then
+		        'Don't open a shortcut as a FolderItem (it follows it, and pops up a box for a dead one). Remove the .lnk file itself.
+		        If Not Exist(W) Then Return True
+		        Declare Function DeleteFileW Lib "Kernel32" (lpFileName As WString) As Int32
+		        If DeleteFileW(W) <> 0 Then Return True
+		        Return Not Exist(W)
+		      End If
+		      
+		      Dim F As FolderItem = GetFolderItem(W, FolderItem.PathTypeNative)
+		      If F Is Nil Then Return False
+		      If Not F.Exists Then Return True
+		      If F.IsFolder Then Return False
+		      F.Remove
+		      Return Not F.Exists 'Still there (read-only, held open): the shell's del /f gets a go
+		    Else
+		      If Left(S, 1) <> "/" Then Return False
+		      
+		      'A symlink (even a dead one) is left for rm, which removes just the link
+		      Declare Function readlink Lib "libc.so.6" (path As CString, buf As Ptr, bufsiz As Integer) As Integer
+		      Dim Buf As New MemoryBlock(16)
+		      If readlink(S, Buf, 16) >= 0 Then Return False
+		      
+		      Dim F As FolderItem = GetFolderItem(S, FolderItem.PathTypeNative)
+		      If F Is Nil Then Return False
+		      If Not F.Exists Then Return True
+		      If F.IsFolder Then Return False
+		      F.Remove
+		      Return Not F.Exists
+		    End If
+		  Catch
+		    Return False 'Anything odd, the shell way decides
+		  End Try
+		  #Pragma BreakOnExceptions On
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
@@ -4983,6 +5238,7 @@ Protected Module LLMod
 		    ItemLLItem.NoInstall = False
 		    ItemLLItem.KeepAll = False
 		    ItemLLItem.KeepInFolder = False
+		    ItemLLItem.HideInLauncher = False
 		    ItemLLItem.SendTo = False
 		    ItemLLItem.InternetRequired = False
 		    ItemLLItem.ForceDERefresh = False
@@ -5088,6 +5344,7 @@ Protected Module LLMod
 		            ForceDERefresh = True
 		          End If
 		          If ItemLLItem.Flags.IndexOf("startup") >= 0 Then ItemLLItem.Startup = True
+		          If ItemLLItem.Flags.IndexOf("hideinlauncher") >= 0 Then ItemLLItem.HideInLauncher = True
 		          Continue 'Once used Data no need to process the rest, The other lines will cause the lower things to be tested per line
 		        Case "priority"
 		          ItemLLItem.Priority = Val(LineData)
@@ -5785,6 +6042,8 @@ Protected Module LLMod
 		      Res = RunCommandResults (S + Chr(10) + "icacls "+Chr(34)+ NoSlash(Path)+Chr(34)+ " /grant "+ "Users:F /t /c /q") 'Using Chr(10) instead of ; as scripts don't allow them, only the prompt does
 		      MadeFolders.Value(FolderKey) = True
 		      If Debugging Then Debug ("- Make Folder: "+Path+" = " + Res)
+		    ElseIf TargetLinux And MakeFolderNative(Path) Then
+		      If Debugging Then Debug ("- Make Folder (native): "+Path)
 		    Else
 		      Sh.Execute(S)
 		      If Debugging Then Debug ("- Make Folder: "+Path+" = " + Sh.ReadAll)
@@ -5795,6 +6054,54 @@ Protected Module LLMod
 		  End Try
 		  
 		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function MakeFolderNative(Path As String) As Boolean
+		  'Linux: the same as mkdir -p + chmod 775 on the last folder, done in-process (no shells). Returns True when the folder is there at the end.
+		  'False = couldn't do it this way (relative path, something in the way, an error), so the caller runs the old shell commands.
+		  Path = NoSlash(Path.Trim)
+		  If Path = "" Or Left(Path, 1) <> "/" Then Return False
+		  
+		  Dim F As FolderItem
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    F = GetFolderItem(Path, FolderItem.PathTypeNative)
+		    If F Is Nil Then Return False
+		    
+		    If Not F.Exists Then
+		      'Walk up to the first folder that exists, then make the missing ones from the top down
+		      Dim Missing() As FolderItem
+		      Dim P As FolderItem = F
+		      While P <> Nil
+		        If P.Exists Then Exit
+		        Missing.Add(P)
+		        P = P.Parent
+		      Wend
+		      If P Is Nil Then Return False
+		      If Not P.IsFolder Then Return False
+		      
+		      Dim I As Integer
+		      For I = Missing.LastIndex DownTo 0
+		        Missing(I).CreateFolder
+		        If Not Missing(I).Exists Then Return False
+		      Next
+		    End If
+		    
+		    If Not F.IsFolder Then Return False
+		  Catch
+		    Return False
+		  End Try
+		  
+		  'Same as chmod 775 on the folder. Not being allowed to (someone else's folder) was ignored by the shell version too.
+		  Try
+		    If BitAnd(F.Permissions, &o777) <> &o775 Then F.Permissions = &o775
+		  Catch
+		  End Try
+		  
+		  Return True
+		  #Pragma BreakOnExceptions On
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
@@ -7289,7 +7596,7 @@ Protected Module LLMod
 		          Link = GetShortcut(Slash(TmpPath)+"LLShorts/"+Sp(M)+".lnk")
 		          
 		          'Add To ItemLnk - so can use the Proper sorting tools in MakeLinks
-		          If Link.TargetPath <> "" Then
+		          If Link.TargetPath <> "" And LnkCount < 510 Then 'ItemLnk() is a fixed size array
 		            LnkCount = LnkCount + 1
 		            ItemLnk(LnkCount).Title = Sp(M)
 		            ItemLnk(LnkCount).Link.TargetPath = Link.TargetPath
@@ -9466,10 +9773,6 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
-		LinuxWget As String
-	#tag EndProperty
-
-	#tag Property, Flags = &h0
 		LLStoreDrive As String
 	#tag EndProperty
 
@@ -9706,6 +10009,10 @@ Protected Module LLMod
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
+		DataSortDirty As Boolean = True
+	#tag EndProperty
+
+	#tag Property, Flags = &h0
 		ScreenShotCounter As Integer = 0
 	#tag EndProperty
 
@@ -9903,10 +10210,6 @@ Protected Module LLMod
 
 	#tag Property, Flags = &h0
 		WinCurl As String
-	#tag EndProperty
-
-	#tag Property, Flags = &h0
-		WinWget As String
 	#tag EndProperty
 
 	#tag Property, Flags = &h0
@@ -10200,14 +10503,6 @@ Protected Module LLMod
 			EditorType="MultiLineEditor"
 		#tag EndViewProperty
 		#tag ViewProperty
-			Name="LinuxWget"
-			Visible=false
-			Group="Behavior"
-			InitialValue=""
-			Type="String"
-			EditorType="MultiLineEditor"
-		#tag EndViewProperty
-		#tag ViewProperty
 			Name="Win7z"
 			Visible=false
 			Group="Behavior"
@@ -10217,14 +10512,6 @@ Protected Module LLMod
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="WinCurl"
-			Visible=false
-			Group="Behavior"
-			InitialValue=""
-			Type="String"
-			EditorType="MultiLineEditor"
-		#tag EndViewProperty
-		#tag ViewProperty
-			Name="WinWget"
 			Visible=false
 			Group="Behavior"
 			InitialValue=""

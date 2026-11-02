@@ -36,13 +36,14 @@ inst() {
 
 clear
 
-echo "This may ask for your sudo password if unzip, jq or a terminal isn't installed."
+echo "This may ask for your sudo password if unzip, curl, jq or a terminal isn't installed."
 echo ""
 
 # ---------------------------------------------------------------------------
 # Required tools
 # ---------------------------------------------------------------------------
 command -v unzip &>/dev/null && echo "Found unzip." || inst unzip
+command -v curl  &>/dev/null && echo "Found curl."  || inst curl
 command -v jq    &>/dev/null && echo "Found jq."    || inst jq
 
 # ---------------------------------------------------------------------------
@@ -86,7 +87,11 @@ rm -f ./llstore_latest.zip
 rm -rf ./LLUpdate
 
 FILE=llstore_latest.zip
-wget -O "$FILE" -c "https://github.com/LiveFreeDead/LastOSLinux_Repository/raw/refs/heads/main/llstore_latest.zip"
+if ! curl -fL --retry 3 --connect-timeout 15 -o "$FILE" "https://github.com/LiveFreeDead/LastOSLinux_Repository/raw/refs/heads/main/llstore_latest.zip"; then
+    echo "Download failed, check your internet connection and try again."
+    rm -f "./$FILE"
+    exit 1
+fi
 unzip -o "./$FILE" -d ./LLUpdate
 
 cd LLUpdate

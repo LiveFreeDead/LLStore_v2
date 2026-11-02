@@ -6016,6 +6016,7 @@ End
 		  'and the canvases are cleared first so the last item's pictures never show on an item that has none.
 		  Dim ShownPic As Picture
 		  CanvasScreenshot.Backdrop = Nil
+		  ScreenshotShown = "" 'Cycler starts again for each item
 		  CanvasIcon.Backdrop = Nil
 		  CanvasFader.Backdrop = Nil
 		  
@@ -6023,6 +6024,7 @@ End
 		  If ShownPic <> Nil Then
 		    CanvasScreenshot.Backdrop = ShownPic
 		    NewFileScreenshot = Slash(ItemTempPath)+BT+".jpg"
+		    ScreenshotShown = NewFileScreenshot
 		  End If
 		  
 		  ShownPic = LoadPictureSafe(Slash(ItemTempPath)+BT+".ico")
@@ -6197,6 +6199,22 @@ End
 		    If ItemLLItem.KeepInFolder = True Then  FlagsOut = FlagsOut + "keepinfolder "
 		    If ItemLLItem.ForceDERefresh = True Then  FlagsOut = FlagsOut + "forcederefresh "
 		    If ItemLLItem.Startup = True Then  FlagsOut = FlagsOut + "startup "
+		    If ItemLLItem.HideInLauncher = True Then  FlagsOut = FlagsOut + "hideinlauncher "
+		    
+		    'Keep any flag the Editor has no checkbox for (sendto, desktop, root, programs, showalways etc), else saving here would silently delete them
+		    Dim KnownFlags As String = " hidden alwayshide showsetuponly internetrequired noinstall keepall keepinfolder forcederefresh startup hideinlauncher "
+		    Dim OldFlags() As String = ItemLLItem.Flags.Lowercase.Split(" ")
+		    Dim FlagTok As String
+		    Dim FlagPad As String
+		    For I = 0 To OldFlags.Count - 1
+		      FlagTok = OldFlags(I).Trim
+		      If FlagTok <> "" Then
+		        If KnownFlags.IndexOf(" " + FlagTok + " ") < 0 Then 'Not one the checkboxes own
+		          FlagPad = " " + FlagsOut + " "
+		          If FlagPad.IndexOf(" " + FlagTok + " ") < 0 Then FlagsOut = FlagsOut + FlagTok + " " 'And not already added
+		        End If
+		      End If
+		    Next I
 		    ItemLLItem.Flags = FlagsOut.Trim
 		    
 		    'Only update the item choice here, not each time it's changed
@@ -6467,6 +6485,59 @@ End
 	#tag EndMethod
 
 
+	#tag Method, Flags = &h0
+		Sub CycleScreenshot(Direction As Integer)
+		  'Steps the screenshot through BuildType.jpg, BuildType1.jpg, BuildType2.jpg ... and loops back round to BuildType.jpg.
+		  'View only: NewFileScreenshot (the one that gets saved) is NOT changed, so cycling never swaps the saved screenshot.
+		  Dim BT As String = ItemLLItem.BuildType.Trim
+		  If BT = "" Or ItemTempPath.Trim = "" Then Return
+		  
+		  Dim Base As String = Slash(ItemTempPath)
+		  Dim Files() As String
+		  Dim FileTest As String
+		  Dim N, I, Cur, NextIdx As Integer
+		  
+		  If Exist(Base + BT + ".jpg") Then Files.Add(Base + BT + ".jpg")
+		  
+		  N = 1
+		  While N <= 99
+		    FileTest = Base + BT + N.ToString + ".jpg"
+		    If Not Exist(FileTest) Then Exit 'BuildType1, BuildType2 ... stop at the first one missing
+		    Files.Add(FileTest)
+		    N = N + 1
+		  Wend
+		  
+		  If Files.Count < 2 Then Return 'Nothing to cycle through
+		  
+		  Cur = -1
+		  For I = 0 To Files.Count - 1
+		    If Files(I).ReplaceAll("\", "/").Lowercase = ScreenshotShown.ReplaceAll("\", "/").Lowercase Then
+		      Cur = I
+		      Exit
+		    End If
+		  Next I
+		  
+		  If Cur < 0 Then 'Showing a picked file from somewhere else, start at the ends
+		    If Direction > 0 Then NextIdx = 0 Else NextIdx = Files.Count - 1
+		  Else
+		    NextIdx = Cur + Direction
+		    If NextIdx >= Files.Count Then NextIdx = 0 'Loop back to BuildType.jpg
+		    If NextIdx < 0 Then NextIdx = Files.Count - 1
+		  End If
+		  
+		  Dim Pic As Picture = LoadPictureSafe(Files(NextIdx))
+		  If Pic <> Nil Then
+		    CanvasScreenshot.Backdrop = Pic
+		    ScreenshotShown = Files(NextIdx)
+		  End If
+		End Sub
+	#tag EndMethod
+
+
+	#tag Property, Flags = &h0
+		ScreenshotShown As String
+	#tag EndProperty
+
 	#tag Property, Flags = &h0
 		EditingCBLnk As Integer = -1
 	#tag EndProperty
@@ -6736,7 +6807,7 @@ End
 		  Case 3, 13 ' Enter Pressed
 		    'Add new shortcut
 		    NewShortName = TextNewShortcut.Text
-		    If TextNewShortcut.Text.Trim <> "" Then ' Only if Valid
+		    If TextNewShortcut.Text.Trim <> "" And LnkCount < 510 Then ' Only if Valid
 		      LnkCount = LnkCount + 1 'Add one
 		      ItemLnk(LnkCount).Title = TextNewShortcut.Text.Trim
 		      If ItemLnk(LnkCount).LinuxLink And (ItemLLItem.BuildType = "ppGame" Or ItemLLItem.BuildType = "ppApp" Or ItemLLItem.BuildType = "ssApp") Then
@@ -6872,7 +6943,7 @@ End
 		          'Add new shortcut
 		          TextNewShortcut.Text = Name 'Set from .desktop file
 		          NewShortName = TextNewShortcut.Text
-		          If TextNewShortcut.Text.Trim <> "" Then ' Only if Valid
+		          If TextNewShortcut.Text.Trim <> "" And LnkCount < 510 Then ' Only if Valid
 		            LnkCount = LnkCount + 1 'Add one
 		            ItemLnk(LnkCount).Title = TextNewShortcut.Text.Trim
 		            ComboShortcut.AddRow(ItemLnk(LnkCount).Title)
@@ -6976,7 +7047,7 @@ End
 		        'Add new shortcut
 		        TextNewShortcut.Text = Name 'Set from .desktop file
 		        NewShortName = TextNewShortcut.Text
-		        If TextNewShortcut.Text.Trim <> "" Then ' Only if Valid
+		        If TextNewShortcut.Text.Trim <> "" And LnkCount < 510 Then ' Only if Valid
 		          LnkCount = LnkCount + 1 'Add one
 		          ItemLnk(LnkCount).Title = TextNewShortcut.Text.Trim
 		          ComboShortcut.AddRow(ItemLnk(LnkCount).Title)
@@ -7109,6 +7180,7 @@ End
 		  CheckShowDesktop.Value = ItemLnk(EditingLnk).Desktop
 		  CheckShowPanel.Value = ItemLnk(EditingLnk).Panel
 		  CheckShowFavorites.Value = ItemLnk(EditingLnk).Favorite
+		  CheckSendTo.Value = ItemLnk(EditingLnk).LnkSendTo
 		  
 		  TextFlags.Text = ItemLnk(EditingLnk).Flags
 		  
@@ -7370,7 +7442,12 @@ End
 #tag Events CheckSendTo
 	#tag Event
 		Sub ValueChanged()
-		  ItemLnk(LnkEditing).LnkSendTo = Me.Value
+		  If Populating Then Return 'Suppress during population
+		  If ComboShortcut.RowCount >= 1 Then 'Only allow it to Save Changes if it's Got Link Items added
+		    If EditingLnk <= LnkCount And EditingLnk >= 0 Then ' Just a precaution
+		      ItemLnk(EditingLnk).LnkSendTo = Me.Value 'EditingLnk is the link on screen, LnkEditing is only the loader's counter
+		    End If
+		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents
@@ -7530,6 +7607,7 @@ End
 		    Dim NewPic As Picture = LoadPictureSafe(ImageIn)
 		    If NewPic <> Nil Then
 		      NewFileScreenshot = ImageIn
+		      ScreenshotShown = ImageIn
 		      CanvasScreenshot.Backdrop = NewPic
 		    Else
 		      MsgBox "That file could not be opened as an image, the existing one has been kept."
@@ -7584,6 +7662,20 @@ End
 		  Return True
 		  
 		End Function
+	#tag EndEvent
+#tag EndEvents
+#tag Events ButtonPrevScreenshot
+	#tag Event
+		Sub Pressed()
+		  CycleScreenshot(-1)
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events ButtonNextScreenshot
+	#tag Event
+		Sub Pressed()
+		  CycleScreenshot(1)
+		End Sub
 	#tag EndEvent
 #tag EndEvents
 #tag Events ButtonLinkScreenshot

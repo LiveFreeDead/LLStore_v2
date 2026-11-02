@@ -1951,7 +1951,7 @@ End
 		      ItemLLItem.Catalog = StartMenuDefaults(I).Catalog
 		      ItemLLItem.FileIcon = StartMenuDefaults(I).Icon
 		      
-		      If Exist(StartMenuDefaults(I).Target) Then
+		      If Exist(StartMenuDefaults(I).Target) And LnkCount < 510 Then 'ItemLnk() is a fixed size array
 		        If Debugging Then Debug("Default Found: "+ItemLLItem.TitleName+" Target: "+StartMenuDefaults(I).Target + Chr(10)+"StartMenuSorcePath: "+ItemLLItem.StartMenuSourcePath)
 		        LnkCount = LnkCount + 1
 		        ItemLnk(LnkCount).Title = ItemLLItem.TitleName 'Not 0 Based?

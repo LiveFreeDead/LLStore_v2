@@ -233,6 +233,7 @@ End
 		Function CancelClosing(appQuitting As Boolean) As Boolean
 		  If ForceQuit = False Then
 		    If Downloading Then CancelDownloading = True
+		    CancelPrefetch 'Stop the look-ahead download too
 		    SkippedInstalling = True
 		    MiniUpTo = 99999
 		    Deltree(Slash(RepositoryPathLocal)+"UpTo.ini") ' Delete previous install queue if user aborted
@@ -507,8 +508,22 @@ End
 
 	#tag Method, Flags = &h0
 		Sub StartInstaller()
+		  CancelPrefetch 'Fresh look-ahead state for every run (also forgets which files already had their one look-ahead attempt)
 		  OldMiniUpTo = -1
 		  CancelDownloading = False 'A stale cancel from an earlier run would make the UpdateUI timer return forever
+		  
+		  'Downloader sanity check. Two states would leave every download (and so the look-ahead too) stuck until LLStore is restarted, they should never happen but cost nothing to repair:
+		  ' - Downloading is True but nothing is queued, the state machine waits for work that isn't there
+		  ' - Downloading is True with queued work but the state machine's timer is off, nothing is processing it
+		  If Debugging Then Debug("Installer start, downloader state: Downloading=" + Str(Downloading) + " QueueCount=" + Str(QueueCount) + " QueueUpTo=" + Str(QueueUpTo) + " DownloadTimerRunning=" + Str(Loading.DownloadTimer.RunMode <> Timer.RunModes.Off) + " PrefetchEnabled=" + Str(PrefetchEnabled))
+		  If Downloading And QueueCount <= 0 Then
+		    If Debugging Then Debug("* Downloader was flagged busy with nothing queued, reset")
+		    Downloading = False
+		  ElseIf Downloading And Loading.DownloadTimer.RunMode = Timer.RunModes.Off Then
+		    If Debugging Then Debug("* Downloader was flagged busy but its timer was off, restarted")
+		    Loading.DownloadTimer.RunMode = Timer.RunModes.Multiple
+		  End If
+		  
 		  FileToInstallFrom = ""
 		  ExpectedInstallKey = ""
 		  ExpectedInstallTitle = ""
@@ -586,6 +601,90 @@ End
 		    Next
 		  End If
 		  Items.Refresh
+		End Sub
+	#tag EndMethod
+
+
+	#tag Method, Flags = &h0
+		Function ItemNeedsDownload(ItemRow As Integer) As Boolean
+		  'True when this queue row is an online item whose file still has to be downloaded: missing, or a tiny file that wasn't fetched this session.
+		  'It's the same test the installer uses below before it downloads the current item.
+		  If ItemRow < 0 Or ItemRow > InstPathINI.LastIndex Or ItemRow > InstFileINI.LastIndex Then Return False
+		  If Left(InstPathINI(ItemRow), 4) <> "http" Then Return False 'Local file, nothing to download
+		  Dim LocalFile As String = InstFileINI(ItemRow)
+		  If LocalFile.Trim = "" Then Return False
+		  If Not Exist(LocalFile) Then Return True
+		  
+		  Dim Needs As Boolean = False
+		  #Pragma BreakOnExceptions Off
+		  Try
+		    Dim LF As FolderItem = GetFolderItem(LocalFile, FolderItem.PathTypeNative)
+		    If LF.Length <= 10000 And Not WasFetched(LocalFile) Then Needs = True
+		  Catch
+		    Needs = True
+		  End Try
+		  #Pragma BreakOnExceptions On
+		  Return Needs
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub PrefetchNext()
+		  'Look-ahead downloads: while the current item downloads or installs, fetch the next items that will need downloading (a few ahead at most), so they are already on disk
+		  'when their turn comes. Two downloads at once in total: the normal downloader counts as one while it is busy, the two look-ahead slots fill the rest. So when the
+		  'current item is itself being fetched by a look-ahead slot (the normal downloader is idle), the other slot is free to start on the next item as well.
+		  'This never touches the status text. That belongs to whatever the CURRENT item is waiting on, see the UpdateUI timer.
+		  'If one fails or its item gets skipped nothing is lost, the item is simply downloaded the normal way when it is reached.
+		  PollPrefetch 'Finishes off completed ones (moves them into place)
+		  
+		  Dim S, J, LastLook, Busy As Integer
+		  Dim State, LocalFile As String
+		  Dim NotWanted As Boolean
+		  
+		  'Drop look-ahead downloads whose item won't be installed now (skipped, failed or already passed), they must not hold a slot
+		  For S = 0 To PrefetchActive.LastIndex
+		    If PrefetchActive(S) Then
+		      J = PrefetchRow(S)
+		      NotWanted = (J < MiniUpTo)
+		      If Not NotWanted And J >= 0 And J < Items.RowCount Then
+		        State = Items.CellTextAt(J, 1)
+		        If State = "Skip" Or State = "Skipped" Or State = "Failed" Then NotWanted = True
+		      End If
+		      If Not NotWanted And J >= 0 And J <= SkipItem.LastIndex Then
+		        If SkipItem(J) Then NotWanted = True
+		      End If
+		      If NotWanted Then CancelPrefetchSlot(S)
+		    End If
+		  Next
+		  
+		  If Not PrefetchEnabled Then Return
+		  If ForceQuit Or CancelDownloading Or QuitInstaller Then Return
+		  If MiniUpTo < 0 Or MiniUpTo >= ItemsToInstall Then Return
+		  
+		  Busy = PrefetchActiveCount
+		  If Downloading Then Busy = Busy + 1 'The normal downloader is busy with something
+		  If Busy >= 2 Then Return
+		  
+		  LastLook = MiniUpTo + 5 'Don't run too far ahead, items can still be skipped
+		  If LastLook > ItemsToInstall - 1 Then LastLook = ItemsToInstall - 1
+		  
+		  For J = MiniUpTo + 1 To LastLook
+		    If J > Items.RowCount - 1 Or J > InstPathINI.LastIndex Or J > InstFileINI.LastIndex Then Exit
+		    
+		    State = Items.CellTextAt(J, 1)
+		    If State = "Skip" Or State = "Skipped" Or State = "Failed" Then Continue 'Not going to be installed
+		    If J <= SkipItem.LastIndex Then
+		      If SkipItem(J) Then Continue
+		    End If
+		    
+		    If Not ItemNeedsDownload(J) Then Continue 'Local file, or already on disk
+		    
+		    LocalFile = InstFileINI(J)
+		    If PrefetchBusyFor(LocalFile) Or PrefetchWasTried(LocalFile) Then Continue 'Already being fetched, or it already had its one go this run
+		    
+		    StartPrefetch(InstPathINI(J), LocalFile, J)
+		    Exit 'One per tick, the first one in order that needs it
+		  Next J
 		End Sub
 	#tag EndMethod
 
@@ -938,6 +1037,7 @@ End
 		  If MiniUpTo+1 > MiniInstaller.Items.RowCount Then 'Past the end of the installer
 		    If TargetLinux Then SaveDataToFile("STOP!",BaseDir+"/stopLLStore") 'Allow the Continue Script to exit so LLStore can close 
 		    InstallDone = True ' Trigger to quit MiniInstaller
+		    CancelPrefetch 'Anything still being looked-ahead is for an item that won't be installed now
 		    ExpectedInstallKey = "" 'Never leave an expectation behind once the queue is finished
 		    ExpectedInstallTitle = ""
 		    
@@ -1074,6 +1174,9 @@ End
 		      'Defensive clamp: MiniUpTo can briefly be -1 (before the first item), never show that as "item 0"
 		      Dim DisplayUpTo As Integer = MiniUpTo
 		      If DisplayUpTo < 0 Then DisplayUpTo = 0
+		      'The status text is only ever about the CURRENT item, and each situation has exactly one owner:
+		      Dim CurFile As String = ""
+		      If MiniUpTo >= 0 And MiniUpTo <= InstFileINI.LastIndex Then CurFile = InstFileINI(MiniUpTo)
 		      If Downloading = True Then
 		        ' Loading.DownloadTimer owns Stats.Text while a download is active - it writes
 		        ' "Downloading..." the instant the item is queued and refreshes it every ~50ms.
@@ -1081,6 +1184,16 @@ End
 		        ' small/fast archives the whole download can finish inside the gap between two
 		        ' of our ticks, so we'd either stomp a real percentage with a stale one or never
 		        ' see "Downloading" at all. Leave it alone - the Refresh below will redraw it.
+		      ElseIf PrefetchBusyFor(CurFile) Then
+		        'The current item is being fetched by a look-ahead download (the normal downloader is idle), show its progress the same way the normal downloader does
+		        Dim PrefetchPct As String = PrefetchProgressFor(CurFile)
+		        If PrefetchPct = "" Then
+		          Stats.Text = "Downloading..."
+		        Else
+		          Stats.Text = "Downloading " + PrefetchPct
+		        End If
+		      ElseIf ThreadFinished = True And ItemNeedsDownload(MiniUpTo) Then
+		        Stats.Text = "Downloading..." 'It's about to be (re)downloaded by the job code below, don't flash "Installing" in between
 		      Else
 		        Stats.Text = "Installing "+Str(DisplayUpTo+1)+"/"+Str(MiniInstaller.Items.RowCount)
 		        DownloadPercentage = ""
@@ -1147,6 +1260,8 @@ End
 		    MiniInstaller.Items.Refresh
 		    MiniInstaller.Stats.Refresh
 		    
+		    PrefetchNext 'Start/finish the look-ahead download of the next item (runs while this one downloads or installs)
+		    
 		    'Downloading is also a job so when it is done it re-checks the files exist and will retry, I'll need to add a retry counter and only reset it when it goes over or MiniUpTo increases (successful)
 		    If JobInstalling = True And Downloading = False And ThreadFinished = True Then JobInstalling = False 'This resets the flag once done
 		    
@@ -1174,6 +1289,12 @@ End
 		      End Try
 		      
 		      If Not Exist(FileToInstallFrom) Or DownloadAnyway = True Then 'Only if it doesn't exist or the existing file is tiny download it
+		        'A look-ahead download may already be fetching this very file, wait for it instead of downloading it a second time
+		        If PrefetchBusyFor(FileToInstallFrom) Then
+		          JobInstalling = False 'Look again on the next tick (the status text is handled above)
+		          Return
+		        End If
+		        
 		        'Download if possible
 		        If Left(InstPathINI(MiniUpTo), 4) = "http" Then
 		          If SkippedInstalling = False Then

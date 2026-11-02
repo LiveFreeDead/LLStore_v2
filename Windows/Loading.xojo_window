@@ -984,6 +984,7 @@ End
 		    If Debugging Then Debug("Success Loading: "+ ItemInn)
 		    ItemCount =  Data.Items.RowCount
 		    Data.Items.AddRow(Data.Items.RowCount.ToString("000000")) 'This adds the Leading 0's or prefixes it to 6 digits as it sort Alphabettical, fixed 1,10,100,2 to 001,002,010,100 for example
+		    DataSortDirty = True 'Rows added, Data needs resorting before it's used
 		    
 		    'Reference Only Keep
 		    'LocalDBHeader = " BuildType Compressed HiddenAlways ShowAlways ShowSetupOnly Arch OS TitleName Version Categories Catalog Description URL Priority PathApp PathINI FileINI FileCompressed FileIcon FileScreenshot FileFader FileMovie Flags Tags Publisher Language Rating Additional Players License ReleaseVersion ReleaseDate RequiredRuntimes Builder InstalledSize LnkTitle LnkComment LnkDescription LnkCategories LnkRunPath LnkExec LnkArguments LnkFlags LnkAssociations LnkTerminal LnkMultiple LnkIcon LnkOSCompatible LnkDECompatible LnkPMCompatible ArchCompatible  NoInstall OSCompatible DECompatible PMCompatible ArchCompatible UniqueName Dependencies ""
@@ -1201,6 +1202,7 @@ End
 		      For J = 1 To LnkCount
 		        ItemCount =  Data.Items.RowCount
 		        Data.Items.AddRow(Str(Data.Items.RowCount))
+		        DataSortDirty = True 'Rows added, Data needs resorting before it's used
 		        Data.Items.CellTextAt(ItemCount,I) = ItemLnk(1).Link.IconLocation
 		        For I = 1 To Data.Items.ColumnCount
 		          Data.Items.CellTextAt(ItemCount,I) = Data.Items.CellTextAt(MainItem,I)
@@ -2248,6 +2250,7 @@ End
 		          'Before, the row was only created when the "RefID" column was reached, so a DB without it (or with it not first) wrote every item over the previous item's row.
 		          ItemCount =  Data.Items.RowCount
 		          Data.Items.AddRow(Data.Items.RowCount.ToString("000000")) 'This adds the Leading 0's or prefixes it to 6 digits as it sort Alphabettical, fixed 1,10,100,2 to 001,002,010,100 for example
+		          DataSortDirty = True 'Rows added, Data needs resorting before it's used
 		          For J = 0 To HeadSp.Count - 1
 		            
 		            DataHeadID = ColMap(J) ' O(1) array lookup — replaces O(columns) linear scan
@@ -4151,6 +4154,7 @@ End
 		              ' Roll back all items and icons that LoadDB just added
 		              For CI = Data.Items.RowCount - 1 DownTo DBItemStart
 		                Data.Items.RemoveRowAt(CI)
+		                DataSortDirty = True
 		              Next
 		              For CI = Data.Icons.RowCount - 1 DownTo DBIconStart 'Also drop the icons LoadDB added for those items (they were left behind before)
 		                Data.Icons.RemoveRowAt(CI)
@@ -4534,6 +4538,7 @@ End
 		  Static LastGrow As Double           ' Watchdog: when the .partial file last changed size
 		  Static DLOK As Boolean              ' True when curl reported success for the current item
 		  Static ErrCount As Integer          ' Consecutive errors caught inside this state machine
+		  Static Finalizing As Boolean        ' True while ST_FINALIZE is running. Its Deltree/move calls use App.DoEvents, which lets this timer fire again before the state has moved on
 		  Static MagicPath As Boolean         ' True = this item is validated by the magic-byte check (Linux archives), False = HEAD check
 		  
 		  ' Watchdog limits (seconds). A state that sits longer than this is abandoned so the queue can never wedge.
@@ -4555,6 +4560,7 @@ End
 		    ' --------------------------------------------------------
 		  Case ST_IDLE
 		    If Not Downloading Or QueueCount <= 0 Then Return
+		    Finalizing = False 'Never carry a stuck guard into a new run
 		    If Debugging Then Debug("--- Download State Machine: Start ---")
 		    If Exist(Slash(RepositoryPathLocal) + "DownloadDone") Then Deltree(Slash(RepositoryPathLocal) + "DownloadDone")
 		    If Exist(Slash(RepositoryPathLocal) + "FailedDownload") Then Deltree(Slash(RepositoryPathLocal) + "FailedDownload")
@@ -4939,6 +4945,9 @@ End
 		    ' FINALIZE: Rename .partial -> final filename.
 		    ' --------------------------------------------------------
 		  Case ST_FINALIZE
+		    'Re-entrancy guard: a second tick during the cleanup below would find the .partial already moved, report a false "Download error" and write a bogus FailedDownload file
+		    If Finalizing Then Return
+		    Finalizing = True
 		    DownloadPercentage = ""
 		    Dim PartialPath As String = QueueLocal(QueueUpTo) + ".partial"
 		    Dim GoodDownload As Boolean = False
@@ -4986,6 +4995,7 @@ End
 		    ' ADVANCE: Step to the next queue item or finish.
 		    ' --------------------------------------------------------
 		  Case ST_ADVANCE
+		    Finalizing = False 'Finalize is finished (or was never used for this item), release the guard
 		    QueueUpTo = QueueUpTo + 1
 		    If QueueUpTo < QueueCount Then
 		      DLState = ST_PREPARE
@@ -5363,10 +5373,8 @@ End
 		  ppGames = ppGamesFolder
 		  
 		  Linux7z = Chr(34)+ToolPath + "7zzs"+Chr(34)
-		  LinuxWget = Chr(34)+ToolPath + "wget"+Chr(34)
 		  LinuxCurl = "curl" 'System curl is always in PATH on Linux
 		  Win7z = Chr(34)+ToolPath + "7z.exe"+Chr(34) 'Added " to make it work in paths with spaces?
-		  WinWget = Chr(34)+ToolPath + "wget.exe"+Chr(34) 'Added " to make it work in paths with spaces?
 		  ' Windows 10+ ships curl.exe in System32 (in PATH). Prefer that so we don't need
 		  ' to bundle it. Only fall back to our ToolPath copy if the system one is missing.
 		  Dim curlCheckSh As New Shell
@@ -5445,7 +5453,7 @@ End
 		  ' Clean, simple and robust command line parsing
 		  '========================================
 		  
-		  Var args() As String = System.CommandLine.Trim.Split(" ")
+		  Var args() As String = StripLeadingExe(System.CommandLine).Split(" ") 'The program's own path is taken off whole first, so the Program Files in it can't be confused with a file given in Program Files
 		  
 		  'Reset defaults
 		  StoreMode = 0
@@ -5499,8 +5507,7 @@ End
 		    'If a.Trim = "Files\LLStore\llstore.exe" Then a = ""
 		    
 		    If a.trim.IndexOf("Files\LLStore\llstore.exe") >=0 Then a = ""
-		    If a.trim.IndexOf("C:\Program") >=0 Then a = ""
-		    If a.trim.IndexOf("C:\Program Files\LLStore\llstore.exe") >=0 Then a = ""
+		    'The C:\Program filters that were here deleted any file given from C:\Program Files (Java, other apps etc), the program's own path is now removed by StripLeadingExe
 		    
 		    If a = "" Then Continue
 		    
@@ -5687,10 +5694,15 @@ End
 		  SysArchitecture = "x64" 'Default
 		  If TargetWindows Then
 		    '%PROCESSOR_ARCHITEW6432% <- If I have issues change to this and if it's empty it's x86, not sure how it works on ARM yet though.
-		    ShellFast.Execute("echo %PROCESSOR_ARCHITECTURE%")
-		    If ShellFast.Result = "x86" Then SysArchitecture = "x86"
-		    If ShellFast.Result.IndexOf("64") >= 0 Then SysArchitecture = "x64"
-		    If Left(ShellFast.Result,3) = "arm" Then SysArchitecture = "ARM"
+		    'Read it straight from the environment, no need to start cmd.exe for it on every launch (the shell echo is only the fallback)
+		    Dim ArchEnv As String = System.EnvironmentVariable("PROCESSOR_ARCHITECTURE").Trim
+		    If ArchEnv = "" Then
+		      ShellFast.Execute("echo %PROCESSOR_ARCHITECTURE%")
+		      ArchEnv = ShellFast.Result.Trim
+		    End If
+		    If ArchEnv = "x86" Then SysArchitecture = "x86"
+		    If ArchEnv.IndexOf("64") >= 0 Then SysArchitecture = "x64"
+		    If Left(ArchEnv,3) = "arm" Then SysArchitecture = "ARM"
 		  Else
 		    ShellFast.Execute("uname -m")
 		    If ShellFast.Result = "x86_64" Then SysArchitecture = "x64"
@@ -5698,21 +5710,19 @@ End
 		    If Left(ShellFast.Result,3) = "arm" Then SysArchitecture = "ARM"
 		  End If
 		  
-		  'Check if Online
-		  AreWeOnline()
+		  'Online check is NOT done here any more: it ran a blocking curl (up to 3 seconds when offline) on every start, including Editor and Install runs, and
+		  'only CheckForLLStoreUpdates uses the result and it does its own AreWeOnline() when it runs.
 		  
 		  If Debugging Then
 		    Debug("--- Debugging Starts Here ---")
 		    Debug("Store Version: v" + App.MajorVersion.ToString + "." + App.MinorVersion.ToString)
 		    Debug("Store Mode: " + StoreMode.ToString)
-		    Debug("Online Status: " + IsOnline.ToString)
+		    Debug("Online Status: checked when the update check runs")
 		    Debug("AppPath: " + AppPath)
 		    Debug("ToolPath: " + ToolPath)
 		    Debug("TmpPath: " + TmpPath)
 		    Debug("CurrentPath: " + CurrentPath)
 		    Debug("RepositoryPathLocal: " + RepositoryPathLocal)
-		    Debug("WinWget: " + WinWget)
-		    Debug("LinuxWget: " + LinuxWget)
 		    Debug("WinCurl: " + WinCurl)
 		    Debug("LinuxCurl: " + LinuxCurl)
 		    Debug("System Drive: " + SysDrive)

@@ -213,7 +213,7 @@ log "BuildType: $BUILD_TYPE"
 #   LinuxMenuSorting/ – XDG menu sorting, used by apply_menu_sorting() (always)
 #   run-1080p       – helper script that may be called from LLScript.sh (always)
 #
-# Everything else in Tools/ (hicolor, curl, wget, *.exe other than 7z.exe,
+# Everything else in Tools/ (hicolor, curl, *.exe other than 7z.exe,
 # Menus/KazzMenu, Menus/LastOSMenu, *.ini catalogues, etc.) is intentionally
 # excluded so future additions to Tools/ do not silently bloat SFX output.
 # ---------------------------------------------------------------------------

@@ -1033,16 +1033,14 @@ End
 		  
 		  If FirstRun = False Then Return  'Ignore doing this until the main form is shown and the Default text is set
 		  
+		  If CurrentItemIn < 0 Or CurrentItemIn >= Data.Items.RowCount Then Return 'Empty or stale row (list reloaded since), every read below would be out of bounds
+		  
 		  Dim WebWall As String
 		  Dim F, G As FolderItem
 		  
 		  If CurrentItemIn >=0 Then CurrentItemID = CurrentItemIn
 		  
-		  'Resort Data by Ref or it fails to work
-		  'Sort the Data (Need to be in order added once done sorting manually)
-		  Data.Items.SortingColumn = 0
-		  Data.Items.ColumnSortDirectionAt(0) = DesktopListBox.SortDirections.Ascending
-		  Data.Items.Sort ()
+		  EnsureDataSorted 'Data must be in Ref order, only resorts if it can be out of order now
 		  
 		  If StoreMode = 0 Then
 		    TitleLabel.Text = Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("TitleName")) +" "+Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("Version"))
@@ -1081,6 +1079,7 @@ End
 		  WebWall = Data.Items.CellTextAt(CurrentItemIn, Data.GetDBHeader("FileScreenshot"))
 		  If WebWall = "" Or Not Exist(WebWall) Then
 		    WebWall = Slash(ThemePath) + "Screenshot.jpg" 'Default Theme Wallpaper used if no other given (could do Category Screenshots here if wanted)
+		    ScreenShotCounter = -1 'Showing the theme default, so the first click goes to the first real image (if there is one)
 		  End If
 		  If TargetWindows Then
 		    WebWall = WebWall.ReplaceAll("/","\")
@@ -1656,11 +1655,7 @@ End
 		  MultiOldItem = 0
 		  MultiNewItem = 0
 		  
-		  'Resort Data by Ref or it fails to work
-		  'Sort the Data (Need to be in order added once done sorting manually)
-		  Data.Items.SortingColumn = 0
-		  Data.Items.ColumnSortDirectionAt(0) = DesktopListBox.SortDirections.Ascending
-		  Data.Items.Sort ()
+		  EnsureDataSorted 'Data must be in Ref order, only resorts if it can be out of order now
 		  
 		  Dim DeTest As String
 		  
@@ -1703,6 +1698,13 @@ End
 		    If IsTrue(Data.Items.CellTextAt(I, ColHiddenAlways)) Then
 		      Data.Items.CellTextAt(I, ColSelected) = "F" 'Unselect now hidden items
 		      Continue 'Skip Hidden items
+		    End If
+		    'HideInLauncher: kept out of the Items List in Launcher mode only (StoreMode 1), the Installer still shows it
+		    If ColFlags >= 0 And StoreMode = 1 Then
+		      If Data.Items.CellTextAt(I, ColFlags).Lowercase.IndexOf("hideinlauncher") >= 0 Then
+		        Data.Items.CellTextAt(I, ColSelected) = "F" 'Unselect now hidden items
+		        Continue
+		      End If
 		    End If
 		    'ShowSetupOnly: only visible in Installer mode (StoreMode=0), hidden in Launcher and all other modes
 		    If ColShowSetupOnly >= 0 Then
@@ -1982,6 +1984,101 @@ End
 		  End If
 		  
 		  Return False
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub EnsureDataSorted()
+		  'Data.Items has to be in RefID order for the rows to line up. Sorting it every time an item is picked or the list is drawn is slow on big lists,
+		  'so only do it when it can have changed: rows added or removed since the last sort (DataSortDirty), or the sort itself was changed, by the Mini Installer
+		  'or by clicking a column header in the Data/Debug window (the listbox keeps its own sort column and direction, so that is checked here).
+		  If Data.Items.RowCount < 2 Then
+		    DataSortDirty = False 'Nothing to put in order
+		    Return
+		  End If
+		  
+		  If DataSortDirty Or Data.Items.SortingColumn <> 0 Or Data.Items.ColumnSortDirectionAt(0) <> DesktopListBox.SortDirections.Ascending Then
+		    Data.Items.SortingColumn = 0
+		    Data.Items.ColumnSortDirectionAt(0) = DesktopListBox.SortDirections.Ascending
+		    Data.Items.Sort ()
+		    DataSortDirty = False
+		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub AddScreenshotSet(FolderIn As String, NameIn As String, List() As String)
+		  'Adds NameIn.jpg, NameIn1.jpg, NameIn2.jpg ... from FolderIn to List, stopping at the first numbered one that is missing. Anything already in List is skipped.
+		  If FolderIn.Trim = "" Or NameIn.Trim = "" Then Return
+		  
+		  Dim Base As String = Slash(FolderIn)
+		  Dim Test As String
+		  Dim N As Integer
+		  
+		  Test = Base + NameIn + ".jpg"
+		  If Exist(Test) Then AddScreenshotUnique(Test, List)
+		  
+		  N = 1
+		  While N <= 99
+		    Test = Base + NameIn + N.ToString + ".jpg"
+		    If Not Exist(Test) Then Exit
+		    AddScreenshotUnique(Test, List)
+		    N = N + 1
+		  Wend
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub AddScreenshotUnique(PathIn As String, List() As String)
+		  Dim I As Integer
+		  Dim Norm As String = PathIn.ReplaceAll("\", "/").Lowercase
+		  For I = 0 To List.Count - 1
+		    If List(I).ReplaceAll("\", "/").Lowercase = Norm Then Return 'Already there
+		  Next I
+		  List.Add(PathIn)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function GetScreenshotList(ItemID As Integer) As String()
+		  'All the screenshots for an item, in the order they are cycled: the item's own screenshot first, then BuildType.jpg, BuildType1.jpg, BuildType2.jpg ...
+		  Dim List() As String
+		  If ItemID < 0 Or ItemID >= Data.Items.RowCount Then Return List
+		  
+		  Dim ColPath As Integer = Data.GetDBHeader("PathINI")
+		  Dim ColShot As Integer = Data.GetDBHeader("FileScreenshot")
+		  Dim ColBT As Integer = Data.GetDBHeader("BuildType")
+		  If ColPath < 0 Or ColShot < 0 Or ColBT < 0 Then Return List 'Columns not built yet
+		  
+		  Dim PathIn As String = Data.Items.CellTextAt(ItemID, ColPath).ReplaceAll("\", "/")
+		  Dim ShotFile As String = Data.Items.CellTextAt(ItemID, ColShot).ReplaceAll("\", "/")
+		  Dim BT As String = Data.Items.CellTextAt(ItemID, ColBT).Trim
+		  
+		  Dim ItemFolder As String = ""
+		  Dim ShotFolder As String = ""
+		  Dim ShotName As String = ""
+		  
+		  'The folder the item lives in (PathINI is the .app/.ppg file, or the folder itself). Remote items have no local folder.
+		  If PathIn <> "" And Left(PathIn, 4).Lowercase <> "http" Then
+		    If Right(PathIn, 1) = "/" Then
+		      ItemFolder = PathIn
+		    Else
+		      ItemFolder = Left(PathIn, InStrRev(PathIn, "/"))
+		    End If
+		  End If
+		  
+		  'The item's own screenshot, always first so it stays the first one in the loop
+		  If ShotFile <> "" Then
+		    If Exist(ShotFile) Then List.Add(ShotFile)
+		    ShotFolder = Left(ShotFile, InStrRev(ShotFile, "/"))
+		    If Right(ShotFile, 4).Lowercase = ".jpg" Then ShotName = Mid(ShotFile, InStrRev(ShotFile, "/") + 1, Len(ShotFile) - InStrRev(ShotFile, "/") - 4)
+		  End If
+		  
+		  'Then the numbered ones next to it, and next to the item
+		  AddScreenshotSet(ShotFolder, ShotName, List)
+		  AddScreenshotSet(ItemFolder, BT, List)
+		  
+		  Return List
 		End Function
 	#tag EndMethod
 
@@ -3139,26 +3236,25 @@ End
 #tag Events ScreenShot
 	#tag Event
 		Sub MouseUp(x As Integer, y As Integer)
-		  Dim PathIn As String
-		  Dim PathImage As String
-		  Dim BT As String
-		  If CurrentItemID >= 0 Then
-		    PathIn = Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("PathINI"))
-		    BT = Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("BuildType"))
-		    If Right(PathIn,1) = "/" Or Right(PathIn,1) = "\" Then
-		      ScreenShotCounter = ScreenShotCounter + 1
-		      PathImage = PathIn+BT
-		      If ScreenShotCounter > 0 Then PathImage = PathImage + ScreenShotCounter.ToString
-		      PathImage = PathImage +".jpg"
-		      If Exist (PathImage) And ScreenShotCounter >= 1 Then
-		        LoadScreenShot(PathImage)
-		      Else
-		        ScreenShotCounter = 0 'Jump back to first Image
-		        PathImage = Data.Items.CellTextAt(CurrentItemID,Data.GetDBHeader("FileScreenshot"))
-		        LoadScreenShot(PathImage)
-		      End If
-		    End If
+		  'Click cycles the item's screenshots (BuildType.jpg, BuildType1.jpg, BuildType2.jpg ...) and loops back to the first. Does nothing if there is nothing to cycle.
+		  If CurrentItemID < 0 Then Return
+		  
+		  Dim Shots() As String = GetScreenshotList(CurrentItemID)
+		  If Shots.Count = 0 Then Return 'No image found
+		  If Shots.Count = 1 And ScreenShotCounter >= 0 Then Return 'Only the one, and it's already showing
+		  
+		  Dim NextIdx As Integer = ScreenShotCounter + 1
+		  If NextIdx < 0 Or NextIdx >= Shots.Count Then NextIdx = 0 'Loop back to the first
+		  
+		  Dim PathImage As String = Shots(NextIdx)
+		  If TargetWindows Then
+		    PathImage = PathImage.ReplaceAll("/", "\")
+		  Else
+		    PathImage = PathImage.ReplaceAll("\", "/")
 		  End If
+		  
+		  ScreenShotCounter = NextIdx
+		  LoadScreenShot(PathImage)
 		End Sub
 	#tag EndEvent
 	#tag Event
