@@ -1749,7 +1749,7 @@ Begin DesktopWindow Editor
       Begin DesktopCheckBox CheckSendTo
          AllowAutoDeactivate=   True
          Bold            =   False
-         Caption         =   "Show In SendTo"
+         Caption         =   "SendTo"
          Enabled         =   True
          FontName        =   "Arial"
          FontSize        =   12.0
@@ -1758,7 +1758,7 @@ Begin DesktopWindow Editor
          Index           =   -2147483648
          InitialParent   =   "TabPanelEditor"
          Italic          =   False
-         Left            =   166
+         Left            =   246
          LockBottom      =   True
          LockedInPosition=   False
          LockLeft        =   True
@@ -1768,14 +1768,14 @@ Begin DesktopWindow Editor
          TabIndex        =   33
          TabPanelIndex   =   2
          TabStop         =   True
-         Tooltip         =   ""
-         Top             =   399
+         Tooltip         =   "Show this link in the file manager SendTo menu (sendto flag)"
+         Top             =   452
          Transparent     =   False
          Underline       =   False
          Value           =   False
          Visible         =   True
          VisualState     =   0
-         Width           =   143
+         Width           =   66
       End
       Begin DesktopCheckBox CheckCompress
          AllowAutoDeactivate=   True
@@ -2445,7 +2445,7 @@ Begin DesktopWindow Editor
          Transparent     =   False
          Underline       =   False
          Visible         =   True
-         Width           =   144
+         Width           =   76
       End
       Begin DesktopCheckBox CheckNoInstall
          AllowAutoDeactivate=   True
@@ -3667,7 +3667,7 @@ Begin DesktopWindow Editor
       Begin DesktopCheckBox CheckHideInLauncher
          AllowAutoDeactivate=   True
          Bold            =   False
-         Caption         =   "Hidden in Launcher"
+         Caption         =   "Hide In Launcher"
          Enabled         =   True
          FontName        =   "Arial"
          FontSize        =   12.0
@@ -3676,7 +3676,7 @@ Begin DesktopWindow Editor
          Index           =   -2147483648
          InitialParent   =   "TabPanelEditor"
          Italic          =   False
-         Left            =   447
+         Left            =   262
          LockBottom      =   False
          LockedInPosition=   False
          LockLeft        =   True
@@ -3686,14 +3686,45 @@ Begin DesktopWindow Editor
          TabIndex        =   13
          TabPanelIndex   =   1
          TabStop         =   True
-         Tooltip         =   "This is used for Linux items that have no installable files/folders"
-         Top             =   251
+         Tooltip         =   "Item is kept out of the Items List in Launcher mode, the Installer still shows it"
+         Top             =   279
          Transparent     =   False
          Underline       =   False
          Value           =   False
          Visible         =   True
          VisualState     =   0
-         Width           =   172
+         Width           =   180
+      End
+      Begin DesktopCheckBox CheckAlwaysHide
+         AllowAutoDeactivate=   True
+         Bold            =   False
+         Caption         =   "Always Hide"
+         Enabled         =   True
+         FontName        =   "Arial"
+         FontSize        =   12.0
+         FontUnit        =   0
+         Height          =   24
+         Index           =   -2147483648
+         InitialParent   =   "TabPanelEditor"
+         Italic          =   False
+         Left            =   100
+         LockBottom      =   False
+         LockedInPosition=   False
+         LockLeft        =   True
+         LockRight       =   False
+         LockTop         =   True
+         Scope           =   0
+         TabIndex        =   106
+         TabPanelIndex   =   1
+         TabStop         =   True
+         Tooltip         =   "Item is always hidden from the store lists (alwayshide flag)"
+         Top             =   279
+         Transparent     =   False
+         Underline       =   False
+         Value           =   False
+         Visible         =   True
+         VisualState     =   0
+         Width           =   150
       End
       Begin DesktopLabel LabelDE
          AllowAutoDeactivate=   True
@@ -3985,7 +4016,7 @@ Begin DesktopWindow Editor
          Underline       =   False
          UnicodeMode     =   1
          ValidationMask  =   ""
-         Visible         =   True
+         Visible         =   False
          Width           =   100
       End
       Begin DesktopLabel LabelAppExtensions
@@ -4018,7 +4049,7 @@ Begin DesktopWindow Editor
          Top             =   452
          Transparent     =   False
          Underline       =   False
-         Visible         =   True
+         Visible         =   False
          Width           =   108
       End
       Begin DesktopLabel Is_NT10
@@ -5878,6 +5909,7 @@ End
 		  CheckInternetRequired.Value = ItemLLItem.InternetRequired
 		  CheckForceDERefresh.Value = ItemLLItem.ForceDERefresh
 		  CheckHideInLauncher.Value = ItemLLItem.HideInLauncher
+		  CheckAlwaysHide.Value = ItemLLItem.HiddenAlways
 		  TextDescription.Text = ItemLLItem.Descriptions.ReplaceAll(Chr(30), Chr(13))
 		  
 		  If TextPriority.Text = "" Or TextPriority.Text = "0" Then TextPriority.Text = "5" 'Default
@@ -7975,7 +8007,27 @@ End
 #tag Events CheckHideInLauncher
 	#tag Event
 		Sub ValueChanged()
+		  If Populating Then Return 'Suppress during population
 		  ItemLLItem.HideInLauncher = CheckHideInLauncher.Value
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events CheckAlwaysHide
+	#tag Event
+		Sub ValueChanged()
+		  If Populating Then Return 'Suppress during population
+		  ItemLLItem.HiddenAlways = CheckAlwaysHide.Value
+		  'The loader treats alwayshide as also Hidden, so keep them together. When unticked, only stay Hidden if the item has its own hidden flag
+		  If CheckAlwaysHide.Value Then
+		    ItemLLItem.Hidden = True
+		  Else
+		    Dim FlagPad As String = " " + ItemLLItem.Flags.Lowercase.Trim + " "
+		    If FlagPad.IndexOf(" hidden ") >= 0 Then
+		      ItemLLItem.Hidden = True
+		    Else
+		      ItemLLItem.Hidden = False
+		    End If
+		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents

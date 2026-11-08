@@ -977,7 +977,7 @@ End
 		  End If
 		  
 		  'Checks
-		  If ItemLLItem.TitleName = "" Then Return -1 'No Title given, don't add
+		  If ItemLLItem.TitleName.Trim = "" Then Return -1 'No Title given (or only spaces), don't add, a blank item must never reach Data.Items
 		  'If ItemLLItem.Hidden = True Then Return -1 'Set as Hidden, hide it entirly. ' Don't Hide here, BAD idea as the DB loses access to its changes and it doesn't update the flags etc
 		  
 		  If Success = True Then ' Loaded Item fine, Add to Data
@@ -1200,6 +1200,7 @@ End
 		    
 		    If LnkCount >1 Then 'Clone Items
 		      For J = 1 To LnkCount
+		        If ItemLnk(J).Title.Trim = "" Then Continue 'Removed/blank link, cloning it would add an item with no title
 		        ItemCount =  Data.Items.RowCount
 		        Data.Items.AddRow(Str(Data.Items.RowCount))
 		        DataSortDirty = True 'Rows added, Data needs resorting before it's used
@@ -2229,6 +2230,15 @@ End
 		        If HeadSp(HeadCols - 1).Trim = "" Then HeadCols = HeadCols - 1
 		      End If
 		      
+		      'Which field holds the title, so lines with no title can be rejected before a row is ever created
+		      Dim TitleHeadIdx As Integer = -1
+		      For MapJ = 0 To HeadSp.Count - 1
+		        If HeadSp(MapJ).Trim = "TitleName" Then
+		          TitleHeadIdx = MapJ
+		          Exit
+		        End If
+		      Next
+		      
 		      For I = 1 To Sp.Count - 1 'Items in DB
 		        If Sp(I).Trim = "" Then Continue 'Blank/trailing line, it used to create an empty ghost item row
 		        ItemSP = Sp(I).Split(",|,")
@@ -2243,6 +2253,15 @@ End
 		        If LineFields <> HeadCols Then
 		          If Debugging Then Debug("* DB line skipped, field count mismatch ("+LineFields.ToString+" fields, header has "+HeadCols.ToString+" columns) in: "+DBRootIn+" line "+I.ToString)
 		          Continue
+		        End If
+		        
+		        'DATA PROTECTION: a line with an empty title would become a blank item in the list, so it is never loaded
+		        If TitleHeadIdx >= 0 Then
+		          If TitleHeadIdx >= ItemSP.Count Then Continue
+		          If ItemSP(TitleHeadIdx).Trim = "" Then
+		            If Debugging Then Debug("* DB line skipped, empty title in: "+DBRootIn+" line "+I.ToString)
+		            Continue
+		          End If
 		        End If
 		        
 		        If ItemSp.Count >= 1 Then
@@ -4248,6 +4267,20 @@ End
 		    
 		    DownloadPercentage = ""
 		    
+		    
+		    'Final safety net: remove any item that still has no title (from any source) before anything uses the rows.
+		    'This is after SaveAllDBs and the online DBs, which are the last users of the row numbers handed out while adding.
+		    Dim ciSweepTitle As Integer = Data.GetDBHeader("TitleName")
+		    If ciSweepTitle >= 0 Then
+		      Dim SweepRow As Integer
+		      For SweepRow = Data.Items.RowCount - 1 DownTo 0
+		        If Data.Items.CellTextAt(SweepRow, ciSweepTitle).Trim = "" Then
+		          Data.Items.RemoveRowAt(SweepRow)
+		          DataSortDirty = True
+		          If Debugging Then Debug("* Removed blank-title item row "+SweepRow.ToString)
+		        End If
+		      Next
+		    End If
 		    
 		    'Hide Old Version (Only need to do this once as you load in Items)
 		    UpdateLoading("Hiding Old Versions...")

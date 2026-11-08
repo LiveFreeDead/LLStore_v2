@@ -1715,6 +1715,7 @@ End
 		    End If
 		    
 		    ItemToAdd = Data.Items.CellTextAt(I, ColTitleName)
+		    If ItemToAdd.Trim = "" Then Continue 'Never show an item with no title in the list
 		    
 		    ItemCats = Data.Items.CellTextAt(I, ColCategories) 
 		    
