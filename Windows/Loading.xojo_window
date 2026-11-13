@@ -812,13 +812,13 @@ End
 		  Dim HideCat As Boolean = False
 		  Dim BuildType As String
 		  
-		  If ItemCount <=0 Then Return
+		  If Data.Items.RowCount <= 0 Then Return 'Use the real row count, ItemCount can be stale after blank items are removed
 		  
 		  Dim SeenCats As New Dictionary  'O(1) seen-category lookup; avoids scanning listbox per category
 		  CatCol = Data.GetDBHeader("Categories")
 		  BuildTypeCol = Data.GetDBHeader("BuildType")
-		  If CatCol = -1 Then Return 'Can't find the Column, it's broken, so return
-		  For I = 0 To ItemCount
+		  If CatCol = -1 Or BuildTypeCol = -1 Then Return 'Can't find the Column, it's broken, so return
+		  For I = 0 To Data.Items.RowCount - 1
 		    CatCheck = Data.Items.CellTextAt(I, CatCol)
 		    BuildType = Data.Items.CellTextAt(I, BuildTypeCol)
 		    
@@ -2238,6 +2238,14 @@ End
 		          Exit
 		        End If
 		      Next
+		      
+		      'DATA PROTECTION: a real DB always has a TitleName column in its header. A web page or junk file saved as a DB has a one column
+		      '"header" with no TitleName, so every one of its lines used to pass the field count check and become a blank item (thousands of them).
+		      If TitleHeadIdx < 0 Then
+		        If Debugging Then Debug("* Not a valid database (no TitleName column in header), ignored: "+F.NativePath)
+		        If FullPathGiven Then Deltree(F.NativePath) 'Junk in the online DB cache, remove it so it is downloaded again next time rather than reused
+		        Return
+		      End If
 		      
 		      For I = 1 To Sp.Count - 1 'Items in DB
 		        If Sp(I).Trim = "" Then Continue 'Blank/trailing line, it used to create an empty ghost item row
@@ -4273,14 +4281,17 @@ End
 		    Dim ciSweepTitle As Integer = Data.GetDBHeader("TitleName")
 		    If ciSweepTitle >= 0 Then
 		      Dim SweepRow As Integer
+		      Dim SweepCount As Integer = 0
 		      For SweepRow = Data.Items.RowCount - 1 DownTo 0
 		        If Data.Items.CellTextAt(SweepRow, ciSweepTitle).Trim = "" Then
 		          Data.Items.RemoveRowAt(SweepRow)
 		          DataSortDirty = True
-		          If Debugging Then Debug("* Removed blank-title item row "+SweepRow.ToString)
+		          SweepCount = SweepCount + 1
 		        End If
 		      Next
+		      If SweepCount > 0 And Debugging Then Debug("* Removed "+SweepCount.ToString+" blank-title items")
 		    End If
+		    ItemCount = Data.Items.RowCount - 1 'Rows were removed, ItemCount is the last row index and must not point past the end
 		    
 		    'Hide Old Version (Only need to do this once as you load in Items)
 		    UpdateLoading("Hiding Old Versions...")
